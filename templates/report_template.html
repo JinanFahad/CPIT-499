@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    body { font-family: "Segoe UI", Arial, sans-serif; margin: 40px; color: #111; }
+    .header { display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #eee; padding-bottom:12px; margin-bottom:20px;}
+    .title { font-size: 22px; font-weight:700; }
+    .sub { color:#666; font-size: 12px; }
+    .card { border:1px solid #eee; border-radius:12px; padding:14px 16px; margin:12px 0; }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    h2 { font-size:16px; margin:0 0 10px 0; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { border-bottom:1px solid #eee; padding:10px; text-align:right; }
+    th { color:#555; font-weight:600; background:#fafafa; }
+    .badge { display:inline-block; padding:6px 10px; border-radius:999px; background:#f1f5ff; color:#1d4ed8; font-weight:600; font-size:12px; }
+    .muted { color:#666; }
+    ul { margin:0; padding-right:18px; }
+    .footer { margin-top:26px; border-top:1px solid #eee; padding-top:10px; color:#777; font-size:11px; }
+  </style>
+</head>
+
+<body>
+  <div class="header">
+    <div>
+      <div class="title">{{ report.title }}</div>
+      <div class="sub">Muqaddim — Feasibility Report</div>
+    </div>
+    <div class="badge">{{ report.decision.classification }}</div>
+  </div>
+
+  <div class="card">
+    <h2>الملخص التنفيذي</h2>
+    <div class="muted">{{ report.executive_summary }}</div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>نظرة عامة على المشروع</h2>
+      <table>
+        <tr><th>نوع المشروع</th><td>{{ report.business_overview.business_type }}</td></tr>
+        <tr><th>المدينة</th><td>{{ report.business_overview.city }}</td></tr>
+        <tr><th>العملاء المستهدفون</th><td>{{ report.business_overview.target_customers }}</td></tr>
+        <tr><th>عرض القيمة</th><td>{{ report.business_overview.value_proposition }}</td></tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>ملخص مالي</h2>
+      <table>
+        <tr><th>الإيراد الشهري</th><td>{{ report.financial_summary.monthly_revenue }} SAR</td></tr>
+        <tr><th>المصروفات الشهرية</th><td>{{ report.financial_summary.monthly_expenses }} SAR</td></tr>
+        <tr><th>صافي الربح الشهري</th><td>{{ report.financial_summary.monthly_net_profit }} SAR</td></tr>
+        <tr><th>هامش الربح</th><td>{{ report.financial_summary.profit_margin_percent }}%</td></tr>
+        <tr><th>نقطة التعادل</th><td>{{ report.financial_summary.break_even_revenue }} SAR</td></tr>
+        <tr><th>فترة الاسترداد</th><td>{{ report.financial_summary.payback_period_months }}</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>تحليل السوق</h2>
+    <p class="muted"><b>لمحة الطلب:</b> {{ report.market_analysis.demand_snapshot }}</p>
+    <p class="muted"><b>مؤشرات التسعير:</b> {{ report.market_analysis.pricing_insights }}</p>
+    <h3 style="margin:12px 0 8px 0; font-size:14px;">المنافسون</h3>
+    <table>
+      <tr><th>الاسم</th><th>نقطة قوة</th><th>نقطة ضعف</th></tr>
+      {% for c in report.market_analysis.competitors %}
+      <tr>
+        <td>{{ c.name }}</td>
+        <td>{{ c.strength }}</td>
+        <td>{{ c.weakness }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>المخاطر وخطط التخفيف</h2>
+    <table>
+      <tr><th>الخطر</th><th>التخفيف</th></tr>
+      {% for r in report.risks_and_mitigations %}
+      <tr>
+        <td>{{ r.risk }}</td>
+        <td>{{ r.mitigation }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>الخطوات القادمة</h2>
+    <ul>
+      {% for s in report.next_steps %}
+      <li>{{ s }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="footer">
+    تم إنشاء التقرير تلقائيًا بناءً على البيانات المدخلة. يُنصح بمراجعة الافتراضات المالية والسوقية قبل اتخاذ قرار نهائي.
+  </div>
+</body>
+</html>
