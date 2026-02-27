@@ -1,20 +1,21 @@
 from flask import Flask, request, jsonify, render_template, make_response, send_file
-from playwright.sync_api import sync_playwright
 import os
 import uuid
 import json
 import requests
 
+from pdf_generator import build_feasibility_pdf
 from ai_pitch_engine import generate_pitch_deck_json
 from ppt_builder import build_pptx
 from financial_engine import calculate_financials
 from decision_engine import classify_project
-from ai_report_engine import generate_feasibility_report
+from ai_report_engine import generate_feasibility_report, enrich_project_data
 from market_ai import build_competitor_summary, generate_market_analysis_ar
+from business_types import BUSINESS_TYPES, get_google_type, get_label_ar, is_valid_type
+from saudi_assumptions import DEFAULT_SALARY
 
 app = Flask(__name__)
 
-# ⚠️ يفضل وضع المفتاح في متغير بيئة
 GOOGLE_API_KEY = "AIzaSyCMVLHJiz-3hOnp-oOPPE2r72fjKwf6xcQ"
 
 
@@ -33,31 +34,113 @@ def home():
 def report_pdf():
     data = request.get_json() or {}
 
-    financials = calculate_financials(data)
+    # ── ١. البيانات اللي يدخلها المستخدم فقط ──
+    business_type     = data.get("business_type", "restaurant")
+    city              = data.get("city", "غير محدد")
+    capital           = data.get("capital", 100000)
+    rent              = data.get("rent", 5000)
+    employees         = data.get("employees", 3)
+    avg_price         = data.get("avg_price", 30)
+    customers_per_day = data.get("customers_per_day", 50)
+    lat               = data.get("lat")
+    lng               = data.get("lng")
+
+    # ── ٢. تحقق من نوع المشروع ──
+    if not is_valid_type(business_type):
+        return jsonify({
+            "error": "نوع المشروع غير مدعوم",
+            "supported_types": list(BUSINESS_TYPES.keys())
+        }), 400
+
+    # ── ٣. AI يولّد target_customers و value_proposition تلقائياً ──
+    enriched = enrich_project_data(business_type, city)
+
+    # ── ٤. بناء البيانات الكاملة ──
+    full_data = {
+        "business_type":      business_type,
+        "city":               city,
+        "capital":            capital,
+        "rent":               rent,
+        "employees":          employees,
+        "avg_price":          avg_price,
+        "customers_per_day":  customers_per_day,
+        "avg_salary":         DEFAULT_SALARY,
+        "cogs_known":         False,
+        "target_customers":   enriched["target_customers"],
+        "value_proposition":  enriched["value_proposition"],
+        "competitors":        [],
+        "market_notes":       "",
+        "pricing_notes":      "",
+    }
+
+    # ── ٥. الحسابات المالية ──
+    financials = calculate_financials(full_data)
     decision = classify_project(
         profit_margin_percent=financials["profit_margin_percent"],
         payback_months=financials["payback_period_months"],
     )
 
     market_data = {
-        "business_type": data.get("business_type", ""),
-        "city": data.get("city", ""),
-        "target_customers": data.get("target_customers", ""),
-        "value_proposition": data.get("value_proposition", ""),
-        "competitors": data.get("competitors", []),
-        "market_notes": data.get("market_notes", ""),
-        "pricing_notes": data.get("pricing_notes", ""),
+        "business_type":     get_label_ar(business_type),
+        "city":              city,
+        "target_customers":  full_data["target_customers"],
+        "value_proposition": full_data["value_proposition"],
+        "competitors":       [],
+        "market_notes":      "",
+        "pricing_notes":     "",
     }
 
     report = generate_feasibility_report(financials, decision, market_data)
-    html = render_template("report_template.html", report=report)
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch()
-        page = browser.new_page()
-        page.set_content(html, wait_until="networkidle")
-        pdf_bytes = page.pdf(format="A4", print_background=True)
-        browser.close()
+    # ── ٦. تحليل السوق من Google + AI (إذا وفّر lat/lng) ──
+    market_analysis   = None
+    competitor_places = []
+
+    if lat and lng:
+        try:
+            places_res = requests.post(
+                "https://places.googleapis.com/v1/places:searchNearby",
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Goog-Api-Key": GOOGLE_API_KEY,
+                    "X-Goog-FieldMask": (
+                        "places.id,places.displayName,places.rating,"
+                        "places.userRatingCount,places.formattedAddress,"
+                        "places.types,places.primaryType,places.primaryTypeDisplayName"
+                    ),
+                },
+                json={
+                    "includedTypes": [get_google_type(business_type)],
+                    "maxResultCount": 20,
+                    "locationRestriction": {
+                        "circle": {
+                            "center": {"latitude": float(lat), "longitude": float(lng)},
+                            "radius": 1500,
+                        }
+                    },
+                },
+            ).json()
+
+            places = places_res.get("places", [])
+            if places:
+                summary           = build_competitor_summary(places)
+                market_analysis   = generate_market_analysis_ar(
+                                        get_label_ar(business_type),
+                                        city,
+                                        1500,
+                                        summary
+                                    )
+                competitor_places = summary["all_competitors"]
+
+        except Exception as e:
+            print(f"[market analysis skipped] {e}")
+
+    # ── ٧. توليد الـ PDF ──
+    pdf_bytes = build_feasibility_pdf(
+        report=report,
+        market_analysis=market_analysis,
+        competitor_places=competitor_places,
+    )
 
     resp = make_response(pdf_bytes)
     resp.headers["Content-Type"] = "application/pdf"
@@ -75,24 +158,41 @@ def pitchdeck_generate():
         if not data:
             return jsonify({"error": "Invalid or missing JSON body"}), 400
 
-        financials = calculate_financials(data)
+        business_type = data.get("business_type", "restaurant")
+
+        if not is_valid_type(business_type):
+            return jsonify({
+                "error": "نوع المشروع غير مدعوم",
+                "supported_types": list(BUSINESS_TYPES.keys())
+            }), 400
+
+        enriched = enrich_project_data(business_type, data.get("city", "غير محدد"))
+
+        full_data = {**data,
+            "avg_salary":        DEFAULT_SALARY,
+            "cogs_known":        False,
+            "target_customers":  enriched["target_customers"],
+            "value_proposition": enriched["value_proposition"],
+        }
+
+        financials = calculate_financials(full_data)
         decision = classify_project(
             profit_margin_percent=financials["profit_margin_percent"],
             payback_months=financials["payback_period_months"],
         )
 
         market_data = {
-            "business_type": data.get("business_type", ""),
-            "city": data.get("city", ""),
-            "target_customers": data.get("target_customers", ""),
-            "value_proposition": data.get("value_proposition", ""),
-            "competitors": data.get("competitors", []),
-            "market_notes": data.get("market_notes", ""),
-            "pricing_notes": data.get("pricing_notes", ""),
+            "business_type":     get_label_ar(business_type),
+            "city":              data.get("city", ""),
+            "target_customers":  enriched["target_customers"],
+            "value_proposition": enriched["value_proposition"],
+            "competitors":       data.get("competitors", []),
+            "market_notes":      data.get("market_notes", ""),
+            "pricing_notes":     data.get("pricing_notes", ""),
         }
 
         report = generate_feasibility_report(financials, decision, market_data)
-        deck = generate_pitch_deck_json(report, extra=market_data)
+        deck   = generate_pitch_deck_json(report, extra=market_data)
 
         if isinstance(deck, str):
             deck = json.loads(deck)
@@ -125,38 +225,45 @@ def pitchdeck_generate():
 @app.post("/api/location/pick")
 def location_pick():
     data = request.get_json(silent=True) or {}
-    lat = data.get("lat")
-    lng = data.get("lng")
+    lat  = data.get("lat")
+    lng  = data.get("lng")
 
     if lat is None or lng is None:
         return jsonify({"error": "lat/lng required"}), 400
-    
+
     return jsonify({"ok": True, "latitude": float(lat), "longitude": float(lng)})
+
 
 @app.get("/pick-location")
 def pick_location_page():
     return render_template("map.html")
+
+
 # -----------------------------
 # Analyze Nearby Competitors
 # -----------------------------
 @app.get("/analyze")
 def analyze():
-    lat = request.args.get("lat")
-    lng = request.args.get("lng")
-    place_type = (request.args.get("type") or "restaurant").strip()
-    project_type = request.args.get("project_type") or place_type  # نوع مطعم المستخدم
-    city = request.args.get("city", "غير محدد")
-    radius = request.args.get("radius", "1500")
+    lat          = request.args.get("lat")
+    lng          = request.args.get("lng")
+    business_type = (request.args.get("type") or "restaurant").strip()
+    city         = request.args.get("city", "غير محدد")
+    radius       = request.args.get("radius", "1500")
 
     if not lat or not lng:
         return jsonify({"error": "lat and lng required"}), 400
+
+    if not is_valid_type(business_type):
+        return jsonify({
+            "error": "نوع المشروع غير مدعوم",
+            "supported_types": list(BUSINESS_TYPES.keys())
+        }), 400
 
     try:
         lat_f, lng_f, radius_f = float(lat), float(lng), float(radius)
     except ValueError:
         return jsonify({"error": "lat/lng/radius must be numbers"}), 400
 
-    # جلب البيانات من Google
     url = "https://places.googleapis.com/v1/places:searchNearby"
     headers = {
         "Content-Type": "application/json",
@@ -168,7 +275,7 @@ def analyze():
         ),
     }
     body = {
-        "includedTypes": [place_type],
+        "includedTypes": [get_google_type(business_type)],
         "maxResultCount": 20,
         "locationRestriction": {
             "circle": {
@@ -182,23 +289,25 @@ def analyze():
     if "error" in res:
         return jsonify(res), 400
 
-    places = res.get("places", [])
-
-    # تحليل AI
-    summary = build_competitor_summary(places)
-    ai_analysis = generate_market_analysis_ar(project_type, city, radius_f, summary)
+    places      = res.get("places", [])
+    summary     = build_competitor_summary(places)
+    ai_analysis = generate_market_analysis_ar(
+                      get_label_ar(business_type), city, radius_f, summary
+                  )
 
     return jsonify({
         "input": {
             "lat": lat_f, "lng": lng_f,
-            "type": place_type,
-            "project_type": project_type,
+            "type": business_type,
+            "label": get_label_ar(business_type),
             "radius": radius_f
         },
         "places_found": len(places),
-        "summary": summary,
-        "ai_analysis": ai_analysis       # النتيجة الكاملة مع التصنيف الفردي
+        "summary":      summary,
+        "ai_analysis":  ai_analysis,
     })
+
+
 # -----------------------------
 if __name__ == "__main__":
     app.run(debug=True)

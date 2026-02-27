@@ -60,3 +60,16 @@ def generate_feasibility_report(financials, decision, market_data):
     )
 
     return json.loads(response.output_text)
+def enrich_project_data(business_type: str, city: str) -> dict:
+    response = client.responses.create(
+        model="gpt-4o-mini",
+        input=f"""
+بناءً على نوع المشروع: {business_type} في مدينة: {city}
+ولّد بالعربية:
+1. target_customers: جملة وحدة تصف العملاء المستهدفين
+2. value_proposition: جملة وحدة تصف ميزة المشروع
+أرجع JSON فقط: {{"target_customers": "...", "value_proposition": "..."}}
+""",
+        text={"format": {"type": "json_object"}}
+    )
+    return json.loads(response.output_text)
