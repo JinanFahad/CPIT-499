@@ -3,95 +3,647 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>اختيار موقع المشروع</title>
+  <title>تحليل موقع المشروع — مقدّم</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
   <style>
-    body { margin:0; font-family: Arial, sans-serif; }
-    #map { height: 88vh; width: 100vw; }
-    .bar { padding: 10px 12px; display:flex; gap:10px; align-items:center; }
-    button { padding: 8px 12px; cursor:pointer; }
-    button:disabled { opacity: .5; cursor:not-allowed; }
-    pre { height: 12vh; margin:0; overflow:auto; padding:10px; background:#f5f5f5; direction:ltr; }
+    :root {
+      --bg: #0d0f14;
+      --card: #161a23;
+      --border: #252a35;
+      --accent: #4f8ef7;
+      --accent2: #22d3a5;
+      --danger: #f7614f;
+      --text: #e8eaf0;
+      --muted: #6b7280;
+      --gold: #f4c430;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Cairo', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── TOP BAR ── */
+    .topbar {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      z-index: 10;
+    }
+
+    .topbar .logo {
+      font-size: 18px;
+      font-weight: 900;
+      color: var(--accent);
+      letter-spacing: -0.5px;
+      margin-left: auto;
+    }
+
+    .topbar label {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    select, input[type="text"] {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 7px 12px;
+      font-family: 'Cairo', sans-serif;
+      font-size: 13px;
+      outline: none;
+      transition: border-color .2s;
+    }
+    select:focus, input[type="text"]:focus {
+      border-color: var(--accent);
+    }
+
+    .btn {
+      padding: 8px 18px;
+      border-radius: 8px;
+      border: none;
+      font-family: 'Cairo', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover:not(:disabled) { background: #3a7ae8; }
+    .btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+
+    .hint {
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .hint .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      animation: pulse 2s infinite;
+    }
+    .hint .dot.active { background: var(--accent2); }
+    @keyframes pulse {
+      0%,100% { opacity:1 } 50% { opacity:.3 }
+    }
+
+    /* ── LAYOUT ── */
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    #map { flex: 1; }
+
+    /* ── SIDE PANEL ── */
+    .panel {
+      width: 380px;
+      background: var(--card);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 700;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+    .panel-body::-webkit-scrollbar { width: 4px; }
+    .panel-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    /* ── STATES ── */
+    .state-idle {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 12px;
+      color: var(--muted);
+      text-align: center;
+    }
+    .state-idle .icon { font-size: 48px; opacity: .4; }
+
+    .loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 14px;
+    }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── RESULT CARDS ── */
+    .score-hero {
+      background: linear-gradient(135deg, #1a2540, #162035);
+      border: 1px solid var(--accent);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      margin-bottom: 14px;
+    }
+    .score-hero .score-num {
+      font-size: 52px;
+      font-weight: 900;
+      color: var(--accent);
+      line-height: 1;
+    }
+    .score-hero .score-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+    .competition-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-top: 8px;
+    }
+    .badge-low    { background: rgba(34,211,165,.15); color: var(--accent2); border: 1px solid rgba(34,211,165,.3); }
+    .badge-medium { background: rgba(244,196,48,.15);  color: var(--gold);    border: 1px solid rgba(244,196,48,.3); }
+    .badge-high   { background: rgba(247,97,79,.15);   color: var(--danger);  border: 1px solid rgba(247,97,79,.3); }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin: 14px 0 8px;
+    }
+
+    .narrative-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 13px;
+      line-height: 1.7;
+      color: #c8cdd8;
+    }
+
+    .bullet-list { display: flex; flex-direction: column; gap: 7px; }
+    .bullet-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-size: 12.5px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .bullet-item::before {
+      content: '◆';
+      color: var(--accent);
+      font-size: 10px;
+      margin-top: 3px;
+      flex-shrink: 0;
+    }
+
+    .rec-list { display: flex; flex-direction: column; gap: 7px; }
+    .rec-item {
+      background: rgba(79,142,247,.06);
+      border: 1px solid rgba(79,142,247,.2);
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-size: 12.5px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .rec-num {
+      background: var(--accent);
+      color: #fff;
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .direct-summary {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+    .ds-item { text-align: center; }
+    .ds-val { font-size: 22px; font-weight: 900; color: var(--text); }
+    .ds-key { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    .competitor-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .competitor-table th {
+      text-align: right;
+      padding: 7px 8px;
+      color: var(--muted);
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
+    }
+    .competitor-table td {
+      padding: 8px;
+      border-bottom: 1px solid rgba(37,42,53,.7);
+      vertical-align: middle;
+    }
+    .competitor-table tr:last-child td { border-bottom: none; }
+    .direct-row { background: rgba(247,97,79,.04); }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .tag-direct { background: rgba(247,97,79,.15); color: var(--danger); }
+    .tag-indirect { background: rgba(107,114,128,.1); color: var(--muted); }
+
+    .stars { color: var(--gold); font-size: 11px; }
+
+    .error-box {
+      background: rgba(247,97,79,.1);
+      border: 1px solid rgba(247,97,79,.3);
+      border-radius: 10px;
+      padding: 14px;
+      font-size: 13px;
+      color: var(--danger);
+      text-align: center;
+    }
+
+    /* coords display */
+    .coords-bar {
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      padding: 7px 18px;
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      gap: 16px;
+    }
+    .coords-bar span { color: var(--text); font-weight: 600; }
   </style>
 </head>
 <body>
 
-  <div class="bar">
-    <span>📍 اضغطي على الخريطة لتحديد موقع مشروعك الجديد</span>
-
-    <button id="saveBtn" disabled type="button">حفظ الموقع</button>
-    <button id="analyzeBtn" disabled type="button" onclick="analyzeLocation()">تحليل الموقع</button>
-
-    <input type="hidden" id="lat">
-    <input type="hidden" id="lng">
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="hint">
+    <div class="dot active" id="hintDot"></div>
+    <span id="hintText">اضغط على الخريطة لتحديد الموقع</span>
   </div>
 
+  <div style="display:flex;align-items:center;gap:8px">
+    <label>نوع المشروع</label>
+    <select id="projectType">
+      <option value="restaurant">مطعم عام</option>
+      <option value="fast_food_restaurant">وجبات سريعة</option>
+      <option value="pizza_restaurant">بيتزا</option>
+      <option value="seafood_restaurant">مأكولات بحرية</option>
+      <option value="cafe">كافيه</option>
+      <option value="breakfast_restaurant">فطور</option>
+      <option value="sandwich_shop">ساندويتش</option>
+    </select>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:8px">
+    <label>المدينة</label>
+    <input type="text" id="cityInput" value="جدة" style="width:90px" />
+  </div>
+
+  <div style="display:flex;align-items:center;gap:8px">
+    <label>النطاق (م)</label>
+    <select id="radiusSelect">
+      <option value="500">500</option>
+      <option value="1000">1000</option>
+      <option value="1500" selected>1500</option>
+      <option value="2000">2000</option>
+      <option value="3000">3000</option>
+    </select>
+  </div>
+
+  <button class="btn btn-primary" id="analyzeBtn" disabled onclick="analyzeLocation()">
+    🔍 تحليل الموقع
+  </button>
+
+  <div class="logo">مقدّم</div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- SIDE PANEL -->
+  <div class="panel">
+    <div class="panel-header">
+      <span>نتائج تحليل السوق</span>
+      <span id="placesCount" style="font-size:12px;color:var(--muted)"></span>
+    </div>
+    <div class="panel-body" id="panelBody">
+      <div class="state-idle">
+        <div class="icon">📍</div>
+        <div>حدد موقعك على الخريطة<br>ثم اضغط <strong>تحليل الموقع</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAP -->
   <div id="map"></div>
-  <pre id="out">{}</pre>
+</div>
 
-  <script>
-    let map;
-    let marker;
+<!-- COORDS BAR -->
+<div class="coords-bar">
+  <div>خط العرض: <span id="latDisplay">—</span></div>
+  <div>خط الطول: <span id="lngDisplay">—</span></div>
+  <div id="statusBar" style="margin-right:auto"></div>
+</div>
 
-    function initMap() {
-      map = new google.maps.Map(document.getElementById("map"), {
-        center: { lat: 21.5433, lng: 39.1728 }, // جدة
-        zoom: 12,
+<input type="hidden" id="lat">
+<input type="hidden" id="lng">
+
+<script>
+  let map, marker;
+
+  function initMap() {
+    map = new google.maps.Map(document.getElementById("map"), {
+      center: { lat: 21.5433, lng: 39.1728 },
+      zoom: 14,
+      styles: [
+        { elementType:"geometry", stylers:[{color:"#1a1f2e"}] },
+        { elementType:"labels.text.fill", stylers:[{color:"#8a94a8"}] },
+        { elementType:"labels.text.stroke", stylers:[{color:"#1a1f2e"}] },
+        { featureType:"road", elementType:"geometry", stylers:[{color:"#252a38"}] },
+        { featureType:"road.arterial", elementType:"geometry", stylers:[{color:"#2d3347"}] },
+        { featureType:"water", elementType:"geometry", stylers:[{color:"#0d1520"}] },
+        { featureType:"poi", elementType:"geometry", stylers:[{color:"#1e2535"}] },
+        { featureType:"poi.park", elementType:"geometry", stylers:[{color:"#182520"}] },
+        { featureType:"transit", elementType:"geometry", stylers:[{color:"#2f3547"}] },
+        { featureType:"administrative", elementType:"geometry.stroke", stylers:[{color:"#374151"}] },
+        { featureType:"landscape", elementType:"geometry", stylers:[{color:"#161b28"}] },
+      ]
+    });
+
+    map.addListener("click", function(event) {
+      const lat = event.latLng.lat();
+      const lng = event.latLng.lng();
+
+      if (marker) marker.setMap(null);
+
+      marker = new google.maps.Marker({
+        position: { lat, lng },
+        map,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 10,
+          fillColor: "#4f8ef7",
+          fillOpacity: 1,
+          strokeColor: "#fff",
+          strokeWeight: 2,
+        },
+        animation: google.maps.Animation.DROP
       });
 
-      map.addListener("click", function (event) {
-        const lat = event.latLng.lat();
-        const lng = event.latLng.lng();
+      document.getElementById("lat").value = lat;
+      document.getElementById("lng").value = lng;
+      document.getElementById("latDisplay").textContent = lat.toFixed(6);
+      document.getElementById("lngDisplay").textContent = lng.toFixed(6);
+      document.getElementById("analyzeBtn").disabled = false;
+      document.getElementById("hintDot").classList.add("active");
+      document.getElementById("hintText").textContent = "✅ تم تحديد الموقع — اضغط تحليل";
+    });
+  }
 
-        if (marker) marker.setMap(null);
+  function analyzeLocation() {
+    const lat = document.getElementById("lat").value;
+    const lng = document.getElementById("lng").value;
+    const type = document.getElementById("projectType").value;
+    const city = document.getElementById("cityInput").value || "غير محدد";
+    const radius = document.getElementById("radiusSelect").value;
 
-        marker = new google.maps.Marker({
-          position: { lat, lng },
-          map,
-        });
+    if (!lat || !lng) { alert("اختر موقع أولاً"); return; }
 
-        document.getElementById("lat").value = lat;
-        document.getElementById("lng").value = lng;
+    // show loading
+    document.getElementById("panelBody").innerHTML = `
+      <div class="loading">
+        <div class="spinner"></div>
+        <div style="color:var(--muted);font-size:13px">جاري تحليل السوق...</div>
+        <div style="color:var(--border);font-size:11px">يتم جلب المنافسين وتحليلهم بالذكاء الاصطناعي</div>
+      </div>`;
+    document.getElementById("statusBar").textContent = "⏳ جاري الطلب...";
+    document.getElementById("analyzeBtn").disabled = true;
 
-        // فعّل الأزرار
-        document.getElementById("saveBtn").disabled = false;
+    fetch(`/analyze?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}&type=${encodeURIComponent(type)}&project_type=${encodeURIComponent(type)}&city=${encodeURIComponent(city)}&radius=${encodeURIComponent(radius)}`)
+      .then(res => res.json())
+      .then(data => {
         document.getElementById("analyzeBtn").disabled = false;
+        document.getElementById("statusBar").textContent = "";
 
-        document.getElementById("out").textContent = JSON.stringify({ selected: { lat, lng } }, null, 2);
+        if (data.error) {
+          showError(data.error);
+          return;
+        }
+
+        // إضافة دوائر المنافسين على الخريطة
+        if (data.places && data.places.length) {
+          addCompetitorMarkers(data.places, data.ai_analysis);
+        }
+
+        document.getElementById("placesCount").textContent = `${data.places_found} مكان`;
+        renderResults(data);
+      })
+      .catch(err => {
+        document.getElementById("analyzeBtn").disabled = false;
+        showError("تعذر الاتصال بالسيرفر: " + err.message);
       });
+  }
 
-      // مثال للحفظ (اختياري): فقط يثبت إنه محفوظ
-      document.getElementById("saveBtn").addEventListener("click", () => {
-        const lat = document.getElementById("lat").value;
-        const lng = document.getElementById("lng").value;
-        alert(`تم حفظ الموقع: ${lat}, ${lng}`);
+  function addCompetitorMarkers(places, analysis) {
+    // نبحث عن المنافسين المباشرين من تحليل AI
+    const directIds = new Set();
+    if (analysis && analysis.classified_competitors) {
+      analysis.classified_competitors.forEach(c => {
+        if (c.is_direct_competitor) directIds.add(c.id);
       });
     }
 
-    function analyzeLocation() {
-      const lat = document.getElementById("lat").value;
-      const lng = document.getElementById("lng").value;
+    places.forEach(p => {
+      const loc = p.location || p.geometry?.location;
+      if (!loc) return;
 
-      if (!lat || !lng) {
-        alert("اختاري موقع أولاً");
-        return;
-      }
+      const isDirect = directIds.has(p.id);
+      new google.maps.Marker({
+        position: { lat: loc.latitude || loc.lat, lng: loc.longitude || loc.lng },
+        map,
+        title: (p.displayName?.text || ""),
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: isDirect ? 8 : 6,
+          fillColor: isDirect ? "#f7614f" : "#6b7280",
+          fillOpacity: 0.85,
+          strokeColor: "#fff",
+          strokeWeight: 1.5,
+        }
+      });
+    });
+  }
 
-      // غيّري type لاحقًا حسب نوع مشروع اليوزر
-      fetch(`/analyze?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}&type=restaurant`)
-        .then(res => res.json())
-        .then(data => {
-          document.getElementById("out").textContent = JSON.stringify(data, null, 2);
-        })
-        .catch(err => {
-          document.getElementById("out").textContent = JSON.stringify({ error: String(err) }, null, 2);
-        });
-    }
-  </script>
+  function renderResults(data) {
+    const ai = data.ai_analysis;
+    if (!ai) { showError("لم يرجع تحليل من الذكاء الاصطناعي"); return; }
 
-  <!-- لازم تضيفي سكربت الخرائط (حطي API KEY حقك) -->
-  <script async defer
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCMVLHJiz-3hOnp-oOPPE2r72fjKwf6xcQ&callback=initMap&language=ar">
-  </script>
+    const levelMap = { "منخفض": "badge-low", "متوسط": "badge-medium", "مرتفع": "badge-high" };
+    const levelIcon = { "منخفض": "🟢", "متوسط": "🟡", "مرتفع": "🔴" };
+    const badgeClass = levelMap[ai.competition_level] || "badge-medium";
+
+    // فرز المنافسين: المباشرين أولاً
+    const classified = (ai.classified_competitors || []).sort((a, b) => b.is_direct_competitor - a.is_direct_competitor);
+    const ds = ai.direct_competitor_summary || {};
+
+    document.getElementById("panelBody").innerHTML = `
+
+      <!-- Score Hero -->
+      <div class="score-hero">
+        <div class="score-num">${ai.market_opportunity_score ?? "—"}</div>
+        <div class="score-label">فرصة السوق من 10</div>
+        <div>
+          <span class="competition-badge ${badgeClass}">
+            ${levelIcon[ai.competition_level] || ""} منافسة ${ai.competition_level}
+          </span>
+        </div>
+      </div>
+
+      <!-- Direct Competitor Summary -->
+      <div class="section-title">ملخص المنافسين المباشرين</div>
+      <div class="direct-summary">
+        <div class="ds-item">
+          <div class="ds-val" style="color:var(--danger)">${ds.count ?? "—"}</div>
+          <div class="ds-key">منافس مباشر</div>
+        </div>
+        <div class="ds-item">
+          <div class="ds-val" style="color:var(--gold)">${ds.avg_rating ? ds.avg_rating.toFixed(1) : "—"}</div>
+          <div class="ds-key">متوسط تقييمهم</div>
+        </div>
+      </div>
+      ${ds.strongest_name ? `<div class="bullet-item" style="margin-bottom:6px">🏆 الأقوى: <strong>${ds.strongest_name}</strong></div>` : ""}
+      ${ds.weakest_gap ? `<div class="bullet-item" style="margin-bottom:10px">💡 الفجوة: ${ds.weakest_gap}</div>` : ""}
+
+      <!-- Narrative -->
+      <div class="section-title">تحليل السوق</div>
+      <div class="narrative-box">${ai.narrative || "—"}</div>
+
+      <!-- Bullets -->
+      <div class="section-title">أبرز النقاط</div>
+      <div class="bullet-list">
+        ${(ai.bullets || []).map(b => `<div class="bullet-item">${b}</div>`).join("")}
+      </div>
+
+      <!-- Recommendations -->
+      <div class="section-title">التوصيات</div>
+      <div class="rec-list">
+        ${(ai.recommendations || []).map((r, i) => `
+          <div class="rec-item">
+            <div class="rec-num">${i + 1}</div>
+            <div>${r}</div>
+          </div>`).join("")}
+      </div>
+
+      <!-- Classified Competitors Table -->
+      ${classified.length ? `
+        <div class="section-title">تصنيف المطاعم المجاورة</div>
+        <table class="competitor-table">
+          <thead>
+            <tr>
+              <th>الاسم</th>
+              <th>نوع المطبخ</th>
+              <th>التقييم</th>
+              <th>نوعه</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${classified.map(c => {
+              // نجيب بيانات المطعم من الـ places
+              const place = (data.summary?.all_competitors || []).find(p => p.id === c.id) || {};
+              const rating = place.rating;
+              const name = place.name || c.id;
+              return `
+                <tr class="${c.is_direct_competitor ? 'direct-row' : ''}">
+                  <td style="font-weight:600;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${name}">${name}</td>
+                  <td style="color:var(--muted)">${c.estimated_cuisine}</td>
+                  <td>
+                    ${rating ? `<span class="stars">★</span> ${rating}` : '<span style="color:var(--border)">—</span>'}
+                  </td>
+                  <td>
+                    <span class="tag ${c.is_direct_competitor ? 'tag-direct' : 'tag-indirect'}">
+                      ${c.is_direct_competitor ? 'مباشر' : 'غير مباشر'}
+                    </span>
+                  </td>
+                </tr>`;
+            }).join("")}
+          </tbody>
+        </table>` : ""}
+    `;
+  }
+
+  function showError(msg) {
+    document.getElementById("panelBody").innerHTML = `
+      <div style="padding:20px">
+        <div class="error-box">❌ ${msg}</div>
+      </div>`;
+  }
+</script>
+
+<script async defer
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCMVLHJiz-3hOnp-oOPPE2r72fjKwf6xcQ&callback=initMap&language=ar">
+</script>
 
 </body>
 </html>

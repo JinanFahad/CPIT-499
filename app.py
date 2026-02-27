@@ -10,11 +10,12 @@ from ppt_builder import build_pptx
 from financial_engine import calculate_financials
 from decision_engine import classify_project
 from ai_report_engine import generate_feasibility_report
+from market_ai import build_competitor_summary, generate_market_analysis_ar
 
 app = Flask(__name__)
 
-# ✅ الأفضل: set GOOGLE_API_KEY in env
-GOOGLE_API_KEY =  "AIzaSyCMVLHJiz-3hOnp-oOPPE2r72fjKwf6xcQ"
+# ⚠️ يفضل وضع المفتاح في متغير بيئة
+GOOGLE_API_KEY = "AIzaSyCMVLHJiz-3hOnp-oOPPE2r72fjKwf6xcQ"
 
 
 # -----------------------------
@@ -65,7 +66,7 @@ def report_pdf():
 
 
 # -----------------------------
-# Pitch Deck Generate (OpenAI -> PPTX)
+# Pitch Deck Generate
 # -----------------------------
 @app.post("/api/pitchdeck/generate")
 def pitchdeck_generate():
@@ -91,22 +92,19 @@ def pitchdeck_generate():
         }
 
         report = generate_feasibility_report(financials, decision, market_data)
-
         deck = generate_pitch_deck_json(report, extra=market_data)
+
         if isinstance(deck, str):
             deck = json.loads(deck)
 
         if "slides" not in deck:
-            return jsonify({"error": "Deck JSON missing 'slides'", "deck_keys": list(deck.keys())}), 500
+            return jsonify({"error": "Deck JSON missing 'slides'"}), 500
 
         os.makedirs("generated", exist_ok=True)
         filename = f"pitch_{uuid.uuid4().hex}.pptx"
         out_path = os.path.join("generated", filename)
 
         build_pptx(deck, out_path)
-
-        if not os.path.exists(out_path):
-            return jsonify({"error": "PPTX file was not created"}), 500
 
         return send_file(
             out_path,
@@ -117,52 +115,12 @@ def pitchdeck_generate():
 
     except Exception as e:
         import traceback
-        print("ERROR:", str(e))
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 
 # -----------------------------
-# Pitch Deck Tests
-# -----------------------------
-@app.get("/api/pitchdeck/test-cover")
-def test_cover():
-    deck = {"slides": [{"title": "Muqaddim", "subtitle": "AI-Powered Business Consultant"}]}
-    os.makedirs("generated", exist_ok=True)
-    out_path = os.path.join("generated", f"test_{uuid.uuid4().hex}.pptx")
-    build_pptx(deck, out_path, template_path="template.pptx")
-    return send_file(out_path, as_attachment=True, download_name="test_cover.pptx")
-
-
-@app.get("/api/pitchdeck/test")
-def test_deck():
-    deck = {
-        "slides": [
-            {"title": "Muqaddim", "subtitle": "AI Business Consultant", "bullets": [], "numbers": []},
-            {
-                "title": "The Problem",
-                "subtitle": "Entrepreneurs struggle",
-                "bullets": ["Lack of structured feasibility tools", "High consulting costs", "Time-consuming analysis"],
-                "numbers": [],
-            },
-        ]
-    }
-    os.makedirs("generated", exist_ok=True)
-    out_path = os.path.join("generated", "test_output.pptx")
-    build_pptx(deck, out_path, template_path="template.pptx")
-    return send_file(out_path, as_attachment=True)
-
-
-# -----------------------------
-# Pick Location Page (renders templates/map.html)
-# -----------------------------
-@app.get("/pick-location")
-def pick_location_page():
-    return render_template("map.html")
-
-
-# -----------------------------
-# Save picked location (Frontend -> Backend)
+# Pick Location
 # -----------------------------
 @app.post("/api/location/pick")
 def location_pick():
@@ -172,46 +130,41 @@ def location_pick():
 
     if lat is None or lng is None:
         return jsonify({"error": "lat/lng required"}), 400
-
-    # هنا لاحقًا تقدرين تخزنينه في DB / session / project_id
+    
     return jsonify({"ok": True, "latitude": float(lat), "longitude": float(lng)})
 
-
+@app.get("/pick-location")
+def pick_location_page():
+    return render_template("map.html")
 # -----------------------------
-# Analyze: Nearby competitors using lat/lng (Places API New)
+# Analyze Nearby Competitors
 # -----------------------------
 @app.get("/analyze")
 def analyze():
-    if not GOOGLE_API_KEY or GOOGLE_API_KEY == "PUT_YOUR_KEY_HERE":
-        return jsonify({"error": "Missing GOOGLE_API_KEY"}), 500
-
     lat = request.args.get("lat")
     lng = request.args.get("lng")
     place_type = (request.args.get("type") or "restaurant").strip()
-    radius = request.args.get("radius", "1500")  # meters
+    project_type = request.args.get("project_type") or place_type  # نوع مطعم المستخدم
+    city = request.args.get("city", "غير محدد")
+    radius = request.args.get("radius", "1500")
 
     if not lat or not lng:
         return jsonify({"error": "lat and lng required"}), 400
 
     try:
-        lat_f = float(lat)
-        lng_f = float(lng)
-        radius_f = float(radius)
+        lat_f, lng_f, radius_f = float(lat), float(lng), float(radius)
     except ValueError:
         return jsonify({"error": "lat/lng/radius must be numbers"}), 400
 
-    places_url = "https://places.googleapis.com/v1/places:searchNearby"
+    # جلب البيانات من Google
+    url = "https://places.googleapis.com/v1/places:searchNearby"
     headers = {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": GOOGLE_API_KEY,
         "X-Goog-FieldMask": (
-            "places.id,"
-            "places.displayName,"
-            "places.rating,"
-            "places.userRatingCount,"
-            "places.formattedAddress,"
-            "places.location,"
-            "places.types"
+            "places.id,places.displayName,places.rating,"
+            "places.userRatingCount,places.formattedAddress,"
+            "places.types,places.primaryType,places.primaryTypeDisplayName"
         ),
     }
     body = {
@@ -225,77 +178,27 @@ def analyze():
         },
     }
 
-    res = requests.post(places_url, headers=headers, json=body, timeout=20).json()
-
+    res = requests.post(url, headers=headers, json=body).json()
     if "error" in res:
-        return jsonify({"error": "Places API error", "details": res["error"]}), 400
+        return jsonify(res), 400
 
     places = res.get("places", [])
 
-    # ✅ ملخص بسيط يساعدك قبل ما تودينها لـ OpenAI
-    ratings = [p.get("rating") for p in places if isinstance(p.get("rating"), (int, float))]
-    avg_rating = round(sum(ratings) / len(ratings), 2) if ratings else None
+    # تحليل AI
+    summary = build_competitor_summary(places)
+    ai_analysis = generate_market_analysis_ar(project_type, city, radius_f, summary)
 
     return jsonify({
-        "input": {"lat": lat_f, "lng": lng_f, "type": place_type, "radius": radius_f},
+        "input": {
+            "lat": lat_f, "lng": lng_f,
+            "type": place_type,
+            "project_type": project_type,
+            "radius": radius_f
+        },
         "places_found": len(places),
-        "avg_rating": avg_rating,
-        "places": places,
+        "summary": summary,
+        "ai_analysis": ai_analysis       # النتيجة الكاملة مع التصنيف الفردي
     })
-
-
-# -----------------------------
-# District Suggestions (Autocomplete) + filter to neighborhoods
-# -----------------------------
-@app.get("/api/districts/suggest")
-def districts_suggest():
-    if not GOOGLE_API_KEY or GOOGLE_API_KEY == "PUT_YOUR_KEY_HERE":
-        return jsonify({"error": "Missing GOOGLE_API_KEY"}), 500
-
-    q = (request.args.get("q") or "").strip()
-    if len(q) < 2:
-        return jsonify({"suggestions": []})
-
-    url = "https://places.googleapis.com/v1/places:autocomplete"
-    headers = {
-        "Content-Type": "application/json",
-        "X-Goog-Api-Key": GOOGLE_API_KEY,
-        "X-Goog-FieldMask": (
-            "suggestions.placePrediction.placeId,"
-            "suggestions.placePrediction.text,"
-            "suggestions.placePrediction.types"
-        ),
-    }
-    body = {
-        "input": q,
-        "includedRegionCodes": ["SA"],
-        "languageCode": "ar",
-    }
-
-    data = requests.post(url, headers=headers, json=body, timeout=20).json()
-
-    if "error" in data:
-        return jsonify({"error": "Autocomplete error", "details": data["error"], "sent_body": body}), 400
-
-    allowed_types = {"neighborhood", "sublocality", "sublocality_level_1"}
-    suggestions = []
-
-    for s in data.get("suggestions", []):
-        pp = s.get("placePrediction") or {}
-        text = ((pp.get("text") or {}).get("text"))
-        place_id = pp.get("placeId")
-        types = set(pp.get("types", []) or [])
-
-        # ✅ فلترة: نبي أحياء/مناطق فقط
-        if types and allowed_types.isdisjoint(types):
-            continue
-
-        if text and place_id:
-            suggestions.append({"label": text, "place_id": place_id, "types": list(types)})
-
-    return jsonify({"suggestions": suggestions})
-
-
 # -----------------------------
 if __name__ == "__main__":
     app.run(debug=True)
