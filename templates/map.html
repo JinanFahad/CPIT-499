@@ -70,6 +70,77 @@
       border-color: var(--accent);
     }
 
+    /* ── SEARCH BOX ── */
+    .search-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #searchInput {
+      width: 240px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 7px 36px 7px 12px;
+      font-family: 'Cairo', sans-serif;
+      font-size: 13px;
+      outline: none;
+      transition: border-color .2s;
+    }
+    #searchInput:focus {
+      border-color: var(--accent);
+    }
+    #searchInput::placeholder {
+      color: var(--muted);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 10px;
+      color: var(--muted);
+      font-size: 14px;
+      pointer-events: none;
+    }
+
+    /* Override Google Autocomplete dropdown to match dark theme */
+    .pac-container {
+      background: var(--card) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 8px !important;
+      margin-top: 4px !important;
+      font-family: 'Cairo', sans-serif !important;
+      box-shadow: 0 8px 24px rgba(0,0,0,.5) !important;
+      direction: rtl !important;
+    }
+    .pac-item {
+      background: var(--card) !important;
+      color: var(--text) !important;
+      border-top: 1px solid var(--border) !important;
+      padding: 8px 12px !important;
+      font-family: 'Cairo', sans-serif !important;
+      font-size: 13px !important;
+      cursor: pointer !important;
+      direction: rtl !important;
+    }
+    .pac-item:first-child { border-top: none !important; }
+    .pac-item:hover, .pac-item-selected {
+      background: rgba(79,142,247,.15) !important;
+    }
+    .pac-item-query {
+      color: var(--text) !important;
+      font-size: 13px !important;
+    }
+    .pac-matched {
+      color: var(--accent) !important;
+      font-weight: 700 !important;
+    }
+    .pac-icon { display: none !important; }
+    .hdpi .pac-icon { display: none !important; }
+    .pac-logo:after { display: none !important; }
+
     .btn {
       padding: 8px 18px;
       border-radius: 8px;
@@ -356,9 +427,13 @@
     </select>
   </div>
 
-  <div style="display:flex;align-items:center;gap:8px">
-    <label>المدينة</label>
-    <input type="text" id="cityInput" value="جدة" style="width:90px" />
+  <!-- Search Box (replaces city input) -->
+  <div class="search-wrapper">
+    <label>البحث</label>
+    <div style="position:relative">
+      <input type="text" id="searchInput" placeholder="ابحث عن موقع أو منطقة..." autocomplete="off" />
+      <span class="search-icon">🔍</span>
+    </div>
   </div>
 
   <div style="display:flex;align-items:center;gap:8px">
@@ -409,9 +484,11 @@
 
 <input type="hidden" id="lat">
 <input type="hidden" id="lng">
+<!-- Hidden city field kept for backend compatibility -->
+<input type="hidden" id="cityInput" value="جدة">
 
 <script>
-  let map, marker;
+  let map, marker, autocomplete;
 
   function initMap() {
     map = new google.maps.Map(document.getElementById("map"), {
@@ -432,6 +509,33 @@
       ]
     });
 
+    // ── Google Places Autocomplete ──
+    autocomplete = new google.maps.places.Autocomplete(
+      document.getElementById("searchInput"),
+      { language: "ar" }
+    );
+
+    // When user selects a place from suggestions → pan map there
+    autocomplete.addListener("place_changed", function () {
+      const place = autocomplete.getPlace();
+      if (!place.geometry || !place.geometry.location) return;
+
+      const loc = place.geometry.location;
+
+      // Pan & zoom map to the selected place
+      map.panTo(loc);
+      if (place.geometry.viewport) {
+        map.fitBounds(place.geometry.viewport);
+      } else {
+        map.setZoom(15);
+      }
+
+      // Update city hidden field with place name (for backend)
+      const cityName = place.name || place.formatted_address || "غير محدد";
+      document.getElementById("cityInput").value = cityName;
+    });
+
+    // ── Map click to place marker ──
     map.addListener("click", function(event) {
       const lat = event.latLng.lat();
       const lng = event.latLng.lng();
@@ -492,7 +596,6 @@
           return;
         }
 
-        // إضافة دوائر المنافسين على الخريطة
         if (data.places && data.places.length) {
           addCompetitorMarkers(data.places, data.ai_analysis);
         }
@@ -507,7 +610,6 @@
   }
 
   function addCompetitorMarkers(places, analysis) {
-    // نبحث عن المنافسين المباشرين من تحليل AI
     const directIds = new Set();
     if (analysis && analysis.classified_competitors) {
       analysis.classified_competitors.forEach(c => {
@@ -544,13 +646,10 @@
     const levelIcon = { "منخفض": "🟢", "متوسط": "🟡", "مرتفع": "🔴" };
     const badgeClass = levelMap[ai.competition_level] || "badge-medium";
 
-    // فرز المنافسين: المباشرين أولاً
     const classified = (ai.classified_competitors || []).sort((a, b) => b.is_direct_competitor - a.is_direct_competitor);
     const ds = ai.direct_competitor_summary || {};
 
     document.getElementById("panelBody").innerHTML = `
-
-      <!-- Score Hero -->
       <div class="score-hero">
         <div class="score-num">${ai.market_opportunity_score ?? "—"}</div>
         <div class="score-label">فرصة السوق من 10</div>
@@ -561,7 +660,6 @@
         </div>
       </div>
 
-      <!-- Direct Competitor Summary -->
       <div class="section-title">ملخص المنافسين المباشرين</div>
       <div class="direct-summary">
         <div class="ds-item">
@@ -576,17 +674,14 @@
       ${ds.strongest_name ? `<div class="bullet-item" style="margin-bottom:6px">🏆 الأقوى: <strong>${ds.strongest_name}</strong></div>` : ""}
       ${ds.weakest_gap ? `<div class="bullet-item" style="margin-bottom:10px">💡 الفجوة: ${ds.weakest_gap}</div>` : ""}
 
-      <!-- Narrative -->
       <div class="section-title">تحليل السوق</div>
       <div class="narrative-box">${ai.narrative || "—"}</div>
 
-      <!-- Bullets -->
       <div class="section-title">أبرز النقاط</div>
       <div class="bullet-list">
         ${(ai.bullets || []).map(b => `<div class="bullet-item">${b}</div>`).join("")}
       </div>
 
-      <!-- Recommendations -->
       <div class="section-title">التوصيات</div>
       <div class="rec-list">
         ${(ai.recommendations || []).map((r, i) => `
@@ -596,7 +691,6 @@
           </div>`).join("")}
       </div>
 
-      <!-- Classified Competitors Table -->
       ${classified.length ? `
         <div class="section-title">تصنيف المطاعم المجاورة</div>
         <table class="competitor-table">
@@ -610,7 +704,6 @@
           </thead>
           <tbody>
             ${classified.map(c => {
-              // نجيب بيانات المطعم من الـ places
               const place = (data.summary?.all_competitors || []).find(p => p.id === c.id) || {};
               const rating = place.rating;
               const name = place.name || c.id;
@@ -641,8 +734,9 @@
   }
 </script>
 
+<!-- تحميل Google Maps مع Places library -->
 <script async defer
-  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCMVLHJiz-3hOnp-oOPPE2r72fjKwf6xcQ&callback=initMap&language=ar">
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCMVLHJiz-3hOnp-oOPPE2r72fjKwf6xcQ&libraries=places&callback=initMap&language=ar">
 </script>
 
 </body>
