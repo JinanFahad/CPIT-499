@@ -15,6 +15,7 @@ from market_ai import build_competitor_summary, generate_market_analysis_ar
 from business_types import BUSINESS_TYPES, get_google_type, get_label_ar, is_valid_type
 from saudi_assumptions import DEFAULT_SALARY
 from database import init_db, save_report, get_all_reports, get_report_by_id, delete_report
+from gov_consultant import gov_chat, clear_gov_session, get_gov_suggestions
 
 app = Flask(__name__)
 
@@ -380,6 +381,43 @@ def analyze():
         "summary":      summary,
         "ai_analysis":  ai_analysis,
     })
+
+
+# -----------------------------
+# Government Procedures
+# -----------------------------
+@app.get("/government")
+def government_page():
+    return render_template("government.html")
+
+@app.post("/api/government/chat")
+def government_chat():
+    data = request.get_json(silent=True) or {}
+    session_id = data.get("session_id")
+    message = data.get("message", "").strip()
+    if not session_id:
+        return jsonify({"error": "session_id مطلوب"}), 400
+    if not message:
+        return jsonify({"error": "الرسالة فارغة"}), 400
+    try:
+        reply = gov_chat(session_id, message)
+        return jsonify({"reply": reply})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+@app.get("/api/government/suggestions")
+def government_suggestions():
+    return jsonify({"suggestions": get_gov_suggestions()})
+
+@app.post("/api/government/clear")
+def government_clear():
+    data = request.get_json(silent=True) or {}
+    session_id = data.get("session_id")
+    if session_id:
+        clear_gov_session(session_id)
+    return jsonify({"ok": True})
 
 
 # -----------------------------
