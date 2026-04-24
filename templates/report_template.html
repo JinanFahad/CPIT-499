@@ -1,4 +1,4 @@
-<!doctype html>
+<!-- <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8"/>
@@ -38,8 +38,9 @@
     <div class="card">
       <h2>نظرة عامة على المشروع</h2>
       <table>
-        <tr><th>نوع المشروع</th><td>{{ report.business_overview.business_type }}</td></tr>
-        <tr><th>المدينة</th><td>{{ report.business_overview.city }}</td></tr>
+<tr><th>نوع المشروع</th><td>{{ report.business_overview.business_type }}</td></tr>
+<tr><th>النوع الفرعي</th><td>{{ report.business_overview.restaurant_type }}</td></tr>
+<tr><th>المنتجات الرئيسية</th><td>{{ report.business_overview.main_products | join('، ') }}</td></tr>        <tr><th>المدينة</th><td>{{ report.business_overview.city }}</td></tr>
         <tr><th>العملاء المستهدفون</th><td>{{ report.business_overview.target_customers }}</td></tr>
         <tr><th>عرض القيمة</th><td>{{ report.business_overview.value_proposition }}</td></tr>
       </table>
@@ -48,32 +49,49 @@
     <div class="card">
       <h2>ملخص مالي</h2>
       <table>
-        <tr><th>الإيراد الشهري</th><td>{{ report.financial_summary.monthly_revenue }} SAR</td></tr>
-        <tr><th>المصروفات الشهرية</th><td>{{ report.financial_summary.monthly_expenses }} SAR</td></tr>
-        <tr><th>صافي الربح الشهري</th><td>{{ report.financial_summary.monthly_net_profit }} SAR</td></tr>
-        <tr><th>هامش الربح</th><td>{{ report.financial_summary.profit_margin_percent }}%</td></tr>
-        <tr><th>نقطة التعادل</th><td>{{ report.financial_summary.break_even_revenue }} SAR</td></tr>
-        <tr><th>فترة الاسترداد</th><td>{{ report.financial_summary.payback_period_months }}</td></tr>
-      </table>
+  <tr><th>الإيراد الشهري</th><td>{{ report.financial_summary.monthly_revenue }} SAR</td></tr>
+  <tr><th>المصروفات الشهرية</th><td>{{ report.financial_summary.monthly_expenses }} SAR</td></tr>
+  <tr><th>صافي الربح الشهري</th><td>{{ report.financial_summary.monthly_net_profit }} SAR</td></tr>
+  <tr><th>هامش الربح</th><td>{{ report.financial_summary.profit_margin_percent }}%</td></tr>
+  <tr><th>نقطة التعادل</th><td>{{ report.financial_summary.break_even_revenue }} SAR</td></tr>
+  <tr><th>فترة الاسترداد</th><td>{{ report.financial_summary.payback_period_months }}</td></tr>
+  <tr><th>المرافق والخدمات</th><td>{{ report.financial_summary.utilities_cost }} SAR</td></tr>
+  <tr><th>التشغيل العام</th><td>{{ report.financial_summary.overhead_cost }} SAR</td></tr>
+  <tr><th>التسويق</th><td>{{ report.financial_summary.marketing_cost }} SAR</td></tr>
+</table>
     </div>
   </div>
 
   <div class="card">
-    <h2>تحليل السوق</h2>
-    <p class="muted"><b>لمحة الطلب:</b> {{ report.market_analysis.demand_snapshot }}</p>
-    <p class="muted"><b>مؤشرات التسعير:</b> {{ report.market_analysis.pricing_insights }}</p>
-    <h3 style="margin:12px 0 8px 0; font-size:14px;">المنافسون</h3>
-    <table>
-      <tr><th>الاسم</th><th>نقطة قوة</th><th>نقطة ضعف</th></tr>
-      {% for c in report.market_analysis.competitors %}
-      <tr>
-        <td>{{ c.name }}</td>
-        <td>{{ c.strength }}</td>
-        <td>{{ c.weakness }}</td>
-      </tr>
-      {% endfor %}
-    </table>
-  </div>
+  <h2>تحليل السوق</h2>
+
+  <table>
+    <tr><th>شدة المنافسة</th><td>{{ report.market_analysis.competition_level }}</td></tr>
+    <tr><th>فرصة السوق</th><td>{{ report.market_analysis.market_opportunity_score }}/10</td></tr>
+    <tr><th>عدد المنافسين المباشرين</th><td>{{ report.market_analysis.direct_competitor_summary.count }}</td></tr>
+    <tr><th>متوسط تقييمهم</th><td>{{ report.market_analysis.direct_competitor_summary.avg_rating }}</td></tr>
+    <tr><th>أقوى منافس</th><td>{{ report.market_analysis.direct_competitor_summary.strongest_name }}</td></tr>
+    <tr><th>الفجوة السوقية</th><td>{{ report.market_analysis.direct_competitor_summary.weakest_gap }}</td></tr>
+  </table>
+
+  <p class="muted" style="margin-top:12px;">
+    <b>ملخص السوق:</b> {{ report.market_analysis.narrative }}
+  </p>
+
+  <h3 style="margin:12px 0 8px 0; font-size:14px;">أبرز النقاط</h3>
+  <ul>
+    {% for b in report.market_analysis.bullets %}
+    <li>{{ b }}</li>
+    {% endfor %}
+  </ul>
+
+  <h3 style="margin:12px 0 8px 0; font-size:14px;">توصيات السوق</h3>
+  <ul>
+    {% for r in report.market_analysis.recommendations %}
+    <li>{{ r }}</li>
+    {% endfor %}
+  </ul>
+</div>
 
   <div class="card">
     <h2>المخاطر وخطط التخفيف</h2>
@@ -100,5 +118,718 @@
   <div class="footer">
     تم إنشاء التقرير تلقائيًا بناءً على البيانات المدخلة. يُنصح بمراجعة الافتراضات المالية والسوقية قبل اتخاذ قرار نهائي.
   </div>
+</body>
+</html> -->
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"/>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;900&display=swap" rel="stylesheet"/>
+<style>
+/* ── Reset & Base ───────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:'Cairo','Arial',sans-serif;color:#1a1a1a;font-size:12px;line-height:1.65;background:#fff}
+
+/* ── Color Tokens ───────────────────────────────── */
+:root{
+  --green-dark:#0f3d22;
+  --green-mid:#1a5c34;
+  --green-brand:#27ae60;
+  --green-light:#e8f5ee;
+  --green-pale:#f2faf5;
+  --amber:#f59e0b;
+  --red:#e53e3e;
+  --blue:#2563eb;
+  --gray-100:#f8f9fa;
+  --gray-200:#e9ecef;
+  --gray-400:#9ca3af;
+  --gray-600:#4b5563;
+  --gray-800:#1f2937;
+  --border:#dee2e6;
+  --radius:8px;
+  --radius-lg:12px;
+}
+
+/* ── Page Layout ────────────────────────────────── */
+.page{width:210mm;min-height:297mm;padding:0;page-break-after:always;position:relative;background:#fff}
+.page:last-child{page-break-after:auto}
+.page-body{padding:32px 40px 28px}
+
+/* ── COVER ──────────────────────────────────────── */
+.cover{
+  background:linear-gradient(160deg,#081c0f 0%,#0f3d22 35%,#1a5c34 65%,#0d3020 100%);
+  min-height:297mm;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  text-align:center;color:#fff;padding:60px 50px;
+}
+.cover-logo{width:80px;height:80px;object-fit:contain;margin-bottom:24px;filter:brightness(0) invert(1)}
+.cover-brand{font-size:12px;letter-spacing:5px;color:#6fcf97;font-weight:500;margin-bottom:12px;text-transform:uppercase}
+.cover-title{font-size:34px;font-weight:900;line-height:1.25;margin-bottom:10px;max-width:520px}
+.cover-sub{font-size:15px;color:#a8d5b5;margin-bottom:48px;font-weight:400}
+.cover-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;width:100%;max-width:560px;margin:0 auto 36px}
+.cover-kpi{text-align:center}
+.cover-kpi-val{font-size:24px;font-weight:900;color:#6fcf97;line-height:1}
+.cover-kpi-label{font-size:10px;color:#a8d5b5;margin-top:5px;font-weight:400}
+.cover-badge{
+  margin-top:8px;padding:10px 28px;border-radius:999px;
+  font-weight:700;font-size:14px;border:2px solid;display:inline-flex;align-items:center;gap:8px
+}
+.badge-suitable{border-color:#4caf50;color:#4caf50;background:rgba(76,175,80,.12)}
+.badge-moderate{border-color:#f59e0b;color:#f59e0b;background:rgba(245,158,11,.12)}
+.badge-risk{border-color:#e53e3e;color:#e53e3e;background:rgba(229,62,62,.12)}
+.cover-divider{width:60px;height:2px;background:#6fcf97;margin:0 auto 36px;opacity:.5}
+
+/* ── Section Header ─────────────────────────────── */
+.section-header{
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:2px solid var(--green-mid);padding-bottom:10px;margin-bottom:24px
+}
+.section-title{font-size:17px;font-weight:700;color:var(--green-dark)}
+.section-logo{width:32px;height:32px;object-fit:contain;opacity:.7}
+
+/* ── Cards ──────────────────────────────────────── */
+.card{border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin-bottom:16px;background:#fff}
+.card-title{font-size:12px;font-weight:700;color:var(--green-dark);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--gray-200)}
+
+/* ── KPI Row ────────────────────────────────────── */
+.kpi-row{display:flex;gap:12px;margin-bottom:18px}
+.kpi{flex:1;background:var(--green-pale);border:1px solid #c3e6cd;border-radius:var(--radius);padding:14px 16px;text-align:center}
+.kpi-val{font-size:22px;font-weight:900;color:var(--green-dark);line-height:1}
+.kpi-unit{font-size:11px;color:var(--gray-600);margin-top:3px}
+.kpi-label{font-size:10px;color:var(--gray-400);margin-top:4px}
+.kpi.kpi-alert{background:#fff5f5;border-color:#fca5a5}
+.kpi.kpi-alert .kpi-val{color:var(--red)}
+.kpi.kpi-warn{background:#fffbeb;border-color:#fde68a}
+.kpi.kpi-warn .kpi-val{color:#b45309}
+
+/* ── Grid ───────────────────────────────────────── */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+
+/* ── Tables ─────────────────────────────────────── */
+table{width:100%;border-collapse:collapse;font-size:11.5px}
+th{background:var(--green-dark);color:#fff;padding:9px 12px;text-align:right;font-weight:600;font-size:11px}
+td{padding:9px 12px;border-bottom:1px solid var(--gray-200)}
+tr:last-child td{border-bottom:none}
+tr:nth-child(even) td{background:var(--green-pale)}
+.td-label{color:var(--gray-600);width:42%}
+.td-strong{font-weight:700;color:var(--gray-800)}
+
+/* ── Executive Summary ──────────────────────────── */
+.verdict-bar{
+  background:var(--green-dark);color:#fff;border-radius:var(--radius-lg);
+  padding:18px 22px;margin-bottom:16px
+}
+.verdict-bar p{font-size:13px;line-height:1.75;font-weight:400}
+
+.highlight-list{list-style:none;display:flex;flex-direction:column;gap:8px}
+.highlight-list li{
+  padding:9px 14px;border-radius:var(--radius);font-size:12px;
+  background:var(--green-pale);border-right:3px solid var(--green-brand)
+}
+.alert-pair{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.alert-box{padding:12px 14px;border-radius:var(--radius);font-size:11.5px;line-height:1.6}
+.alert-box strong{display:block;font-size:11px;margin-bottom:4px;font-weight:700}
+.alert-concern{background:#fff5f5;border:1px solid #fca5a5}
+.alert-concern strong{color:var(--red)}
+.alert-opportunity{background:#f0fdf4;border:1px solid #86efac}
+.alert-opportunity strong{color:#15803d}
+
+/* ── Financial ──────────────────────────────────── */
+.expense-breakdown{display:flex;gap:10px;margin-top:12px}
+.exp-item{flex:1;text-align:center;background:var(--gray-100);border-radius:var(--radius);padding:10px 6px}
+.exp-item-val{font-size:14px;font-weight:700;color:var(--gray-800)}
+.exp-item-label{font-size:10px;color:var(--gray-400);margin-top:3px}
+
+.stress-box{background:#fff8f0;border:1px solid #fed7aa;border-radius:var(--radius-lg);padding:14px 18px;margin-top:14px}
+.stress-title{font-size:11px;font-weight:700;color:#92400e;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.stress-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stress-item{text-align:center}
+.stress-item-val{font-size:13px;font-weight:700;color:#b45309}
+.stress-item-label{font-size:10px;color:#92400e;margin-top:2px}
+
+.improve-box{background:#f0fdf4;border:1px solid #86efac;border-radius:var(--radius-lg);padding:14px 18px;margin-top:12px}
+.improve-title{font-size:11px;font-weight:700;color:#15803d;margin-bottom:10px}
+.improve-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.improve-item{text-align:center}
+.improve-item-val{font-size:14px;font-weight:700;color:#15803d}
+.improve-item-label{font-size:10px;color:#166534;margin-top:2px}
+
+/* ── Market Analysis ────────────────────────────── */
+.market-hero{
+  display:flex;align-items:stretch;gap:14px;margin-bottom:16px
+}
+.score-big{
+  background:linear-gradient(135deg,var(--green-dark),var(--green-brand));
+  color:#fff;border-radius:var(--radius-lg);padding:18px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-width:80px;text-align:center;flex-shrink:0
+}
+.score-num{font-size:36px;font-weight:900;line-height:1}
+.score-denom{font-size:11px;opacity:.75;margin-top:2px}
+.score-label{font-size:10px;opacity:.8;margin-top:6px}
+.market-stats{flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.mstat{background:var(--green-pale);border-radius:var(--radius);padding:12px 10px;text-align:center}
+.mstat-val{font-size:20px;font-weight:900;color:var(--green-dark)}
+.mstat-label{font-size:10px;color:var(--gray-400);margin-top:3px}
+.comp-badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;margin-top:5px}
+.level-low{background:#dcfce7;color:#15803d}
+.level-mid{background:#fef9c3;color:#a16207}
+.level-high{background:#fee2e2;color:#b91c1c}
+
+.bullet-list{list-style:none;display:flex;flex-direction:column;gap:5px}
+.bullet-list li{padding:7px 14px;font-size:11.5px;border-bottom:1px solid var(--gray-200);position:relative;padding-right:22px}
+.bullet-list li::before{content:"◆";color:var(--green-brand);font-size:7px;position:absolute;right:6px;top:10px}
+.bullet-list li:last-child{border-bottom:none}
+
+.rec-list{list-style:none;counter-reset:rec;display:flex;flex-direction:column;gap:6px}
+.rec-list li{counter-increment:rec;padding:8px 14px 8px 0;border-bottom:1px solid var(--gray-200);position:relative;padding-right:28px;font-size:11.5px}
+.rec-list li::before{
+  content:counter(rec);position:absolute;right:0;top:8px;
+  width:20px;height:20px;background:var(--green-brand);color:#fff;
+  border-radius:50%;font-size:10px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;line-height:20px;text-align:center
+}
+.rec-list li:last-child{border-bottom:none}
+
+.comp-table-wrap{margin-top:14px}
+.tag-direct{background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700}
+.tag-indirect{background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:4px;font-size:10px}
+tr.row-direct td{background:#fff5f5!important}
+
+/* ── Decision ───────────────────────────────────── */
+.decision-header{
+  border-radius:var(--radius-lg);padding:20px 24px;margin-bottom:16px;
+  display:flex;align-items:center;gap:20px
+}
+.dec-suitable{background:#f0fdf4;border:2px solid #4caf50}
+.dec-moderate{background:#fffbeb;border:2px solid #f59e0b}
+.dec-risk{background:#fff5f5;border:2px solid #e53e3e}
+.dec-icon{font-size:36px;flex-shrink:0}
+.dec-text-main{font-size:16px;font-weight:700}
+.dec-text-sub{font-size:12px;color:var(--gray-600);margin-top:4px}
+.dec-score-pill{
+  margin-right:auto;background:#fff;border-radius:var(--radius);
+  padding:8px 14px;text-align:center;border:1px solid var(--border)
+}
+.dec-score-val{font-size:22px;font-weight:900;color:var(--green-dark)}
+.dec-score-label{font-size:10px;color:var(--gray-400)}
+.conditions-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.cond-box{border-radius:var(--radius);padding:12px 14px}
+.cond-invest{background:#f0fdf4;border:1px solid #86efac}
+.cond-reject{background:#fff5f5;border:1px solid #fca5a5}
+.cond-title{font-size:11px;font-weight:700;margin-bottom:8px}
+.cond-invest .cond-title{color:#15803d}
+.cond-reject .cond-title{color:var(--red)}
+.cond-list{list-style:none;display:flex;flex-direction:column;gap:5px}
+.cond-list li{font-size:11px;padding-right:14px;position:relative;color:var(--gray-700,#374151)}
+.cond-list li::before{position:absolute;right:0;top:1px}
+.cond-invest .cond-list li::before{content:"✓";color:#15803d;font-weight:700}
+.cond-reject .cond-list li::before{content:"✗";color:var(--red);font-weight:700}
+
+/* ── Risks ──────────────────────────────────────── */
+.risk-badge{padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;display:inline-block}
+.risk-high{background:#fee2e2;color:#b91c1c}
+.risk-mid{background:#fef9c3;color:#a16207}
+.risk-low{background:#dcfce7;color:#15803d}
+
+/* ── Next Steps ─────────────────────────────────── */
+.steps-list{list-style:none;counter-reset:step;display:flex;flex-direction:column;gap:8px}
+.steps-list li{
+  counter-increment:step;padding:10px 14px 10px 0;
+  border-bottom:1px solid var(--gray-200);position:relative;padding-right:32px;font-size:12px
+}
+.steps-list li::before{
+  content:counter(step);position:absolute;right:0;top:10px;
+  width:22px;height:22px;background:var(--green-dark);color:#fff;
+  border-radius:50%;font-size:10px;font-weight:700;
+  text-align:center;line-height:22px
+}
+.steps-list li:last-child{border-bottom:none}
+
+/* ── Footer ─────────────────────────────────────── */
+.page-footer{
+  text-align:center;font-size:10px;color:var(--gray-400);
+  padding:12px 0 0;border-top:1px solid var(--gray-200);margin-top:20px
+}
+
+/* ── Print ──────────────────────────────────────── */
+@media print{
+  .page{page-break-after:always}
+  .page:last-child{page-break-after:auto}
+}
+</style>
+</head>
+<body>
+
+{# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ COVER ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ #}
+<div class="page cover">
+  <img src="data:image/jpeg;base64,{{ logo_b64 }}" class="cover-logo"/>
+  <div class="cover-brand">MUQADDIM · مقدّم</div>
+  <div class="cover-divider"></div>
+  <h1 class="cover-title">{{ report.title }}</h1>
+  <p class="cover-sub">دراسة جدوى استثمارية &mdash; {{ report.business_overview.city }}</p>
+
+  <div class="cover-grid">
+    <div class="cover-kpi">
+      <div class="cover-kpi-val">{{ "{:,.0f}".format(report.financial_summary.monthly_revenue) }}</div>
+      <div class="cover-kpi-label">إيراد شهري (ر.س)</div>
+    </div>
+    <div class="cover-kpi">
+      <div class="cover-kpi-val">{{ report.financial_summary.profit_margin_percent }}%</div>
+      <div class="cover-kpi-label">هامش الربح</div>
+    </div>
+    <div class="cover-kpi">
+      <div class="cover-kpi-val">
+        {% if report.financial_summary.payback_period_months %}
+          {{ report.financial_summary.payback_period_months | round(1) }}
+        {% else %}—{% endif %}
+      </div>
+      <div class="cover-kpi-label">فترة الاسترداد (شهر)</div>
+    </div>
+    {% if market_analysis %}
+    <div class="cover-kpi">
+      <div class="cover-kpi-val">{{ market_analysis.market_opportunity_score }}/10</div>
+      <div class="cover-kpi-label">فرصة السوق</div>
+    </div>
+    {% endif %}
+  </div>
+
+  {% set cls = report.decision.classification | lower %}
+  {% if 'suitable' in cls or 'مناسب' in cls %}
+    <div class="cover-badge badge-suitable">✅ مناسب للاستثمار</div>
+  {% elif 'moderate' in cls or 'متوسط' in cls %}
+    <div class="cover-badge badge-moderate">⚠️ مخاطرة متوسطة</div>
+  {% else %}
+    <div class="cover-badge badge-risk">🔴 مخاطرة عالية</div>
+  {% endif %}
+</div>
+
+
+{# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ PAGE 1: EXECUTIVE SUMMARY ━━━━━━━━━━━━━━━━━━━ #}
+<div class="page">
+  <div class="page-body">
+    <div class="section-header">
+      <div class="section-title">الملخص التنفيذي ونظرة عامة على المشروع</div>
+      <img src="data:image/jpeg;base64,{{ logo_b64 }}" class="section-logo"/>
+    </div>
+
+    {# Verdict #}
+    {% if report.executive_summary is mapping %}
+      <div class="verdict-bar">
+        <p>{{ report.executive_summary.verdict }}</p>
+      </div>
+      <div class="grid-2" style="margin-bottom:14px">
+        <div class="card" style="margin-bottom:0">
+          <div class="card-title">أبرز النتائج</div>
+          <ul class="highlight-list">
+            {% for h in report.executive_summary.highlights %}
+            <li>{{ h }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        <div class="card" style="margin-bottom:0">
+          <div class="card-title">نظرة عامة</div>
+          <table>
+            <tr><td class="td-label">نوع النشاط</td><td class="td-strong">{{ report.business_overview.business_type }}</td></tr>
+            <tr><td class="td-label">المدينة</td><td>{{ report.business_overview.city }}</td></tr>
+            <tr><td class="td-label">العملاء المستهدفون</td><td>{{ report.business_overview.target_customers }}</td></tr>
+            <tr><td class="td-label">عرض القيمة</td><td>{{ report.business_overview.value_proposition }}</td></tr>
+            {% if report.business_overview.main_products %}
+            <tr><td class="td-label">المنتجات الرئيسية</td><td>{{ report.business_overview.main_products | join(' · ') }}</td></tr>
+            {% endif %}
+          </table>
+        </div>
+      </div>
+      <div class="alert-pair">
+        <div class="alert-box alert-concern">
+          <strong>⚠ المخاطرة الرئيسية</strong>
+          {{ report.executive_summary.key_concern }}
+        </div>
+        <div class="alert-box alert-opportunity">
+          <strong>✦ الفرصة الرئيسية</strong>
+          {{ report.executive_summary.key_opportunity }}
+        </div>
+      </div>
+    {% else %}
+      {# Backward compat: executive_summary as plain string #}
+      <div class="verdict-bar"><p>{{ report.executive_summary }}</p></div>
+      <div class="card">
+        <div class="card-title">نظرة عامة</div>
+        <table>
+          <tr><td class="td-label">نوع النشاط</td><td class="td-strong">{{ report.business_overview.business_type }}</td></tr>
+          <tr><td class="td-label">المدينة</td><td>{{ report.business_overview.city }}</td></tr>
+          <tr><td class="td-label">العملاء المستهدفون</td><td>{{ report.business_overview.target_customers }}</td></tr>
+          <tr><td class="td-label">عرض القيمة</td><td>{{ report.business_overview.value_proposition }}</td></tr>
+        </table>
+      </div>
+    {% endif %}
+
+    <div class="page-footer">دراسة جدوى مقدّم · للاستخدام الاسترشادي فقط</div>
+  </div>
+</div>
+
+
+{# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ PAGE 2: FINANCIAL ━━━━━━━━━━━━━━━━━━━━━━━━━━━ #}
+<div class="page">
+  <div class="page-body">
+    {% set fs = report.financial_summary %}
+    <div class="section-header">
+      <div class="section-title">التحليل المالي</div>
+      <img src="data:image/jpeg;base64,{{ logo_b64 }}" class="section-logo"/>
+    </div>
+
+    {# Main KPI row #}
+    <div class="kpi-row">
+      <div class="kpi">
+        <div class="kpi-val">{{ "{:,.0f}".format(fs.monthly_revenue) }}</div>
+        <div class="kpi-unit">ر.س</div>
+        <div class="kpi-label">الإيراد الشهري</div>
+      </div>
+      <div class="kpi kpi-alert">
+        <div class="kpi-val">{{ "{:,.0f}".format(fs.monthly_expenses) }}</div>
+        <div class="kpi-unit">ر.س</div>
+        <div class="kpi-label">المصروفات الشهرية</div>
+      </div>
+      <div class="kpi {% if fs.monthly_net_profit > 0 %}{% else %}kpi-alert{% endif %}">
+        <div class="kpi-val">{{ "{:,.0f}".format(fs.monthly_net_profit) }}</div>
+        <div class="kpi-unit">ر.س</div>
+        <div class="kpi-label">صافي الربح الشهري</div>
+      </div>
+      <div class="kpi {% if fs.profit_margin_percent >= 15 %}{% elif fs.profit_margin_percent >= 10 %}kpi-warn{% else %}kpi-alert{% endif %}">
+        <div class="kpi-val">{{ fs.profit_margin_percent }}%</div>
+        <div class="kpi-unit">&nbsp;</div>
+        <div class="kpi-label">هامش الربح</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      {# Financial Details #}
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">تفاصيل مالية</div>
+        <table>
+          <tr><td class="td-label">نقطة التعادل</td><td class="td-strong">{{ "{:,.0f}".format(fs.break_even_revenue) }} ر.س/شهر</td></tr>
+          <tr><td class="td-label">فترة الاسترداد</td>
+            <td class="td-strong">
+              {% if fs.payback_period_months %}{{ fs.payback_period_months | round(1) }} شهر{% else %}غير محدد (ربح سلبي){% endif %}
+            </td>
+          </tr>
+        </table>
+        {# Expense Breakdown #}
+        <div style="margin-top:14px">
+          <div style="font-size:11px;font-weight:700;color:var(--green-dark);margin-bottom:8px">تفاصيل التكاليف التشغيلية</div>
+          <div class="expense-breakdown">
+            <div class="exp-item">
+              <div class="exp-item-val">{{ "{:,.0f}".format(fs.utilities_cost) }}</div>
+              <div class="exp-item-label">مرافق وخدمات (ر.س)</div>
+            </div>
+            <div class="exp-item">
+              <div class="exp-item-val">{{ "{:,.0f}".format(fs.overhead_cost) }}</div>
+              <div class="exp-item-label">تشغيل عام (ر.س)</div>
+            </div>
+            <div class="exp-item">
+              <div class="exp-item-val">{{ "{:,.0f}".format(fs.marketing_cost) }}</div>
+              <div class="exp-item-label">تسويق (ر.س)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# توزيع المصروفات #}
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">توزيع المصروفات الكاملة</div>
+        {% set rent_est = fs.monthly_expenses - fs.utilities_cost - fs.overhead_cost - fs.marketing_cost %}
+        <table>
+          <tr><td class="td-label">إيجار + رواتب (تقديري)</td><td class="td-strong">{{ "{:,.0f}".format(rent_est) }} ر.س</td></tr>
+          <tr><td class="td-label">تكلفة البضاعة (COGS)</td><td>ضمن الإجمالي</td></tr>
+          <tr><td class="td-label">مرافق وخدمات</td><td>{{ "{:,.0f}".format(fs.utilities_cost) }} ر.س</td></tr>
+          <tr><td class="td-label">تشغيل عام</td><td>{{ "{:,.0f}".format(fs.overhead_cost) }} ر.س</td></tr>
+          <tr><td class="td-label">تسويق</td><td>{{ "{:,.0f}".format(fs.marketing_cost) }} ر.س</td></tr>
+          <tr style="border-top:2px solid var(--green-dark)"><td class="td-label" style="font-weight:700">الإجمالي</td><td class="td-strong">{{ "{:,.0f}".format(fs.monthly_expenses) }} ر.س</td></tr>
+        </table>
+      </div>
+    </div>
+
+    {# Stress Test #}
+    {% if fs.stress_test is defined and fs.stress_test %}
+    <div class="stress-box">
+      <div class="stress-title">⚡ اختبار الضغط — سيناريو: انخفاض العملاء 10% + ارتفاع التكاليف 10%</div>
+      <div class="stress-grid">
+        <div class="stress-item">
+          <div class="stress-item-val">{{ "{:,.0f}".format(fs.stress_test.revenue_drop_10pct) }}</div>
+          <div class="stress-item-label">الإيراد بعد الضغط (ر.س)</div>
+        </div>
+        <div class="stress-item">
+          <div class="stress-item-val">{{ "{:,.0f}".format(fs.stress_test.expenses_rise_10pct) }}</div>
+          <div class="stress-item-label">التكاليف بعد الضغط (ر.س)</div>
+        </div>
+        <div class="stress-item">
+  <div class="stress-item-val {% if fs.stress_test.stressed_net_profit < 0 %}negative{% endif %}">
+    {{ "{:,.0f}".format(fs.stress_test.stressed_net_profit) }}
+  </div>
+  <div class="stress-item-label">صافي الربح/الخسارة (ر.س)</div>
+</div>
+
+<div class="stress-item">
+  <div class="stress-item-val {% if fs.stress_test.stressed_margin_pct < 0 %}negative{% endif %}">
+    {{ fs.stress_test.stressed_margin_pct | round(1) }}%
+  </div>
+  <div class="stress-item-label">الهامش تحت الضغط</div>
+</div>
+      </div>
+    </div>
+    {% endif %}
+
+    {# Improvement to 18% #}
+    {% if fs.improvement_to_18pct_margin is defined and fs.improvement_to_18pct_margin %}
+    {% set imp = fs.improvement_to_18pct_margin %}
+    <div class="improve-box">
+      <div class="improve-title">🎯 المطلوب للوصول إلى هامش 18%</div>
+      <div class="improve-grid">
+        <div class="improve-item">
+          <div class="improve-item-val">{{ "{:,.0f}".format(imp.target_net_profit) }}</div>
+          <div class="improve-item-label">صافي ربح مستهدف (ر.س)</div>
+        </div>
+        <div class="improve-item">
+          <div class="improve-item-val">{{ "{:,.0f}".format(imp.max_expenses) }}</div>
+          <div class="improve-item-label">الحد الأقصى للمصروفات (ر.س)</div>
+        </div>
+        <div class="improve-item">
+          <div class="improve-item-val" style="color:#b45309">{{ "{:,.0f}".format(imp.required_saving) }}</div>
+          <div class="improve-item-label">التوفير الشهري المطلوب (ر.س)</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="page-footer">دراسة جدوى مقدّم · للاستخدام الاسترشادي فقط</div>
+  </div>
+</div>
+
+
+{# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ PAGE 3: MARKET ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ #}
+{% if market_analysis %}
+{% set ma = market_analysis %}
+<div class="page">
+  <div class="page-body">
+    <div class="section-header">
+      <div class="section-title">تحليل السوق والمنافسين</div>
+<img src="data:image/png;base64,{{ logo_b64 }}" class="cover-logo">    </div>
+
+    {# Hero row #}
+    <div class="market-hero">
+      <div class="score-big">
+        <div class="score-num">{{ ma.market_opportunity_score }}</div>
+        <div class="score-denom">/ 10</div>
+        <div class="score-label">فرصة السوق</div>
+      </div>
+      <div class="market-stats">
+        <div class="mstat">
+          <div class="mstat-val">{{ ma.direct_competitor_summary.count }}</div>
+          <div class="mstat-label">منافس مباشر</div>
+        </div>
+        <div class="mstat">
+          <div class="mstat-val">{{ ma.direct_competitor_summary.avg_rating }}</div>
+          <div class="mstat-label">متوسط التقييم</div>
+        </div>
+        <div class="mstat">
+          <span class="comp-badge
+            {% if ma.competition_level == 'منخفض' %}level-low
+            {% elif ma.competition_level == 'متوسط' %}level-mid
+            {% else %}level-high{% endif %}">
+            {{ ma.competition_level }}
+          </span>
+          <div class="mstat-label">مستوى المنافسة</div>
+        </div>
+      </div>
+    </div>
+
+    {# Narrative #}
+    <div class="card">
+      <div class="card-title">تقييم وضع السوق</div>
+      <p style="font-size:12px;line-height:1.8;color:#374151">{{ ma.narrative }}</p>
+      <table style="margin-top:12px">
+        <tr><td class="td-label">أقوى منافس</td><td class="td-strong">{{ ma.direct_competitor_summary.strongest_name }}</td></tr>
+        <tr><td class="td-label">الفجوة السوقية</td><td>{{ ma.direct_competitor_summary.weakest_gap }}</td></tr>
+      </table>
+    </div>
+
+    <div class="grid-2">
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">أبرز النقاط</div>
+        <ul class="bullet-list">
+          {% for b in ma.bullets %}<li>{{ b }}</li>{% endfor %}
+        </ul>
+      </div>
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">التوصيات</div>
+        <ol class="rec-list">
+          {% for r in ma.recommendations %}<li>{{ r }}</li>{% endfor %}
+        </ol>
+      </div>
+    </div>
+
+    {# Competitors Table #}
+    {% if ma.classified_competitors %}
+    <div class="comp-table-wrap card" style="margin-top:14px">
+      <div class="card-title">تصنيف المطاعم المجاورة</div>
+      <table>
+        <thead>
+          <tr><th>الاسم</th><th>نوع المطبخ</th><th>التقييم</th><th>التصنيف</th><th>السبب</th></tr>
+        </thead>
+        <tbody>
+          {% for c in ma.classified_competitors | sort(attribute='is_direct_competitor', reverse=True) %}
+          {% set place = competitor_places | selectattr('id','equalto',c.id) | first | default({}) %}
+          <tr {% if c.is_direct_competitor %}class="row-direct"{% endif %}>
+            <td><strong>{{ place.name or c.id }}</strong></td>
+            <td>{{ c.estimated_cuisine }}</td>
+            <td>{% if place.rating %}⭐ {{ place.rating }}{% else %}—{% endif %}</td>
+            <td>
+              {% if c.is_direct_competitor %}
+                <span class="tag-direct">مباشر</span>
+              {% else %}
+                <span class="tag-indirect">غير مباشر</span>
+              {% endif %}
+            </td>
+            <td style="color:var(--gray-600);font-size:10.5px">{{ c.reason_short }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    <div class="page-footer">البيانات من Google Places + تحليل الذكاء الاصطناعي · مقدّم</div>
+  </div>
+</div>
+{% endif %}
+
+
+{# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ PAGE 4: DECISION + RISKS ━━━━━━━━━━━━━━━━━━━━ #}
+<div class="page">
+  <div class="page-body">
+    <div class="section-header">
+      <div class="section-title">القرار الاستثماري والمخاطر</div>
+      <img src="data:image/jpeg;base64,{{ logo_b64 }}" class="section-logo"/>
+    </div>
+
+    {% set dec = report.decision %}
+    {% set cls = dec.classification | lower %}
+
+    {# Decision Header #}
+    <div class="decision-header {% if 'suitable' in cls or 'مناسب' in cls %}dec-suitable{% elif 'moderate' in cls or 'متوسط' in cls %}dec-moderate{% else %}dec-risk{% endif %}">
+      <div class="dec-icon">
+        {% if 'suitable' in cls or 'مناسب' in cls %}✅{% elif 'moderate' in cls or 'متوسط' in cls %}⚠️{% else %}🔴{% endif %}
+      </div>
+      <div>
+        <div class="dec-text-main">{{ dec.classification }}</div>
+        <div class="dec-text-sub">بناءً على التحليل المالي وتحليل السوق</div>
+      </div>
+      <div class="dec-score-pill">
+        <div class="dec-score-val">{{ dec.score }} / 4</div>
+        <div class="dec-score-label">النقاط</div>
+      </div>
+    </div>
+
+    {# Reasons #}
+    <div class="card">
+      <div class="card-title">أسباب التقييم</div>
+      <ul class="highlight-list">
+        {% for r in dec.reasons %}<li>{{ r }}</li>{% endfor %}
+      </ul>
+    </div>
+
+    {# Invest / Reject Conditions #}
+    {% if dec.invest_conditions is defined or dec.reject_conditions is defined %}
+    <div class="conditions-grid">
+      {% if dec.invest_conditions is defined %}
+      <div class="cond-box cond-invest">
+        <div class="cond-title">✓ شروط الاستثمار</div>
+        <ul class="cond-list">
+          {% for c in dec.invest_conditions %}<li>{{ c }}</li>{% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+      {% if dec.reject_conditions is defined %}
+      <div class="cond-box cond-reject">
+        <div class="cond-title">✗ شروط الرفض</div>
+        <ul class="cond-list">
+          {% for c in dec.reject_conditions %}<li>{{ c }}</li>{% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {# Risks #}
+    <div class="card" style="margin-top:14px">
+      <div class="card-title">المخاطر وخطط التخفيف</div>
+      <table>
+        <thead>
+          <tr><th>المخاطرة</th><th style="width:70px">الخطورة</th><th>خطة التخفيف</th></tr>
+        </thead>
+        <tbody>
+          {% for r in report.risks_and_mitigations %}
+          <tr>
+            <td>{{ r.risk }}</td>
+            <td>
+              {% if r.severity is defined %}
+                <span class="risk-badge {% if r.severity == 'عالي' %}risk-high{% elif r.severity == 'متوسط' %}risk-mid{% else %}risk-low{% endif %}">{{ r.severity }}</span>
+              {% endif %}
+            </td>
+            <td style="color:#15803d">{{ r.mitigation }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="page-footer">دراسة جدوى مقدّم · للاستخدام الاسترشادي فقط</div>
+  </div>
+</div>
+
+
+{# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ PAGE 5: NEXT STEPS ━━━━━━━━━━━━━━━━━━━━━━━━━━ #}
+<div class="page">
+  <div class="page-body">
+    <div class="section-header">
+      <div class="section-title">الخطوات القادمة</div>
+      <img src="data:image/jpeg;base64,{{ logo_b64 }}" class="section-logo"/>
+    </div>
+
+    <ol class="steps-list">
+      {% for s in report.next_steps %}<li>{{ s }}</li>{% endfor %}
+    </ol>
+
+    {# Summary table at the end #}
+    <div class="card" style="margin-top:24px">
+      <div class="card-title">ملخص الأرقام الجوهرية</div>
+      {% set fs = report.financial_summary %}
+      <table>
+        <tr><td class="td-label">الإيراد الشهري</td><td class="td-strong">{{ "{:,.0f}".format(fs.monthly_revenue) }} ر.س</td></tr>
+        <tr><td class="td-label">صافي الربح الشهري</td><td class="td-strong">{{ "{:,.0f}".format(fs.monthly_net_profit) }} ر.س</td></tr>
+        <tr><td class="td-label">هامش الربح</td><td class="td-strong">{{ fs.profit_margin_percent }}%</td></tr>
+        <tr><td class="td-label">نقطة التعادل</td><td>{{ "{:,.0f}".format(fs.break_even_revenue) }} ر.س/شهر</td></tr>
+        <tr><td class="td-label">فترة الاسترداد</td>
+          <td>{% if fs.payback_period_months %}{{ fs.payback_period_months | round(1) }} شهر{% else %}—{% endif %}</td>
+        </tr>
+        {% if market_analysis %}
+        <tr><td class="td-label">فرصة السوق</td><td>{{ market_analysis.market_opportunity_score }}/10</td></tr>
+        {% endif %}
+        <tr><td class="td-label">القرار الاستثماري</td><td class="td-strong">{{ report.decision.classification }}</td></tr>
+      </table>
+    </div>
+
+    <div style="text-align:center;margin-top:30px;padding-top:20px;border-top:1px solid var(--gray-200)">
+      <img src="data:image/jpeg;base64,{{ logo_b64 }}" style="width:40px;height:40px;object-fit:contain;opacity:.4"/>
+      <p style="font-size:10px;color:var(--gray-400);margin-top:8px">
+        تم إنشاء هذه الدراسة تلقائياً بواسطة منصة مقدّم · للاستخدام الاسترشادي فقط<br>
+        يُنصح بمراجعة الافتراضات مع مستشار مالي متخصص قبل اتخاذ أي قرار استثماري
+      </p>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

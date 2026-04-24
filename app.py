@@ -59,41 +59,52 @@ def report_pdf():
         }), 400
 
     enriched = enrich_project_data(business_type, city)
+    restaurant_type = (data.get("restaurant_type") or "").strip()
+    project_type_for_market = restaurant_type or get_label_ar(business_type)
+
+    user_target_customers = (data.get("target_customers") or "").strip()
+    main_products = data.get("main_products") or []
 
     full_data = {
-        "business_type":      business_type,
-        "city":               city,
-        "capital":            capital,
-        "rent":               rent,
-        "employees":          employees,
-        "avg_price":          avg_price,
-        "customers_per_day":  customers_per_day,
-        "avg_salary":         DEFAULT_SALARY,
-        "cogs_known":         False,
-        "target_customers":   enriched["target_customers"],
-        "value_proposition":  enriched["value_proposition"],
-        "competitors":        [],
-        "market_notes":       "",
-        "pricing_notes":      "",
+        "business_type": business_type,
+        "restaurant_type": restaurant_type,
+        "city": city,
+        "capital": capital,
+        "rent": rent,
+        "employees": employees,
+        "avg_price": avg_price,
+        "customers_per_day": customers_per_day,
+        "avg_salary": DEFAULT_SALARY,
+        "cogs_known": False,
+        "target_customers": user_target_customers or enriched["target_customers"],
+        "value_proposition": enriched["value_proposition"],
+        "main_products": main_products,
+        "competitors": [],
+        "market_notes": "",
+        "pricing_notes": "",
     }
 
     financials = calculate_financials(full_data)
+
     decision = classify_project(
         profit_margin_percent=financials["profit_margin_percent"],
         payback_months=financials["payback_period_months"],
     )
 
     market_data = {
-        "business_type":     get_label_ar(business_type),
-        "city":              city,
-        "target_customers":  full_data["target_customers"],
+        "business_type": get_label_ar(business_type),
+        "restaurant_type": restaurant_type,
+        "city": city,
+        "target_customers": full_data["target_customers"],
         "value_proposition": full_data["value_proposition"],
-        "competitors":       [],
-        "market_notes":      "",
-        "pricing_notes":     "",
+        "main_products": main_products,
+        "competitors": [],
+        "market_notes": "",
+        "pricing_notes": "",
     }
 
     report = generate_feasibility_report(financials, decision, market_data)
+    
 
     market_analysis   = None
     competitor_places = []
@@ -126,9 +137,12 @@ def report_pdf():
             places = places_res.get("places", [])
             if places:
                 summary           = build_competitor_summary(places)
-                market_analysis   = generate_market_analysis_ar(
-                                        get_label_ar(business_type), city, 1500, summary
-                                    )
+                market_analysis = generate_market_analysis_ar(
+    project_type_for_market,
+    city,
+    1500,
+    summary
+)
                 competitor_places = summary["all_competitors"]
 
         except Exception as e:
@@ -270,9 +284,24 @@ def pitchdeck_generate():
             "pricing_notes":     data.get("pricing_notes", ""),
         }
 
+        # report = generate_feasibility_report(financials, decision, market_data)
+        # deck   = generate_pitch_deck_json(report, extra=market_data)
+        
         report = generate_feasibility_report(financials, decision, market_data)
-        deck   = generate_pitch_deck_json(report, extra=market_data)
-
+        deck = generate_pitch_deck_json(
+            {**report, **financials},
+            extra={
+                **market_data,
+                "project_name":      data.get("project_name", ""),
+                "idea_description":  data.get("idea_description", ""),
+                "restaurant_type":   data.get("restaurant_type", ""),
+                "city":              data.get("city", ""),
+                "capital":           data.get("capital", ""),
+                "avg_price":         data.get("avg_price", ""),
+                "customers_per_day": data.get("customers_per_day", ""),
+                "employees":         data.get("employees", ""),
+            }
+        )
         if isinstance(deck, str):
             deck = json.loads(deck)
         if "slides" not in deck:
@@ -366,9 +395,15 @@ def analyze():
 
     places      = res.get("places", [])
     summary     = build_competitor_summary(places)
+    restaurant_type = (request.args.get("restaurant_type") or "").strip()
+    project_type_for_market = restaurant_type or get_label_ar(business_type)
+
     ai_analysis = generate_market_analysis_ar(
-                      get_label_ar(business_type), city, radius_f, summary
-                  )
+    project_type_for_market,
+    city,
+    radius_f,
+    summary
+)
 
     return jsonify({
         "input": {

@@ -3,7 +3,7 @@
 # =========================
 
 # متوسط راتب موظف مطعم/كافيه (ريال)
-DEFAULT_SALARY = 4000
+DEFAULT_SALARY = 5000
 
 # نسبة تكلفة المواد حسب نوع النشاط
 DEFAULT_COGS = {
@@ -37,7 +37,10 @@ GOOD_PAYBACK_MONTHS = 12
 # مدة استرداد مقبولة
 ACCEPTABLE_PAYBACK_MONTHS = 24
 
-
+# Additional Monthly Operating Costs
+UTILITIES_RATE = 0.06   # 6% من الإيراد
+OVERHEAD_RATE  = 0.03   # 3% من الإيراد
+MARKETING_RATE = 0.03   # 3% من الإيراد
 
 
 
