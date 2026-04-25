@@ -1,32 +1,36 @@
-"""
-gov_consultant.py
------------------
-شات بوت الإجراءات الحكومية السعودية
-متخصص 100% في إجراءات فتح المطاعم والمقاهي في السعودية
-- يستخدم gpt-4o-mini (رخيص ومناسب)
-- يذكر المصادر الرسمية مع كل رد
-- السيشن مؤقتة في الذاكرة
-"""
+# =====================================================================
+# gov_consultant.py — شات بوت الإجراءات الحكومية السعودية
+# متخصص 100% في تراخيص وإجراءات فتح المطاعم والمقاهي
+# يستخدم gpt-4o-mini (أرخص ومناسب للشات)
+# يذكر المصادر الرسمية مع كل رد
+# السيشن مؤقتة في الذاكرة (تنمسح عند إعادة تشغيل السيرفر)
+# =====================================================================
 
 from openai import OpenAI
 
 client = OpenAI()
 
-# تخزين مؤقت في الذاكرة
+# تخزين مؤقت في الذاكرة:
+# المفتاح = session_id (يميّز كل مستخدم)
+# القيمة = قائمة الرسائل (تاريخ المحادثة)
 _gov_sessions: dict[str, list[dict]] = {}
 
 
 # ═══════════════════════════════════════════════
-# Public API
+# الواجهة العامة (تستخدمها app.py)
 # ═══════════════════════════════════════════════
 
 def gov_chat(session_id: str, user_message: str) -> str:
+    """يستلم رسالة من المستخدم ويرد عليها بناءً على المحادثة السابقة"""
+    # لو أول مرة لهذا السيشن، نسوي قائمة فاضية
     if session_id not in _gov_sessions:
         _gov_sessions[session_id] = []
 
     messages = _gov_sessions[session_id]
     messages.append({"role": "user", "content": user_message})
 
+    # نرسل للـ AI: system prompt (التعليمات) + كل المحادثة السابقة
+    # temperature=0.3 يخلي الردود ثابتة وموثوقة (مو إبداعية)
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
@@ -38,15 +42,19 @@ def gov_chat(session_id: str, user_message: str) -> str:
     )
 
     reply = response.choices[0].message.content
+    # نحفظ رد المساعد في الـ session عشان السؤال الجاي يفهم السياق
     messages.append({"role": "assistant", "content": reply})
     return reply
 
 
 def clear_gov_session(session_id: str):
+    """يمسح المحادثة (يُنادى عند تسجيل الخروج)"""
     _gov_sessions.pop(session_id, None)
 
 
 def get_gov_suggestions() -> list[dict]:
+    """قائمة بالأسئلة المقترحة المعروضة كأزرار في صفحة الشات
+    (مرتبة حسب التصنيف: البداية، التسجيل، البلدية، إلخ)"""
     return [
         {
             "category": "البداية",
@@ -100,7 +108,8 @@ def get_gov_suggestions() -> list[dict]:
 
 
 # ═══════════════════════════════════════════════
-# System Prompt
+# System Prompt — تعليمات الذكاء الاصطناعي
+# يحدد شخصية المستشار، نطاقه، وقواعد الرد
 # ═══════════════════════════════════════════════
 
 def _build_gov_prompt() -> str:

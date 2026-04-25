@@ -1,87 +1,9 @@
-# from openai import OpenAI
-# from report_schema import REPORT_SCHEMA
-# import json
-
-# client = OpenAI()
-
-# def generate_feasibility_report(financials, decision, market_data):
-
-#     prompt = f"""
-# أنت مستشار استثماري سعودي أول، متخصص في تقييم مشاريع المنشآت الصغيرة ووالمتوسطة.
-
-# مهمتك ليست كتابة تقرير وصفي،
-# بل إجراء تحليل استثماري عميق يعتمد على الأرقام المقدمة فقط.
-
-# استخدم البيانات التالية كما هي دون تعديل:
-
-# البيانات المالية:
-# {financials}
-
-# نتيجة محرك القرار:
-# {decision}
-
-# بيانات السوق:
-# {market_data}
-
-# المطلوب:
-
-# 1) تحليل قوة هامش الربح مقارنة بمتوسط قطاع المطاعم الصغيرة في السعودية.
-# 2) إجراء اختبار ضغط بافتراض:
-#    - انخفاض عدد العملاء 10%
-#    - ارتفاع التكاليف التشغيلية 10%
-# 3) توضيح أثر ذلك رقميًا على صافي الربح والهامش.
-# 4) اقتراح 3 تحسينات رقمية واضحة لرفع هامش الربح إلى 18% على الأقل.
-# 5) تقييم كفاءة رأس المال وفترة الاسترداد.
-# 6) إصدار قرار استثماري واضح:
-#    - هل تنصح بالاستثمار؟
-#    - تحت أي شروط؟
-#    - متى ترفض المشروع؟
-# 7) عند عرض التحليل المالي، وضّح أن المصروفات التشغيلية تشمل:
-#    - المرافق والخدمات (كهرباء، ماء، إنترنت ونحوها)
-#    - التشغيل العام (صيانة، برامج، أدوات، مصاريف عامة)
-#    - التسويق
-# 8) اذكر القيم الرقمية لهذه البنود ضمن التحليل المالي بشكل مختصر وواضح.
-
-# الأسلوب:
-# - تحليلي
-# - احترافي
-# - موجه للمستثمرين
-# - بدون عبارات عامة
-# - يعتمد على الأرقام بشكل مكثف
-
-# أعد النتيجة بصيغة JSON مطابقة للهيكل المطلوب.
-# """
-
-#     response = client.responses.create(
-#         model="gpt-5.2",
-#         input=prompt,
-#         text={
-#             "format": {
-#                 "type": "json_schema",
-#                 "name": "feasibility_report",   # ✅ هذا اللي كان ناقص
-#                 "schema": REPORT_SCHEMA["schema"]  # ✅ مرري الـschema نفسه
-#             }
-#         }
-#     )
-
-#     return json.loads(response.output_text)
-# def enrich_project_data(business_type: str, city: str) -> dict:
-#     response = client.responses.create(
-#         model="gpt-4o-mini",
-#         input=f"""
-# بناءً على نوع المشروع: {business_type} في مدينة: {city}
-# ولّد بالعربية:
-# 1. target_customers: جملة وحدة تصف العملاء المستهدفين
-# 2. value_proposition: جملة وحدة تصف ميزة المشروع
-# أرجع JSON فقط: {{"target_customers": "...", "value_proposition": "..."}}
-# """,
-#         text={"format": {"type": "json_object"}}
-#     )
-#     return json.loads(response.output_text)
-"""
-ai_report_engine.py — نسخة محسّنة
-يُولّد تقرير جدوى احترافي بـ JSON منظّم ومتوافق مع report_schema.py الجديد.
-"""
+# =====================================================================
+# ai_report_engine.py — محرك توليد دراسة الجدوى بالذكاء الاصطناعي
+# يحتوي على دالتين رئيسيتين:
+#   1) generate_feasibility_report — يولّد التقرير الكامل بصيغة JSON منظمة
+#   2) enrich_project_data — يولّد بيانات تكميلية (العملاء، عرض القيمة)
+# =====================================================================
 
 from openai import OpenAI
 from report_schema import REPORT_SCHEMA
@@ -91,6 +13,17 @@ client = OpenAI()
 
 
 def generate_feasibility_report(financials: dict, decision: dict, market_data: dict) -> dict:
+    """
+    يأخذ:
+      - الأرقام المالية (من financial_engine)
+      - قرار التصنيف (من decision_engine)
+      - بيانات السوق (نوع المشروع، المدينة، إلخ)
+    ويرجع:
+      - JSON متكامل مطابق لـ REPORT_SCHEMA يحتوي على:
+        executive_summary, business_overview, market_analysis,
+        financial_summary, decision, risks_and_mitigations, next_steps
+    """
+    # برومبت دقيق يجبر الـ AI على بناء كل جملة على رقم حقيقي بدون اختلاق
     prompt = f"""
 أنت مستشار استثماري سعودي أول، متخصص في تقييم مشاريع المنشآت الصغيرة والمتوسطة.
 مهمتك تحليل أرقام حقيقية وإصدار تقرير استثماري منضبط — لا عبارات عامة، كل جملة مبنية على رقم.
@@ -160,8 +93,10 @@ break_even_revenue, payback_period_months, utilities_cost, overhead_cost, market
 - النتيجة JSON مطابقة للـ schema تماماً.
 """
 
+    # نستخدم نموذج gpt-4o لجودة عالية في التحليل
+    # strict: True يجبر الـ AI يطلع JSON يطابق الـ schema بدقة
     response = client.responses.create(
-        model="gpt-4o",           # استبدل بالنموذج المتاح لديك
+        model="gpt-4o",
         input=prompt,
         text={
             "format": {
@@ -177,6 +112,12 @@ break_even_revenue, payback_period_months, utilities_cost, overhead_cost, market
 
 
 def enrich_project_data(business_type: str, city: str) -> dict:
+    """
+    يولّد بيانات تكميلية بسيطة بناءً على نوع المشروع والمدينة:
+    - target_customers: وصف العملاء المستهدفين
+    - value_proposition: ميزة المشروع
+    نستخدم نموذج أرخص (gpt-4o-mini) لأن المهمة بسيطة
+    """
     response = client.responses.create(
         model="gpt-4o-mini",
         input=f"""

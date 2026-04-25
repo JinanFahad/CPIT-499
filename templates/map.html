@@ -403,6 +403,20 @@
       gap: 16px;
     }
     .coords-bar span { color: var(--text); font-weight: 600; }
+
+    /* ── PICKER MODE ── */
+    body.picker-mode .panel { display: none; }
+    body.picker-mode #analyzeBtn,
+    body.picker-mode #projectTypeWrap,
+    body.picker-mode #radiusWrap { display: none; }
+    body.picker-mode #confirmPickBtn { display: inline-block; }
+
+    .btn-confirm {
+      background: var(--accent2);
+      color: #fff;
+    }
+    .btn-confirm:hover:not(:disabled) { background: #1db58f; }
+    .btn-confirm:disabled { opacity: .4; cursor: not-allowed; }
   </style>
 </head>
 <body>
@@ -414,7 +428,7 @@
     <span id="hintText">اضغط على الخريطة لتحديد الموقع</span>
   </div>
 
-  <div style="display:flex;align-items:center;gap:8px">
+  <div id="projectTypeWrap" style="display:flex;align-items:center;gap:8px">
     <label>نوع المشروع</label>
     <select id="projectType">
       <option value="restaurant">مطعم عام</option>
@@ -436,7 +450,7 @@
     </div>
   </div>
 
-  <div style="display:flex;align-items:center;gap:8px">
+  <div id="radiusWrap" style="display:flex;align-items:center;gap:8px">
     <label>النطاق (م)</label>
     <select id="radiusSelect">
       <option value="500">500</option>
@@ -449,6 +463,10 @@
 
   <button class="btn btn-primary" id="analyzeBtn" disabled onclick="analyzeLocation()">
     🔍 تحليل الموقع
+  </button>
+
+  <button class="btn btn-confirm" id="confirmPickBtn" disabled onclick="confirmPick()" style="display:none">
+    ✅ استخدم هذا الموقع
   </button>
 
   <div class="logo">مقدّم</div>
@@ -489,6 +507,25 @@
 
 <script>
   let map, marker, autocomplete;
+  const isPickerMode = new URLSearchParams(window.location.search).get('mode') === 'picker';
+
+  if (isPickerMode) {
+    document.body.classList.add('picker-mode');
+  }
+
+  function confirmPick() {
+    const lat = document.getElementById('lat').value;
+    const lng = document.getElementById('lng').value;
+    if (!lat || !lng) return;
+    if (window.opener) {
+      window.opener.postMessage({
+        type: 'LOCATION_SELECTED',
+        lat: parseFloat(lat),
+        lng: parseFloat(lng),
+      }, '*');
+    }
+    window.close();
+  }
 
   function initMap() {
     map = new google.maps.Map(document.getElementById("map"), {
@@ -561,8 +598,11 @@
       document.getElementById("latDisplay").textContent = lat.toFixed(6);
       document.getElementById("lngDisplay").textContent = lng.toFixed(6);
       document.getElementById("analyzeBtn").disabled = false;
+      document.getElementById("confirmPickBtn").disabled = false;
       document.getElementById("hintDot").classList.add("active");
-      document.getElementById("hintText").textContent = "✅ تم تحديد الموقع — اضغط تحليل";
+      document.getElementById("hintText").textContent = isPickerMode
+        ? "✅ تم تحديد الموقع — اضغط استخدم هذا الموقع"
+        : "✅ تم تحديد الموقع — اضغط تحليل";
     });
   }
 

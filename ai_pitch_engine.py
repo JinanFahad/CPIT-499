@@ -1,4 +1,8 @@
-# ai_pitch_engine.py
+# =====================================================================
+# ai_pitch_engine.py — محرك توليد العرض التقديمي (Pitch Deck) بالـ AI
+# يأخذ دراسة الجدوى ويولّد عرض احترافي للمستثمرين بصيغة JSON منظمة
+# المحتوى بالإنجليزي (الـ pitch decks للمستثمرين عادة بالإنجليزي)
+# =====================================================================
 
 from openai import OpenAI
 import json
@@ -6,10 +10,16 @@ from pitch_schema import PITCH_SCHEMA
 
 client = OpenAI()
 
+
 def generate_pitch_deck_json(feasibility_report: dict, extra: dict | None = None):
+    """
+    يولّد ٨ شرائح عرض تقديمي:
+    Cover, Problem, Solution, Concept, Market, Financials, Competitive Advantage, Investment Ask
+    extra = بيانات إضافية (اسم المشروع، رأس المال، إلخ) لو ما كانت في feasibility_report
+    """
     extra = extra or {}
 
-    # بيانات المشروع
+    # ── استخراج بيانات المشروع (نحاول من report، ولو ناقص نأخذ من extra) ──
     project_name      = feasibility_report.get("project_name")      or extra.get("project_name")      or ""
     idea_description  = feasibility_report.get("idea_description")  or extra.get("idea_description")  or ""
     restaurant_type   = feasibility_report.get("restaurant_type")   or extra.get("restaurant_type")   or ""
@@ -18,13 +28,13 @@ def generate_pitch_deck_json(feasibility_report: dict, extra: dict | None = None
     main_products     = feasibility_report.get("main_products")     or extra.get("main_products")     or []
     business_type     = feasibility_report.get("business_type")     or extra.get("business_type")     or "restaurant"
 
-    # بيانات تشغيلية
+    # ── بيانات تشغيلية (للشرائح العملية) ──
     capital           = feasibility_report.get("capital")           or extra.get("capital")           or ""
     avg_price         = feasibility_report.get("avg_price")         or extra.get("avg_price")         or ""
     customers_per_day = feasibility_report.get("customers_per_day") or extra.get("customers_per_day") or ""
     employees         = feasibility_report.get("employees")         or extra.get("employees")         or ""
 
-    # بيانات مالية محسوبة
+    # ── المؤشرات المالية (تظهر في شريحة Financial Highlights) ──
     year_1_revenue = feasibility_report.get("year_1_revenue") or ""
     year_2_revenue = feasibility_report.get("year_2_revenue") or ""
     year_3_revenue = feasibility_report.get("year_3_revenue") or ""
@@ -112,6 +122,7 @@ Slide Structure (mandatory order):
    - Each number must have a label and a real SAR value, not "Portion of X"
 """
 
+    # نرسل البرومبت للـ AI ونلزمه بالـ schema (8 شرائح بالضبط)
     response = client.responses.create(
         model="gpt-5.2",
         input=prompt,

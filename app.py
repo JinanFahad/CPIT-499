@@ -1,3 +1,12 @@
+# =====================================================================
+# app.py — السيرفر الرئيسي لمنصة "مُقدِّم"
+# هذا الملف يربط كل أجزاء النظام:
+#   - يستقبل الطلبات من الفرونت اند (React)
+#   - ينادي محركات الذكاء الاصطناعي والحسابات المالية
+#   - يولّد ملفات PDF و PowerPoint
+#   - يحفظ ويسترجع البيانات من قاعدة البيانات
+# =====================================================================
+
 from flask import Flask, request, jsonify, render_template, make_response, send_file
 import os
 import uuid
@@ -5,43 +14,78 @@ import json
 import requests
 from openai import OpenAI
 
-from pdf_generator import build_feasibility_pdf
-from ai_pitch_engine import generate_pitch_deck_json
-from ppt_builder import build_pptx
-from financial_engine import calculate_financials
-from decision_engine import classify_project
+# ── محركات توليد التقارير والعروض ──
+from pdf_generator import build_feasibility_pdf          # يحوّل التقرير إلى ملف PDF احترافي
+from ai_pitch_engine import generate_pitch_deck_json      # يولّد محتوى العرض التقديمي بالـ AI
+from ppt_builder import build_pptx                        # يحوّل JSON إلى ملف PowerPoint
+
+# ── محركات الحساب والقرار ──
+from financial_engine import calculate_financials         # حسابات الإيراد، المصاريف، هامش الربح
+from decision_engine import classify_project              # يصنّف المشروع: مناسب / متوسط / مخاطرة عالية
+
+# ── محركات الذكاء الاصطناعي ──
 from ai_report_engine import generate_feasibility_report, enrich_project_data
 from market_ai import build_competitor_summary, generate_market_analysis_ar
+from gov_consultant import gov_chat, clear_gov_session, get_gov_suggestions
+
+# ── إعدادات وثوابت ──
 from business_types import BUSINESS_TYPES, get_google_type, get_label_ar, is_valid_type
 from saudi_assumptions import DEFAULT_SALARY
-from database import init_db, save_report, get_all_reports, get_report_by_id, delete_report
-from gov_consultant import gov_chat, clear_gov_session, get_gov_suggestions
+
+# ── قاعدة البيانات (SQLite) ──
+from database import (
+    init_db, save_report, get_all_reports, get_report_by_id, delete_report,
+    save_project, get_projects_by_user, get_project_by_id, update_project, delete_project,
+)
 
 app = Flask(__name__)
 
+# تفعيل CORS عشان الفرونت اند (بورت 5173) يقدر يتواصل مع الباك اند (بورت 5000)
+# expose_headers ضروري عشان المتصفح يسمح للفرونت يقرأ هيدر X-Report-Id
+from flask_cors import CORS
+CORS(app, expose_headers=["X-Report-Id"])
+
+# مفتاح Google API (للخرائط وقوقل بلايسز)
 GOOGLE_API_KEY = "AIzaSyCMVLHJiz-3hOnp-oOPPE2r72fjKwf6xcQ"
+
+# عميل OpenAI (يقرأ المفتاح تلقائياً من متغير البيئة OPENAI_API_KEY)
 client = OpenAI()
 
+# إنشاء جداول قاعدة البيانات لو ما كانت موجودة
 init_db()
 
 
-# -----------------------------
-# Basic
-# -----------------------------
+# =====================================================================
+# نقطة فحص بسيطة — للتأكد إن السيرفر شغّال
+# =====================================================================
 @app.get("/")
 def home():
     return "Muqaddim Backend Running"
 
+
 @app.get("/advisor")
 def advisor_page():
     return render_template("advisor.html")
-# -----------------------------
-# Feasibility PDF
-# -----------------------------
+
+
+# =====================================================================
+# توليد تقرير دراسة الجدوى (PDF)
+# هذا أهم endpoint في النظام — يستقبل بيانات المشروع ويولّد PDF كامل
+# الخطوات:
+#   1) يتحقق من نوع المشروع
+#   2) يستخرج بيانات إضافية بالـ AI (target_customers, value_proposition)
+#   3) يحسب الأرقام المالية
+#   4) يصنّف المشروع (قابل للاستثمار أو لا)
+#   5) إذا فيه إحداثيات → يستدعي قوقل بلايسز للمنافسين الحقيقيين
+#   6) يولّد التقرير الكامل بالـ AI
+#   7) يحفظ التقرير في قاعدة البيانات
+#   8) يحوّل التقرير إلى ملف PDF ويرجعه
+# =====================================================================
 @app.post("/api/feasibility/report-pdf")
 def report_pdf():
     data = request.get_json() or {}
 
+    # ── البيانات الأساسية اللي يدخلها المستخدم ──
     business_type     = data.get("business_type", "restaurant")
     city              = data.get("city", "غير محدد")
     capital           = data.get("capital", 100000)
@@ -52,16 +96,21 @@ def report_pdf():
     lat               = data.get("lat")
     lng               = data.get("lng")
 
+    # التحقق من إن نوع المشروع مدعوم
     if not is_valid_type(business_type):
         return jsonify({
             "error": "نوع المشروع غير مدعوم",
             "supported_types": list(BUSINESS_TYPES.keys())
         }), 400
 
+    # AI يولّد بيانات إضافية تلقائياً (العملاء المستهدفون + عرض القيمة)
     enriched = enrich_project_data(business_type, city)
+
+    # تخصص المطعم (اختياري) — مثل: "كافيه قهوة مختصة"، "مطعم برجر فاخر"
     restaurant_type = (data.get("restaurant_type") or "").strip()
     project_type_for_market = restaurant_type or get_label_ar(business_type)
 
+    # المستخدم يقدر يكتب جمهوره المستهدف بنفسه (يطغى على الـ AI)
     user_target_customers = (data.get("target_customers") or "").strip()
     main_products = data.get("main_products") or []
 
@@ -106,11 +155,13 @@ def report_pdf():
     report = generate_feasibility_report(financials, decision, market_data)
     
 
-    market_analysis   = None
-    competitor_places = []
+    # ── تحليل السوق عبر قوقل بلايسز (اختياري — فقط لو المستخدم حدد موقع) ──
+    market_analysis   = None  # تحليل ذكاء اصطناعي للمنافسين
+    competitor_places = []    # قائمة المطاعم المجاورة الحقيقية
 
     if lat and lng:
         try:
+            # جلب المطاعم المجاورة من قوقل بلايسز في نطاق ١٥٠٠ متر
             places_res = requests.post(
                 "https://places.googleapis.com/v1/places:searchNearby",
                 headers={
@@ -148,6 +199,18 @@ def report_pdf():
         except Exception as e:
             print(f"[market analysis skipped] {e}")
 
+    # ── دمج بيانات قوقل بلايسز الحقيقية مع التقرير قبل الحفظ ──
+    # عشان عارض التقرير الداخلي (داخل التطبيق) يقدر يعرض المنافسين الحقيقيين.
+    # بدون هذا الدمج، التقرير المحفوظ ما يحتوي إلا على تحليل AI نظري بدون أرقام واقعية.
+    if market_analysis:
+        existing_ma = report.get("market_analysis", {}) or {}
+        report["market_analysis"] = {
+            **existing_ma,
+            **market_analysis,
+        }
+    if competitor_places:
+        report["competitor_places"] = competitor_places
+
     report_id = save_report(report)
 
     pdf_bytes = build_feasibility_pdf(
@@ -156,6 +219,7 @@ def report_pdf():
         competitor_places=competitor_places,
     )
 
+    # رجّع الـ PDF كاستجابة + رقم التقرير في الهيدر (الفرونت يربطه بالمشروع)
     resp = make_response(pdf_bytes)
     resp.headers["Content-Type"] = "application/pdf"
     resp.headers["Content-Disposition"] = 'attachment; filename="feasibility_report.pdf"'
@@ -163,16 +227,18 @@ def report_pdf():
     return resp
 
 
-# -----------------------------
-# Reports
-# -----------------------------
+# =====================================================================
+# إدارة دراسات الجدوى المحفوظة (تقارير)
+# =====================================================================
 @app.get("/api/reports")
 def list_reports():
+    """قائمة بكل التقارير (للوحة الإدارة مثلاً)"""
     return jsonify(get_all_reports())
 
 
 @app.get("/api/reports/<int:report_id>")
 def get_report(report_id):
+    """تقرير محدد بالكامل (يستخدمه عارض التقرير الداخلي + المستشار)"""
     report = get_report_by_id(report_id)
     if not report:
         return jsonify({"error": "الدراسة غير موجودة"}), 404
@@ -181,31 +247,35 @@ def get_report(report_id):
 
 @app.delete("/api/reports/<int:report_id>")
 def remove_report(report_id):
+    """حذف تقرير"""
     deleted = delete_report(report_id)
     if not deleted:
         return jsonify({"error": "الدراسة غير موجودة"}), 404
     return jsonify({"ok": True, "deleted_id": report_id})
 
 
-# -----------------------------
-# Advisor
-# -----------------------------
+# =====================================================================
+# المستشار الذكي — شات يجاوب على دراسة جدوى محددة
+# الـ AI يستلم التقرير كامل + سؤال المستخدم + سجل المحادثة، ويجاوب بناءً عليهم
+# =====================================================================
 @app.post("/api/advisor/chat")
 def advisor_chat():
     data      = request.get_json() or {}
-    report_id = data.get("report_id")
-    message   = data.get("message", "").strip()
-    history   = data.get("history", [])
+    report_id = data.get("report_id")          # رقم الدراسة اللي يبغى يسأل عنها
+    message   = data.get("message", "").strip()  # سؤال المستخدم
+    history   = data.get("history", [])          # المحادثات السابقة عشان الـ AI يفهم السياق
 
     if not message:
         return jsonify({"error": "message مطلوب"}), 400
     if not report_id:
         return jsonify({"error": "report_id مطلوب"}), 400
 
+    # نجيب الدراسة من قاعدة البيانات ونرسلها كاملة للـ AI كـ system prompt
     report = get_report_by_id(int(report_id))
     if not report:
         return jsonify({"error": "الدراسة غير موجودة"}), 404
 
+    # برومبت يحدد شخصية المستشار وقواعده
     system_prompt = f"""
 أنت مستشار تجاري متخصص في المشاريع الصغيرة والمتوسطة في السعودية.
 لديك دراسة جدوى كاملة لمشروع صاحبك وتساعده يفهمها ويتخذ قرارات صحيحة.
@@ -222,11 +292,13 @@ def advisor_chat():
 - لا تكرر نفس المعلومات في كل رد
 """
 
+    # نبني سلسلة الرسائل: system prompt + المحادثات السابقة + السؤال الجديد
     messages = [{"role": "system", "content": system_prompt}]
     for h in history:
         messages.append({"role": h["role"], "content": h["content"]})
     messages.append({"role": "user", "content": message})
 
+    # نرسل للـ AI ونطلب رد (نموذج gpt-4o-mini أرخص ومناسب للشات)
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=messages,
@@ -235,6 +307,7 @@ def advisor_chat():
 
     reply = response.choices[0].message.content
 
+    # نرجع الرد + المحادثة الكاملة المحدّثة (الفرونت يحتفظ فيها للسؤال الجاي)
     return jsonify({
         "reply": reply,
         "history": history + [
@@ -244,9 +317,10 @@ def advisor_chat():
     })
 
 
-# -----------------------------
-# Pitch Deck
-# -----------------------------
+# =====================================================================
+# توليد العرض التقديمي (Pitch Deck) كملف PowerPoint
+# نفس فكرة دراسة الجدوى لكن المخرج .pptx بدل .pdf
+# =====================================================================
 @app.post("/api/pitchdeck/generate")
 def pitchdeck_generate():
     try:
@@ -307,6 +381,7 @@ def pitchdeck_generate():
         if "slides" not in deck:
             return jsonify({"error": "Deck JSON missing 'slides'"}), 500
 
+        # نحفظ الملف المولّد في مجلد generated/ باسم عشوائي (UUID) عشان كل مستخدم يحصل ملفه الخاص
         os.makedirs("generated", exist_ok=True)
         filename = f"pitch_{uuid.uuid4().hex}.pptx"
         out_path = os.path.join("generated", filename)
@@ -325,11 +400,12 @@ def pitchdeck_generate():
         return jsonify({"error": str(e)}), 500
 
 
-# -----------------------------
-# Pick Location
-# -----------------------------
+# =====================================================================
+# اختيار الموقع على الخريطة
+# =====================================================================
 @app.post("/api/location/pick")
 def location_pick():
+    """نقطة وسيطة بسيطة للتحقق من الإحداثيات"""
     data = request.get_json(silent=True) or {}
     lat  = data.get("lat")
     lng  = data.get("lng")
@@ -340,12 +416,15 @@ def location_pick():
 
 @app.get("/pick-location")
 def pick_location_page():
+    """يعرض صفحة الخريطة (templates/map.html) — قديمة، الفرونت اند الجديد يستخدم MapPicker"""
     return render_template("map.html")
 
 
-# -----------------------------
-# Analyze
-# -----------------------------
+# =====================================================================
+# تحليل السوق المستقل (بدون حفظ مشروع)
+# يستخدمه فيتشر "تحليل السوق" في الفرونت اند
+# يستدعي قوقل بلايسز + يحلل المنافسين بالذكاء الاصطناعي
+# =====================================================================
 @app.get("/analyze")
 def analyze():
     lat           = request.args.get("lat")
@@ -367,6 +446,7 @@ def analyze():
     except ValueError:
         return jsonify({"error": "lat/lng/radius must be numbers"}), 400
 
+    # نطلب من قوقل بلايسز قائمة المطاعم في النطاق المحدد
     res = requests.post(
         "https://places.googleapis.com/v1/places:searchNearby",
         headers={
@@ -393,6 +473,7 @@ def analyze():
     if "error" in res:
         return jsonify(res), 400
 
+    # نلخص المنافسين (تقييم متوسط، أقوى منافس، إلخ) ثم نمرّرهم للـ AI للتحليل العميق
     places      = res.get("places", [])
     summary     = build_competitor_summary(places)
     restaurant_type = (request.args.get("restaurant_type") or "").strip()
@@ -418,15 +499,20 @@ def analyze():
     })
 
 
-# -----------------------------
-# Government Procedures
-# -----------------------------
+# =====================================================================
+# شات الإجراءات الحكومية
+# AI متخصص في التراخيص والإجراءات للمطاعم/الكافيهات في السعودية
+# يحفظ سياق المحادثة في الذاكرة (session_id يميّز كل مستخدم)
+# =====================================================================
 @app.get("/government")
 def government_page():
+    """صفحة قديمة (الفرونت اند الجديد يستخدم GovernmentProceduresPage)"""
     return render_template("government.html")
+
 
 @app.post("/api/government/chat")
 def government_chat():
+    """يستلم سؤال + session_id ويرد عبر الـ AI المتخصص"""
     data = request.get_json(silent=True) or {}
     session_id = data.get("session_id")
     message = data.get("message", "").strip()
@@ -442,12 +528,16 @@ def government_chat():
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
+
 @app.get("/api/government/suggestions")
 def government_suggestions():
+    """قائمة بالأسئلة المقترحة المعروضة للمستخدم"""
     return jsonify({"suggestions": get_gov_suggestions()})
+
 
 @app.post("/api/government/clear")
 def government_clear():
+    """مسح المحادثة (يستخدم عند تسجيل الخروج مثلاً)"""
     data = request.get_json(silent=True) or {}
     session_id = data.get("session_id")
     if session_id:
@@ -455,6 +545,61 @@ def government_clear():
     return jsonify({"ok": True})
 
 
-# -----------------------------
+
+# =====================================================================
+# إدارة مشاريع المستخدم (CRUD)
+# user_id يجي من Firebase (UID) — كل مستخدم يشوف مشاريعه فقط
+# =====================================================================
+@app.post("/api/projects")
+def create_project():
+    """إنشاء مشروع جديد بعد توليد دراسة الجدوى"""
+    data = request.get_json() or {}
+    user_id = data.get("user_id", "")
+    if not user_id:
+        return jsonify({"error": "user_id مطلوب"}), 400
+    project_id = save_project(data)
+    return jsonify({"id": project_id, "ok": True})
+
+
+@app.get("/api/projects")
+def list_projects():
+    """قائمة مشاريع مستخدم محدد (للـ dashboard وصفحة مشاريعي)"""
+    user_id = request.args.get("user_id", "")
+    if not user_id:
+        return jsonify({"error": "user_id مطلوب"}), 400
+    return jsonify(get_projects_by_user(user_id))
+
+
+@app.get("/api/projects/<int:project_id>")
+def get_project(project_id):
+    """مشروع واحد بالتفصيل (يستخدمه EditProjectPage و ConsultantChatPage)"""
+    project = get_project_by_id(project_id)
+    if not project:
+        return jsonify({"error": "المشروع غير موجود"}), 404
+    return jsonify(project)
+
+
+@app.put("/api/projects/<int:project_id>")
+def edit_project(project_id):
+    """تحديث بيانات مشروع + ربطه بدراسة جديدة بعد إعادة التوليد"""
+    data = request.get_json() or {}
+    updated = update_project(project_id, data)
+    if not updated:
+        return jsonify({"error": "المشروع غير موجود"}), 404
+    return jsonify({"ok": True})
+
+
+@app.delete("/api/projects/<int:project_id>")
+def remove_project_route(project_id):
+    """حذف مشروع"""
+    deleted = delete_project(project_id)
+    if not deleted:
+        return jsonify({"error": "المشروع غير موجود"}), 404
+    return jsonify({"ok": True, "deleted_id": project_id})
+
+
+# =====================================================================
+# نقطة بدء التشغيل (development server فقط، للـ production استخدمي gunicorn)
+# =====================================================================
 if __name__ == "__main__":
     app.run(debug=True)

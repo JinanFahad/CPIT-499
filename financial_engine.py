@@ -1,12 +1,24 @@
+# =====================================================================
+# financial_engine.py — حسابات الجدوى المالية
+# يأخذ بيانات المشروع ويحسب:
+#   - الإيراد الشهري والمصاريف وصافي الربح
+#   - هامش الربح ونقطة التعادل
+#   - فترة الاسترداد
+#   - توقعات الإيرادات لـ 3 سنوات
+# لا يستخدم الذكاء الاصطناعي — كل الحسابات معادلات رياضية بسيطة
+# =====================================================================
+
 from saudi_assumptions import (
-    DEFAULT_COGS,
-    DEFAULT_SALARY,
-    UTILITIES_RATE,
-    OVERHEAD_RATE,
-    MARKETING_RATE
+    DEFAULT_COGS,        # نسبة تكلفة المواد لكل نوع نشاط
+    DEFAULT_SALARY,      # متوسط راتب موظف في السعودية
+    UTILITIES_RATE,      # نسبة المرافق من الإيراد
+    OVERHEAD_RATE,       # نسبة التشغيل العام من الإيراد
+    MARKETING_RATE,      # نسبة التسويق من الإيراد
 )
 
 def calculate_financials(data):
+    """يحسب كل المؤشرات المالية للمشروع ويرجع dict جاهز للحفظ"""
+    # ── المدخلات الأساسية ──
     business_type = data.get("business_type", "restaurant")
     capital = float(data["capital"])
     rent = float(data.get("rent") or 0)
@@ -16,23 +28,28 @@ def calculate_financials(data):
 
     avg_salary = float(data.get("avg_salary") or DEFAULT_SALARY)
 
-    # COGS
+    # ── نسبة تكلفة المواد (COGS) ──
+    # لو المستخدم يعرف النسبة الفعلية، نستخدمها. وإلا، نأخذ النسبة الافتراضية حسب نوع النشاط
     if data.get("cogs_known") and data.get("cogs_percent"):
         cogs_rate = float(data["cogs_percent"]) / 100
     else:
         cogs_rate = DEFAULT_COGS.get(business_type, 0.40)
 
+    # ── حساب الإيراد ──
+    # نحسب الشهر بـ 28 يوم (احتياطي للإجازات وأيام انخفاض الإقبال)
     daily_revenue = avg_price * customers_per_day
     monthly_revenue = daily_revenue * 28
 
-    utilities = monthly_revenue * UTILITIES_RATE
-    overhead = monthly_revenue * OVERHEAD_RATE
-    marketing = monthly_revenue * MARKETING_RATE
+    # ── حساب التكاليف المتغيرة (نسبة من الإيراد) ──
+    utilities = monthly_revenue * UTILITIES_RATE   # كهرباء، ماء، إنترنت
+    overhead = monthly_revenue * OVERHEAD_RATE     # صيانة، أدوات، مصاريف عامة
+    marketing = monthly_revenue * MARKETING_RATE   # إعلانات وتسويق
 
+    # ── حساب التكاليف الثابتة والإجمالية ──
     salaries = employees * avg_salary
     cogs = monthly_revenue * cogs_rate
 
-    fixed_costs = rent + salaries
+    fixed_costs = rent + salaries  # تكاليف ثابتة لا تتأثر بحجم المبيعات
     monthly_expenses = (
         rent +
         salaries +
@@ -42,9 +59,11 @@ def calculate_financials(data):
         marketing
     )
 
+    # ── المؤشرات النهائية ──
     net_profit = monthly_revenue - monthly_expenses
     profit_margin = (net_profit / monthly_revenue) if monthly_revenue > 0 else 0
 
+    # نقطة التعادل: الإيراد المطلوب لتغطية التكاليف الثابتة (بعد طرح المتغيرة)
     variable_cost_rate = (
         cogs_rate +
         UTILITIES_RATE +
@@ -57,8 +76,10 @@ def calculate_financials(data):
         if variable_cost_rate < 1 else 0
     )
 
+    # فترة الاسترداد: كم شهر نحتاج عشان نسترد رأس المال (None لو الربح سلبي)
     payback_months = capital / net_profit if net_profit > 0 else None
 
+    # توقعات ٣ سنوات (نمو 10% سنوياً)
     year_1_revenue = monthly_revenue * 12
     year_2_revenue = year_1_revenue * 1.10
     year_3_revenue = year_2_revenue * 1.10

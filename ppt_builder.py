@@ -1,4 +1,9 @@
-# ppt_builder.py
+# =====================================================================
+# ppt_builder.py — يبني ملف PowerPoint من JSON (نتيجة ai_pitch_engine)
+# الفكرة: نستخدم قالب جاهز فيه placeholders زي {{S2_TITLE}} و {{REV_Y1}}
+# ثم نستبدل كل placeholder بالقيمة المناسبة من JSON
+# هذي الطريقة تحافظ على التصميم الاحترافي للقالب
+# =====================================================================
 
 import os
 from pptx import Presentation
@@ -7,6 +12,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def _replace_in_shape(shape, mapping: dict):
+    """يستبدل النصوص داخل run واحد (للحالات البسيطة)"""
     if not shape.has_text_frame:
         return
     for paragraph in shape.text_frame.paragraphs:
@@ -17,6 +23,7 @@ def _replace_in_shape(shape, mapping: dict):
 
 
 def _fmt(val):
+    """تنسيق الأرقام: 50000 → '50,000 SAR' (للقيم المالية)"""
     try:
         return f"{int(float(str(val).replace(',', ''))):,} SAR"
     except:
@@ -24,6 +31,7 @@ def _fmt(val):
 
 
 def _build_mapping_from_deck(deck: dict) -> dict:
+    """يبني قاموس استبدال {placeholder: value} من JSON الـ deck"""
     slides = deck.get("slides", []) or []
     mapping = {}
 
@@ -82,6 +90,11 @@ def _build_mapping_from_deck(deck: dict) -> dict:
 
 
 def _replace_full_paragraph(shape, mapping):
+    """
+    يدمج كل runs الفقرة الواحدة قبل الاستبدال.
+    ضروري لأن PowerPoint أحياناً يقسم {{PLACEHOLDER}} على عدة runs،
+    فلو استبدلنا كل run منفصل ما يلقى المتغير كاملاً.
+    """
     if not shape.has_text_frame:
         return
     for paragraph in shape.text_frame.paragraphs:
@@ -96,12 +109,20 @@ def _replace_full_paragraph(shape, mapping):
 
 
 def build_pptx(deck: dict, out_path: str, template_path: str = None):
+    """
+    يأخذ JSON من ai_pitch_engine ويبني ملف .pptx
+    deck: {deck_title, tagline, slides: [...]}
+    out_path: مسار الملف النهائي
+    template_path: قالب PowerPoint الجاهز (default: templates/pitch_template.pptx)
+    """
     if template_path is None:
         template_path = os.path.join(BASE_DIR, "templates", "pitch_template.pptx")
 
+    # نفتح القالب ونبني خريطة الاستبدالات
     prs = Presentation(template_path)
     mapping = _build_mapping_from_deck(deck)
 
+    # نمر على كل شريحة وكل عنصر فيها ونستبدل النصوص
     for slide in prs.slides:
         for shape in slide.shapes:
             _replace_in_shape(shape, mapping)

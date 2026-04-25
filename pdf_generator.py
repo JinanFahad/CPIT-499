@@ -438,10 +438,11 @@
 #         browser.close()
 
 #     return pdf_bytes
-"""
-pdf_generator.py — نسخة محسّنة
-يستخدم Jinja2 + Playwright لإنتاج PDF احترافي من template HTML خارجي.
-"""
+# =====================================================================
+# pdf_generator.py — يحوّل تقرير دراسة الجدوى إلى ملف PDF احترافي
+# الفكرة: نأخذ template HTML (templates/report_template.html)،
+# نملأه بالبيانات عبر Jinja2، ثم نحوّله لـ PDF باستخدام Playwright (متصفح بدون شاشة)
+# =====================================================================
 
 import os
 from pathlib import Path
@@ -459,32 +460,49 @@ def build_feasibility_pdf(
     competitor_places: list = None,
 ) -> bytes:
     """
-    يُولّد PDF احترافي من التقرير باستخدام Jinja2 + Playwright.
+    يأخذ التقرير + (اختيارياً) تحليل السوق والمنافسين، ويرجع PDF كـ bytes.
+
+    report: ناتج generate_feasibility_report (دراسة الجدوى الكاملة)
+    market_analysis: ناتج generate_market_analysis_ar (لو فيه إحداثيات)
+    competitor_places: قائمة المطاعم من قوقل بلايسز
     """
-    # تحميل template من نفس مجلد الملف
+    # تجهيز Jinja2 لتحميل القالب
     template_dir = Path(__file__).parent / "templates"
     env = Environment(
         loader=FileSystemLoader(str(template_dir)),
-        autoescape=False,          # HTML template
+        autoescape=False,          # القالب HTML نثق فيه
     )
 
-        # دعم فلتر format للأرقام
+    # فلتر إضافي يدعم تنسيق الأرقام داخل القالب (مثلاً: {{ value | format("," ) }})
     env.filters["format"] = lambda val, fmt: format(val, fmt)
 
     template = env.get_template("report_template.html")
 
-    logo_path = Path(__file__).parent / "assets" / "logo.png"
-    logo_b64 = base64.b64encode(
-        logo_path.read_bytes()
-    ).decode("utf-8")
+    # تحميل الشعارات من مجلد assets/ كـ base64 عشان نضمنها داخل HTML
+    # logo.png = الشعار الملوّن (للغلاف، يُقلب أبيض عبر CSS)
+    # logo-dark.png = الشعار الداكن (لرؤوس الأقسام بدون فلتر)
+    assets_dir = Path(__file__).parent / "assets"
 
+    try:
+        logo_b64 = base64.b64encode((assets_dir / "logo.png").read_bytes()).decode("utf-8")
+    except FileNotFoundError:
+        logo_b64 = ""  # لو الملف ناقص، نشتغل بدون شعار بدل الفشل
+
+    try:
+        logo_dark_b64 = base64.b64encode((assets_dir / "logo-dark.png").read_bytes()).decode("utf-8")
+    except FileNotFoundError:
+        logo_dark_b64 = logo_b64  # نرجع للشعار العادي كاحتياط
+
+    # تركيب القالب مع البيانات → HTML نهائي
     html = template.render(
-    report=report,
-    market_analysis=market_analysis,
-    competitor_places=competitor_places,
-    logo_b64=logo_b64
-)
-    # توليد PDF عبر Playwright
+        report=report,
+        market_analysis=market_analysis,
+        competitor_places=competitor_places,
+        logo_b64=logo_b64,
+        logo_dark_b64=logo_dark_b64,
+    )
+
+    # نطلق متصفح خفي (Playwright) ونطلب منه يحوّل الـ HTML إلى PDF
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page()

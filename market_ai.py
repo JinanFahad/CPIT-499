@@ -1,3 +1,12 @@
+# =====================================================================
+# market_ai.py — تحليل المنافسين بالذكاء الاصطناعي
+# يأخذ بيانات المطاعم من قوقل بلايسز ويحلّلها لإنتاج:
+#   - تصنيف لكل منافس (مباشر / غير مباشر)
+#   - ملخص للمنافسين المباشرين
+#   - تحليل سردي للسوق + توصيات عملية
+#   - درجة فرصة السوق من 1 إلى 10
+# =====================================================================
+
 import json
 from openai import OpenAI
 from market_schema import MARKET_SCHEMA
@@ -6,6 +15,12 @@ client = OpenAI()
 
 
 def build_competitor_summary(places: list[dict]) -> dict:
+    """
+    يأخذ نتائج قوقل بلايسز الخام (places list) ويحوّلها لقالب أبسط:
+    - يلخّص الحقول المهمة فقط (id, name, rating, count, address, types)
+    - يحسب متوسط التقييم
+    - يرتّب أقوى ٧ منافسين (rating × عدد المراجعات)
+    """
     simplified = []
     for p in places:
         simplified.append({
@@ -22,6 +37,8 @@ def build_competitor_summary(places: list[dict]) -> dict:
     ratings = [x["rating"] for x in simplified if isinstance(x.get("rating"), (int, float))]
     avg_rating = round(sum(ratings) / len(ratings), 2) if ratings else None
 
+    # معادلة ترتيب المنافسين: التقييم × 10 + (عدد المراجعات / 50)
+    # نحدّد عدد المراجعات بـ 500 كحد أقصى عشان مطعم واحد بـ 5000 مراجعة ما يطغى على الكل
     def score(x: dict) -> float:
         r = x.get("rating") or 0
         c = x.get("userRatingCount") or 0
@@ -43,6 +60,13 @@ def generate_market_analysis_ar(
     radius_m: float,
     competitor_summary: dict
 ) -> dict:
+    """
+    يأخذ ملخص المنافسين ويرسلهم لـ AI للتحليل الذكي:
+      1) يصنّف كل مطعم: مباشر أم غير مباشر بناءً على نوع المطبخ
+      2) يحسب ملخص المنافسين المباشرين (عدد، متوسط تقييم، أقوى منافس)
+      3) يكتب فقرة تحليلية + نقاط + توصيات عملية
+      4) يحدد مستوى المنافسة (منخفض/متوسط/مرتفع) ودرجة الفرصة (1-10)
+    """
 
     payload = json.dumps(competitor_summary, ensure_ascii=False)
 

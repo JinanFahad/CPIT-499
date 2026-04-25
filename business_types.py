@@ -1,3 +1,10 @@
+# =====================================================================
+# business_types.py — أنواع المشاريع المدعومة
+# يحتوي على mapping بين:
+#   - مفتاح داخلي (نستخدمه في الكود)
+#   - الاسم بالعربي (يظهر للمستخدم)
+#   - نوع قوقل بلايسز (للبحث عن المنافسين)
+# =====================================================================
 
 BUSINESS_TYPES = {
     "pizza_restaurant":       {"label_ar": "مطعم بيتزا",        "google_type": "pizza_restaurant"},
@@ -12,10 +19,13 @@ BUSINESS_TYPES = {
 }
 
 def get_google_type(business_type: str) -> str:
+    """يرجع النوع المستخدم في قوقل بلايسز (للبحث عن المنافسين)"""
     return BUSINESS_TYPES.get(business_type, {}).get("google_type", "restaurant")
 
 def get_label_ar(business_type: str) -> str:
+    """يرجع الاسم بالعربي (للعرض في الـ PDF والـ UI)"""
     return BUSINESS_TYPES.get(business_type, {}).get("label_ar", business_type)
 
 def is_valid_type(business_type: str) -> bool:
+    """تحقق من إن النوع مدعوم (يستخدم للتحقق من المدخلات)"""
     return business_type in BUSINESS_TYPES
