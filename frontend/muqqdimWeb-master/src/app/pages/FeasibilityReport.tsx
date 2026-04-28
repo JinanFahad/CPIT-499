@@ -538,6 +538,40 @@ export default function FeasibilityReport() {
             </motion.div>
           )}
 
+          {/* Unviable Project Warning Banner */}
+          {(fs.profit_margin_percent <= 0 || !fs.payback_period_months) && (
+            <motion.div
+              className="bg-red-50 border-2 border-red-300 rounded-2xl p-5 shadow-sm"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h3 className="text-red-900 font-bold text-lg mb-2 font-[Changa]">
+                    {isAr ? "المشروع غير مجدي بهذي الأرقام" : "Project Not Viable With These Numbers"}
+                  </h3>
+                  <p className="text-red-800 text-sm leading-relaxed mb-3 font-[Changa]">
+                    {isAr
+                      ? `المصاريف الشهرية أعلى من الإيرادات، فالمشروع يخسر ${Math.abs(fs.monthly_net_profit).toLocaleString()} ر.س شهرياً. ما يمكن حساب فترة استرداد لأنه ما فيه ربح يغطي رأس المال.`
+                      : `Monthly expenses exceed revenue — the project loses ${Math.abs(fs.monthly_net_profit).toLocaleString()} SAR/month. Payback can't be calculated because there's no profit to recover the capital.`}
+                  </p>
+                  <div className="bg-white/70 rounded-lg p-3 border border-red-200">
+                    <p className="text-red-900 text-xs font-bold mb-2 font-[Changa]">
+                      {isAr ? "💡 جربي تعديل المدخلات:" : "💡 Try adjusting these inputs:"}
+                    </p>
+                    <ul className="text-red-800 text-xs space-y-1 font-[Changa]">
+                      <li>{isAr ? "• قللي عدد الموظفين (الرواتب أكبر بند مصروف)" : "• Reduce employee count (salaries are the biggest expense)"}</li>
+                      <li>{isAr ? "• زيدي عدد العملاء المتوقعين يومياً" : "• Increase expected daily customers"}</li>
+                      <li>{isAr ? "• ارفعي متوسط سعر المنتج لو واقعي" : "• Increase average product price if realistic"}</li>
+                      <li>{isAr ? "• خفضي الإيجار (ابحثي عن موقع أرخص)" : "• Lower rent (find a cheaper location)"}</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
           {/* Key Metrics */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <KpiCard
@@ -551,7 +585,7 @@ export default function FeasibilityReport() {
               icon={TrendingUp}
               label={isAr ? "هامش الربح (مستقر)" : "Profit Margin (steady)"}
               value={`${fs.profit_margin_percent}%`}
-              color="#C6A75E"
+              color={fs.profit_margin_percent <= 0 ? "#dc2626" : "#C6A75E"}
               hint={isAr ? "نسبة صافي الربح من الإيراد. القاعدة: 10% متوسط، 20%+ ممتاز." : "Net profit as % of revenue. 10% is moderate, 20%+ is excellent."}
             />
             <KpiCard
@@ -560,10 +594,14 @@ export default function FeasibilityReport() {
               value={
                 fs.payback_period_months
                   ? `${fs.payback_period_months.toFixed(1)} ${isAr ? "شهر" : "mo"}`
-                  : "—"
+                  : (isAr ? "غير ممكن" : "Not possible")
               }
-              color="#3b82f6"
-              hint={isAr ? "كم شهر تحتاجين لاسترداد رأس المال (مع احتساب خسائر الأشهر الأولى)." : "Months needed to recoup capital (accounting for early-month losses)."}
+              color={fs.payback_period_months ? "#3b82f6" : "#dc2626"}
+              hint={
+                fs.payback_period_months
+                  ? (isAr ? "كم شهر تحتاجين لاسترداد رأس المال (مع احتساب خسائر الأشهر الأولى)." : "Months needed to recoup capital (accounting for early-month losses).")
+                  : (isAr ? "ما يمكن حسابها لأن المشروع خاسر — لازم يكون فيه ربح صافي شهري حتى نقدر نحسب." : "Can't be calculated — the project is losing money, so there's no profit to recoup capital.")
+              }
             />
             <KpiCard
               icon={Target}

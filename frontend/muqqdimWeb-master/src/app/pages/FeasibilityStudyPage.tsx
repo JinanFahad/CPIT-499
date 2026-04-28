@@ -23,7 +23,8 @@ const BACKEND_URL = "http://localhost:5000";
 
 // خريطة تحويل أسماء الواجهة الإنجليزية إلى المفاتيح اللي يفهمها الباك اند
 // مثال: "Burger Restaurant" → "fast_food_restaurant"
-const businessTypeMap: Record<string, string> = {
+// مُصدَّرة عشان EditProjectPage و MarketAnalysisPage يستخدمونها بدون تكرار
+export const businessTypeMap: Record<string, string> = {
   "Burger Restaurant": "fast_food_restaurant",
   "Shawarma Restaurant": "shawarma_restaurant",
   "Seafood Restaurant": "seafood_restaurant",

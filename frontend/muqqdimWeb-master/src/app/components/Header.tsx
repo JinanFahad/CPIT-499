@@ -66,89 +66,98 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 border-b border-gray-200 dark:border-white/10 shadow-sm backdrop-blur-md bg-white/95 dark:bg-[#072520]/90">
-      <div className="max-w-7xl mx-auto px-6 py-4">
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", direction: "ltr" }}>
+    <header className="sticky top-0 z-50 bg-white dark:bg-[#072520]">
+      {/* شريط علوي حكومي رفيع — أخضر داكن (يشبه شارات وزارات السعودية) */}
+      <div className="h-1.5 w-full" style={{ background: "linear-gradient(90deg, #08312D 0%, #0E4A43 50%, #08312D 100%)" }} />
 
-          {/* اليسار — المستخدم + أزرار */}
-          <div className="relative flex items-center gap-3">
-            <button
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="flex items-center gap-2 bg-gray-50 dark:bg-gray-100 rounded-lg px-4 py-2 border border-gray-300 dark:border-gray-400 hover:bg-gray-100 dark:hover:bg-gray-200 transition-all"
-            >
-              <div className="w-8 h-8 rounded-lg bg-[#08312D] dark:bg-primary-600 flex items-center justify-center">
-                <User className="w-4 h-4 text-white" />
-              </div>
-              <span className="text-[#08312D] dark:text-gray-900 text-sm font-medium font-[Changa]">
-                {userName}
-              </span>
-              <ChevronDown className={`w-4 h-4 text-gray-600 dark:text-gray-700 transition-transform ${isDropdownOpen ? "rotate-180" : ""}`} />
-            </button>
+      {/* الشريط الرئيسي */}
+      <div className="border-b border-gray-200 dark:border-white/10 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="max-w-7xl mx-auto px-6 py-3">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", direction: "ltr" }}>
 
-            {isDropdownOpen && (
-              <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-gray-200 rounded-lg shadow-lg border border-gray-200 dark:border-gray-300 overflow-hidden z-50">
-                <Link
-                  to="/dashboard/profile"
-                  className="flex items-center gap-3 px-4 py-3 text-[#08312D] dark:text-gray-900 hover:bg-gray-50 dark:hover:bg-gray-300 transition-all text-sm font-[Changa]"
-                  onClick={() => setIsDropdownOpen(false)}
-                >
-                  <User className="w-4 h-4" />
-                  <span>{t("header.profile")}</span>
-                </Link>
-                <Link
-                  to="/dashboard/my-projects"
-                  className="flex items-center gap-3 px-4 py-3 text-[#08312D] dark:text-gray-900 hover:bg-gray-50 dark:hover:bg-gray-300 transition-all text-sm font-[Changa]"
-                  onClick={() => setIsDropdownOpen(false)}
-                >
-                  <FolderOpen className="w-4 h-4" />
-                  <span>{t("header.myProjects")}</span>
-                </Link>
+            {/* اليسار — المستخدم + أزرار */}
+            <div className="relative flex items-center gap-2">
+              <button
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="flex items-center gap-2 bg-white dark:bg-gray-100 rounded-md px-3 py-1.5 border border-gray-300 dark:border-gray-400 hover:border-[#08312D] hover:bg-gray-50 transition-colors"
+              >
+                <div className="w-7 h-7 rounded-md bg-[#08312D] dark:bg-primary-600 flex items-center justify-center">
+                  <User className="w-4 h-4 text-white" />
+                </div>
+                <span className="text-[#08312D] dark:text-gray-900 text-sm font-semibold">
+                  {userName}
+                </span>
+                <ChevronDown className={`w-4 h-4 text-gray-600 dark:text-gray-700 transition-transform ${isDropdownOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {isDropdownOpen && (
+                <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-gray-200 rounded-md shadow-md border border-gray-200 dark:border-gray-300 overflow-hidden z-50">
+                  <Link
+                    to="/dashboard/profile"
+                    className="flex items-center gap-3 px-4 py-3 text-[#08312D] dark:text-gray-900 hover:bg-gray-50 dark:hover:bg-gray-300 transition-colors text-sm border-b border-gray-100"
+                    onClick={() => setIsDropdownOpen(false)}
+                  >
+                    <User className="w-4 h-4" />
+                    <span>{t("header.profile")}</span>
+                  </Link>
+                  <Link
+                    to="/dashboard/my-projects"
+                    className="flex items-center gap-3 px-4 py-3 text-[#08312D] dark:text-gray-900 hover:bg-gray-50 dark:hover:bg-gray-300 transition-colors text-sm border-b border-gray-100"
+                    onClick={() => setIsDropdownOpen(false)}
+                  >
+                    <FolderOpen className="w-4 h-4" />
+                    <span>{t("header.myProjects")}</span>
+                  </Link>
+                  <button
+                    onClick={() => { setIsDropdownOpen(false); handleLogout(); }}
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-red-50 transition-colors w-full text-left text-sm"
+                  >
+                    <LogOut className="w-4 h-4 text-red-600" />
+                    <span className="text-red-600 font-semibold">{t("header.logout")}</span>
+                  </button>
+                </div>
+              )}
+
+              <div className="w-px h-6 bg-gray-200 dark:bg-white/10 mx-1" />
+              <ThemeToggle />
+              <LanguageToggle />
+            </div>
+
+            {/* اليمين — ناف + لوقو */}
+            <div style={{ display: "flex", alignItems: "center", gap: "28px" }}>
+              <div className="hidden md:flex items-center gap-7">
                 <button
-                  onClick={() => { setIsDropdownOpen(false); handleLogout(); }}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-300 transition-all w-full text-left text-sm font-[Changa]"
+                  onClick={() => handleNavClick("services")}
+                  className="text-[#08312D] dark:text-gray-900 hover:text-[#C6A75E] dark:hover:text-secondary-600 transition-colors text-sm font-semibold"
                 >
-                  <LogOut className="w-4 h-4 text-red-600" />
-                  <span className="text-red-600">{t("header.logout")}</span>
+                  {t("header.services")}
+                </button>
+                <button
+                  onClick={() => handleNavClick("about")}
+                  className="text-[#08312D] dark:text-gray-900 hover:text-[#C6A75E] dark:hover:text-secondary-600 transition-colors text-sm font-semibold"
+                >
+                  {t("header.about")}
+                </button>
+                <button
+                  onClick={() => handleNavClick("home")}
+                  className="text-[#08312D] dark:text-gray-900 hover:text-[#C6A75E] dark:hover:text-secondary-600 transition-colors text-sm font-semibold"
+                >
+                  {t("header.home")}
                 </button>
               </div>
-            )}
 
-            <ThemeToggle />
-            <LanguageToggle />
-          </div>
+              <div className="hidden md:block w-px h-9 bg-gray-200 dark:bg-white/10" />
 
-          {/* اليمين — ناف + لوقو */}
-          <div style={{ display: "flex", alignItems: "center", gap: "32px" }}>
-            <div className="hidden md:flex items-center gap-8">
-              <button
-                onClick={() => handleNavClick("services")}
-                className="text-[#08312D] dark:text-gray-900 hover:text-[#C6A75E] dark:hover:text-secondary-600 transition-colors text-base font-medium font-[Changa]"
-              >
-                {t("header.services")}
-              </button>
-              <button
-                onClick={() => handleNavClick("about")}
-                className="text-[#08312D] dark:text-gray-900 hover:text-[#C6A75E] dark:hover:text-secondary-600 transition-colors text-base font-medium font-[Changa]"
-              >
-                {t("header.about")}
-              </button>
-              <Link
-                to="/dashboard"
-                className="text-[#08312D] dark:text-gray-900 hover:text-[#C6A75E] dark:hover:text-secondary-600 transition-colors text-base font-medium font-[Changa]"
-              >
-                {t("header.home")}
+              <Link to="/dashboard" className="flex items-center">
+                <img
+                  src={theme === "light" ? logoDark : logoImage}
+                  alt="مُقدِّم"
+                  className="h-14 w-auto"
+                />
               </Link>
             </div>
 
-            <Link to="/dashboard" className="flex items-center pl-6">
-              <img
-                src={theme === "light" ? logoDark : logoImage}
-                alt="MOQDDIM"
-                className="h-16 w-auto drop-shadow-2xl"
-              />
-            </Link>
           </div>
-
         </div>
       </div>
     </header>

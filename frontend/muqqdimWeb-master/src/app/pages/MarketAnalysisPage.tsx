@@ -22,26 +22,9 @@ import { motion } from "motion/react";
 import { Header } from "../components/Header";
 import { useLanguage } from "../contexts/LanguageContext";
 import { MapPicker } from "../components/MapPicker";
-import { businessTypes, cities, cityMap } from "./FeasibilityStudyPage";
+import { businessTypes, cities, cityMap, businessTypeMap } from "./FeasibilityStudyPage";
 
 const BACKEND_URL = "http://localhost:5000";
-
-const businessTypeMap: Record<string, string> = {
-  "Burger Restaurant": "fast_food_restaurant",
-  "Shawarma Restaurant": "shawarma_restaurant",
-  "Seafood Restaurant": "seafood_restaurant",
-  "Grill Restaurant": "restaurant",
-  "Italian / Pizza Restaurant": "pizza_restaurant",
-  "Asian Restaurant": "restaurant",
-  "Fast Food Restaurant": "fast_food_restaurant",
-  "Specialty Coffee Cafe": "cafe",
-  "General Cafe": "cafe",
-  "Dessert Cafe": "cafe",
-  "Buffet Restaurant": "restaurant",
-  "Food Truck": "fast_food_restaurant",
-  "Cloud Kitchen": "restaurant",
-  "Other": "restaurant",
-};
 
 interface ClassifiedCompetitor {
   id: string;

@@ -10,8 +10,8 @@
 
 import { useState, useEffect } from "react";
 import { Link } from "react-router";
-import { Plus, Edit, Trash2, FileText, Download, PresentationIcon, FolderOpen, Loader2, Eye, Mail } from "lucide-react";
-import { motion } from "motion/react";
+import { Plus, Edit, Trash2, FileText, Download, PresentationIcon, FolderOpen, Loader2, Eye, Mail, CheckCircle2, AlertCircle } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 import { Header } from "../components/Header";
 import { useLanguage } from "../contexts/LanguageContext";
 import { auth } from "../firebase";
@@ -25,9 +25,15 @@ export default function MyProjectsPageNew() {
   const [emailingPDF, setEmailingPDF] = useState<number | null>(null);
   const [emailingPitch, setEmailingPitch] = useState<number | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [notice, setNotice] = useState<{ type: "success" | "error"; title: string; message: string } | null>(null);
   const { t, language } = useLanguage();
   const isAr = language === "ar";
   const userName = localStorage.getItem("userName") || (isAr ? "المستخدم" : "User");
+
+  const showSuccess = (title: string, message: string) =>
+    setNotice({ type: "success", title, message });
+  const showError = (title: string, message: string) =>
+    setNotice({ type: "error", title, message });
 
   // عند تحميل الصفحة: نجيب مشاريع المستخدم من الباك اند
   useEffect(() => {
@@ -46,7 +52,10 @@ export default function MyProjectsPageNew() {
       await fetch(`${BACKEND_URL}/api/projects/${projectId}`, { method: "DELETE" });
       setProjects(projects.filter(p => p.id !== projectId));
     } catch {
-      alert(isAr ? "حدث خطأ في الحذف" : "Error deleting project");
+      showError(
+        isAr ? "تعذّر إتمام العملية" : "Operation Failed",
+        isAr ? "نأسف، تعذّر إتمام طلب حذف المشروع. نرجو إعادة المحاولة لاحقاً." : "We were unable to complete the project deletion. Please try again later."
+      );
     }
     setDeleteConfirm(null);
   };
@@ -83,7 +92,10 @@ export default function MyProjectsPageNew() {
       a.click();
       window.URL.revokeObjectURL(url);
     } catch {
-      alert(isAr ? "حدث خطأ في تنزيل الدراسة" : "Error downloading report");
+      showError(
+        isAr ? "تعذّر تحميل دراسة الجدوى" : "Unable to Download Report",
+        isAr ? "نأسف، لم نتمكن من إتمام تحميل دراسة الجدوى. نرجو التحقق من الاتصال وإعادة المحاولة." : "We were unable to download the feasibility report. Please check your connection and try again."
+      );
     } finally {
       setIsGeneratingPDF(null);
     }
@@ -120,7 +132,10 @@ export default function MyProjectsPageNew() {
       a.click();
       window.URL.revokeObjectURL(url);
     } catch {
-      alert(isAr ? "حدث خطأ في تنزيل العرض التقديمي" : "Error downloading pitch deck");
+      showError(
+        isAr ? "تعذّر تحميل العرض الاستثماري" : "Unable to Download Pitch Deck",
+        isAr ? "نأسف، لم نتمكن من إتمام تحميل العرض الاستثماري. نرجو إعادة المحاولة لاحقاً." : "We were unable to download the pitch deck. Please try again later."
+      );
     } finally {
       setIsGeneratingPitch(null);
     }
@@ -130,11 +145,17 @@ export default function MyProjectsPageNew() {
   const handleEmailPDF = async (project: any) => {
     const userEmail = auth.currentUser?.email;
     if (!userEmail) {
-      alert(isAr ? "لازم تسجّلي الدخول أولاً" : "Please log in first");
+      showError(
+        isAr ? "يلزم تسجيل الدخول" : "Authentication Required",
+        isAr ? "يرجى تسجيل الدخول لإتمام إرسال الملف إلى بريدكم الإلكتروني." : "Please sign in to send the document to your email address."
+      );
       return;
     }
     if (!project.report_id) {
-      alert(isAr ? "لا توجد دراسة مرتبطة. أنشئيها أولاً." : "No report linked. Generate it first.");
+      showError(
+        isAr ? "لا توجد دراسة جدوى مرتبطة" : "No Associated Report",
+        isAr ? "هذا المشروع لا يحتوي على دراسة جدوى. يرجى إعادة إنشاء الدراسة عبر تعديل المشروع." : "This project has no associated feasibility report. Please regenerate it by editing the project."
+      );
       return;
     }
     setEmailingPDF(project.id);
@@ -150,9 +171,19 @@ export default function MyProjectsPageNew() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Failed");
-      alert(isAr ? `تم الإرسال إلى ${userEmail} ✓` : `Sent to ${userEmail} ✓`);
+      showSuccess(
+        isAr ? "تم إرسال دراسة الجدوى بنجاح" : "Feasibility Report Sent Successfully",
+        isAr
+          ? `تم تسليم دراسة الجدوى الخاصة بمشروعكم إلى بريدكم الإلكتروني ${userEmail}. نشكركم لاستخدامكم منصة مُقدِّم.`
+          : `Your project's feasibility report has been delivered to ${userEmail}. Thank you for using Muqaddim.`
+      );
     } catch (err: any) {
-      alert(isAr ? `فشل الإرسال: ${err.message}` : `Send failed: ${err.message}`);
+      showError(
+        isAr ? "تعذّر إرسال البريد الإلكتروني" : "Email Delivery Failed",
+        isAr
+          ? `نأسف، تعذّر إتمام إرسال البريد الإلكتروني. السبب: ${err.message}`
+          : `We were unable to deliver the email. Reason: ${err.message}`
+      );
     } finally {
       setEmailingPDF(null);
     }
@@ -162,7 +193,10 @@ export default function MyProjectsPageNew() {
   const handleEmailPitch = async (project: any) => {
     const userEmail = auth.currentUser?.email;
     if (!userEmail) {
-      alert(isAr ? "لازم تسجّلي الدخول أولاً" : "Please log in first");
+      showError(
+        isAr ? "يلزم تسجيل الدخول" : "Authentication Required",
+        isAr ? "يرجى تسجيل الدخول لإتمام إرسال الملف إلى بريدكم الإلكتروني." : "Please sign in to send the document to your email address."
+      );
       return;
     }
     setEmailingPitch(project.id);
@@ -187,9 +221,19 @@ export default function MyProjectsPageNew() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Failed");
-      alert(isAr ? `تم الإرسال إلى ${userEmail} ✓` : `Sent to ${userEmail} ✓`);
+      showSuccess(
+        isAr ? "تم إرسال العرض الاستثماري بنجاح" : "Pitch Deck Sent Successfully",
+        isAr
+          ? `تم تسليم العرض الاستثماري الخاص بمشروعكم إلى بريدكم الإلكتروني ${userEmail}. نشكركم لاستخدامكم منصة مُقدِّم.`
+          : `Your project's pitch deck has been delivered to ${userEmail}. Thank you for using Muqaddim.`
+      );
     } catch (err: any) {
-      alert(isAr ? `فشل الإرسال: ${err.message}` : `Send failed: ${err.message}`);
+      showError(
+        isAr ? "تعذّر إرسال البريد الإلكتروني" : "Email Delivery Failed",
+        isAr
+          ? `نأسف، تعذّر إتمام إرسال البريد الإلكتروني. السبب: ${err.message}`
+          : `We were unable to deliver the email. Reason: ${err.message}`
+      );
     } finally {
       setEmailingPitch(null);
     }
@@ -382,6 +426,65 @@ export default function MyProjectsPageNew() {
           </motion.div>
         </motion.div>
       )}
+
+      {/* Notice Modal — للنجاح والفشل */}
+      <AnimatePresence>
+        {notice && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-6"
+            onClick={() => setNotice(null)}
+            dir={isAr ? "rtl" : "ltr"}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              className="bg-white dark:bg-gray-200 rounded-2xl p-8 max-w-md w-full shadow-2xl border border-gray-200 overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* شريط ملوّن في الأعلى */}
+              <div
+                className="absolute inset-x-0 top-0 h-1.5"
+                style={{ background: notice.type === "success" ? "#C6A75E" : "#dc2626" }}
+              />
+              <div className="flex flex-col items-center text-center">
+                <div
+                  className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${
+                    notice.type === "success"
+                      ? "bg-[#FFF9F0] border-2 border-[#C6A75E]"
+                      : "bg-red-50 border-2 border-red-300"
+                  }`}
+                >
+                  {notice.type === "success" ? (
+                    <CheckCircle2 className="w-11 h-11 text-[#C6A75E]" />
+                  ) : (
+                    <AlertCircle className="w-11 h-11 text-red-500" />
+                  )}
+                </div>
+                <h3 className="text-2xl font-bold text-[#08312D] mb-3 font-[Changa]">
+                  {notice.title}
+                </h3>
+                <p className="text-gray-600 text-base leading-relaxed mb-6 font-[Changa]">
+                  {notice.message}
+                </p>
+                <button
+                  onClick={() => setNotice(null)}
+                  className={`w-full font-bold py-4 rounded-xl transition-all font-[Changa] text-white ${
+                    notice.type === "success"
+                      ? "bg-[#08312D] hover:bg-[#0E4A43]"
+                      : "bg-gray-700 hover:bg-gray-800"
+                  }`}
+                >
+                  {isAr ? "تمام" : "OK"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

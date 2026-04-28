@@ -6,8 +6,8 @@
 
 import { useState, useEffect } from "react";
 import { Link } from "react-router";
-import { PresentationIcon, FolderOpen, FileText, Loader2, Mail } from "lucide-react";
-import { motion } from "motion/react";
+import { PresentationIcon, FolderOpen, FileText, Loader2, Mail, CheckCircle2, AlertCircle } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 import { Header } from "../components/Header";
 import { useLanguage } from "../contexts/LanguageContext";
 import { auth } from "../firebase";
@@ -21,6 +21,12 @@ export default function PitchDeckPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingProject, setGeneratingProject] = useState<any>(null);
   const [emailingProject, setEmailingProject] = useState<any>(null);
+  const [notice, setNotice] = useState<{ type: "success" | "error"; title: string; message: string } | null>(null);
+
+  const showSuccess = (title: string, message: string) =>
+    setNotice({ type: "success", title, message });
+  const showError = (title: string, message: string) =>
+    setNotice({ type: "error", title, message });
 
   useEffect(() => {
     const userId = auth.currentUser?.uid || localStorage.getItem("userId") || "";
@@ -64,7 +70,10 @@ export default function PitchDeckPage() {
       a.click();
       window.URL.revokeObjectURL(url);
     } catch {
-      alert(isAr ? "حدث خطأ في تنزيل العرض التقديمي" : "Error downloading pitch deck");
+      showError(
+        isAr ? "تعذّر تحميل العرض الاستثماري" : "Unable to Download Pitch Deck",
+        isAr ? "نأسف، لم نتمكن من إتمام تحميل العرض الاستثماري. نرجو إعادة المحاولة لاحقاً." : "We were unable to download the pitch deck. Please try again later."
+      );
     } finally {
       setIsGenerating(false);
       setGeneratingProject(null);
@@ -74,7 +83,10 @@ export default function PitchDeckPage() {
   const handleEmailPitchDeck = async (project: any) => {
     const userEmail = auth.currentUser?.email;
     if (!userEmail) {
-      alert(isAr ? "لازم تسجّلي الدخول أولاً" : "Please log in first");
+      showError(
+        isAr ? "يلزم تسجيل الدخول" : "Authentication Required",
+        isAr ? "يرجى تسجيل الدخول لإتمام إرسال العرض الاستثماري إلى بريدكم الإلكتروني." : "Please sign in to send the pitch deck to your email address."
+      );
       return;
     }
     setEmailingProject(project);
@@ -99,9 +111,19 @@ export default function PitchDeckPage() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Failed");
-      alert(isAr ? `تم الإرسال إلى ${userEmail} ✓` : `Sent to ${userEmail} ✓`);
+      showSuccess(
+        isAr ? "تم إرسال العرض الاستثماري بنجاح" : "Pitch Deck Sent Successfully",
+        isAr
+          ? `تم تسليم العرض الاستثماري الخاص بمشروعكم إلى بريدكم الإلكتروني ${userEmail}. نشكركم لاستخدامكم منصة مُقدِّم.`
+          : `Your project's pitch deck has been delivered to ${userEmail}. Thank you for using Muqaddim.`
+      );
     } catch (err: any) {
-      alert(isAr ? `فشل الإرسال: ${err.message}` : `Send failed: ${err.message}`);
+      showError(
+        isAr ? "تعذّر إرسال البريد الإلكتروني" : "Email Delivery Failed",
+        isAr
+          ? `نأسف، تعذّر إتمام إرسال البريد الإلكتروني. السبب: ${err.message}`
+          : `We were unable to deliver the email. Reason: ${err.message}`
+      );
     } finally {
       setEmailingProject(null);
     }
@@ -300,6 +322,64 @@ export default function PitchDeckPage() {
           </motion.div>
         </motion.div>
       )}
+
+      {/* Notice Modal — للنجاح والفشل */}
+      <AnimatePresence>
+        {notice && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-6"
+            onClick={() => setNotice(null)}
+            dir={isAr ? "rtl" : "ltr"}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              className="bg-white dark:bg-gray-200 rounded-2xl p-8 max-w-md w-full shadow-2xl border border-gray-200 relative overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div
+                className="absolute inset-x-0 top-0 h-1.5"
+                style={{ background: notice.type === "success" ? "#C6A75E" : "#dc2626" }}
+              />
+              <div className="flex flex-col items-center text-center">
+                <div
+                  className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${
+                    notice.type === "success"
+                      ? "bg-[#FFF9F0] border-2 border-[#C6A75E]"
+                      : "bg-red-50 border-2 border-red-300"
+                  }`}
+                >
+                  {notice.type === "success" ? (
+                    <CheckCircle2 className="w-11 h-11 text-[#C6A75E]" />
+                  ) : (
+                    <AlertCircle className="w-11 h-11 text-red-500" />
+                  )}
+                </div>
+                <h3 className="text-2xl font-bold text-[#08312D] mb-3 font-[Changa]">
+                  {notice.title}
+                </h3>
+                <p className="text-gray-600 text-base leading-relaxed mb-6 font-[Changa]">
+                  {notice.message}
+                </p>
+                <button
+                  onClick={() => setNotice(null)}
+                  className={`w-full font-bold py-4 rounded-xl transition-all font-[Changa] text-white ${
+                    notice.type === "success"
+                      ? "bg-[#08312D] hover:bg-[#0E4A43]"
+                      : "bg-gray-700 hover:bg-gray-800"
+                  }`}
+                >
+                  {isAr ? "تمام" : "OK"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

@@ -16,7 +16,8 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 # نحمّل متغيرات البيئة من .env قبل أي استيراد يحتاجها (OpenAI, SMTP, ...)
-load_dotenv()
+# override=True يضمن إن القيم في .env تطغى على أي قيم قديمة في ذاكرة النظام
+load_dotenv(override=True)
 
 # ── محركات توليد التقارير والعروض ──
 from pdf_generator import build_feasibility_pdf          # يحوّل التقرير إلى ملف PDF احترافي

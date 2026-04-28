@@ -208,14 +208,6 @@ export default function MainDashboard() {
               ? "مُـقــــدِم يوفر لك دراسات جدوى احترافية، مساعد ذكي متخصص، دليل الإجراءات الحكومية، وأدوات إعداد العروض الاستثمارية - كل ما تحتاجه لبدء مشروعك بثقة"
               : "Muqqdim provides professional feasibility studies, a specialized AI assistant, a government procedures guide, and pitch deck tools - everything you need to start your business with confidence."}
           </p>
-
-          <a
-            href="#services"
-            className="inline-flex items-center gap-3 bg-[#08312D] hover:bg-[#0E4A43] rounded-lg px-8 py-4 text-white font-bold shadow-md hover:shadow-lg transition-all duration-300 font-[Changa]"
-          >
-            <span>{isAr ? "استكشف الخدمات" : "Explore Services"}</span>
-            <ArrowLeft className={`w-5 h-5 ${!isAr ? "rotate-180" : ""}`} />
-          </a>
         </motion.div>
       </section>
 
@@ -508,33 +500,75 @@ export default function MainDashboard() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer
-        className="border-t border-[#08312D]/10 dark:border-white/10 py-8 px-6 mt-20 relative z-10"
-        style={{ background: "rgba(8,49,45,0.05)" }}
-      >
-        <div className="max-w-6xl mx-auto text-center">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <img src={logoImage} alt="مُـقــــدِم" className="h-8 w-auto" />
+      {/* Footer — تذييل رسمي بطابع حكومي */}
+      <footer className="mt-20 relative z-10 bg-[#08312D] text-white">
+        {/* الجزء الرئيسي */}
+        <div className="max-w-6xl mx-auto px-6 py-12">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+
+            {/* العمود الأول — العلامة + النبذة */}
+            <div>
+              <img src={logoImage} alt="مُقدِّم" className="h-12 w-auto mb-4 brightness-0 invert" />
+              <p className="text-white/70 text-sm leading-relaxed">
+                {isAr
+                  ? "منصة سعودية متخصصة في توليد دراسات الجدوى الذكية للمشاريع الصغيرة والمتوسطة في قطاع المطاعم والكافيهات."
+                  : "A Saudi platform specialized in generating intelligent feasibility studies for small and medium-sized restaurant and café projects."}
+              </p>
+            </div>
+
+            {/* العمود الثاني — روابط سريعة */}
+            <div>
+              <h4 className="text-[#C6A75E] font-bold text-sm mb-4 tracking-wide uppercase">
+                {isAr ? "روابط سريعة" : "Quick Links"}
+              </h4>
+              <ul className="space-y-2 text-sm">
+                <li><Link to="/dashboard/feasibility-study" className="text-white/80 hover:text-[#C6A75E] transition-colors">{isAr ? "إنشاء دراسة جدوى" : "Create Feasibility Study"}</Link></li>
+                <li><Link to="/dashboard/my-projects" className="text-white/80 hover:text-[#C6A75E] transition-colors">{isAr ? "مشاريعي" : "My Projects"}</Link></li>
+                <li><Link to="/dashboard/consultant" className="text-white/80 hover:text-[#C6A75E] transition-colors">{isAr ? "المستشار الذكي" : "AI Consultant"}</Link></li>
+                <li><Link to="/dashboard/government-procedures" className="text-white/80 hover:text-[#C6A75E] transition-colors">{isAr ? "الإجراءات الحكومية" : "Government Procedures"}</Link></li>
+              </ul>
+            </div>
+
+            {/* العمود الثالث — التواصل */}
+            <div>
+              <h4 className="text-[#C6A75E] font-bold text-sm mb-4 tracking-wide uppercase">
+                {isAr ? "تواصل معنا" : "Contact Us"}
+              </h4>
+              <ul className="space-y-2 text-sm text-white/80">
+                <li>{isAr ? "البريد الإلكتروني:" : "Email:"} <span dir="ltr">info@muqaddim.sa</span></li>
+                <li>{isAr ? "جامعة الملك عبدالعزيز" : "King Abdulaziz University"}</li>
+                <li>{isAr ? "جدة، المملكة العربية السعودية" : "Jeddah, Saudi Arabia"}</li>
+              </ul>
+              <div className="flex items-center gap-3 mt-4">
+                <a
+                  href="https://x.com/muqqdim"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={isAr ? "حسابنا على إكس" : "Our X account"}
+                  className="w-9 h-9 rounded-md bg-white/10 hover:bg-[#C6A75E] flex items-center justify-center transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-white" aria-hidden="true">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                  </svg>
+                </a>
+              </div>
+            </div>
+
           </div>
-          <div className="flex items-center justify-center gap-4 mb-4">
-            <a
-              href="https://x.com/muqqdim"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={isAr ? "حسابنا على إكس" : "Our X account"}
-              className="text-[#08312D] hover:text-[#C6A75E] transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-hidden="true">
-                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-              </svg>
-            </a>
+        </div>
+
+        {/* الجزء السفلي — حقوق النشر */}
+        <div className="border-t border-white/10">
+          <div className="max-w-6xl mx-auto px-6 py-5 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-white/60">
+            <p>
+              {isAr
+                ? "© 2026 منصة مُقدِّم. جميع الحقوق محفوظة."
+                : "© 2026 Muqaddim Platform. All rights reserved."}
+            </p>
+            <p>
+              {isAr ? "مشروع تخرّج | جامعة الملك عبدالعزيز | كلية الحاسبات وتقنية المعلومات" : "Graduation Project | King Abdulaziz University | FCIT"}
+            </p>
           </div>
-          <p className="text-gray-600 text-sm font-[Changa]">
-            {isAr
-              ? "© 2026 مُـقــــدِم. جميع الحقوق محفوظة."
-              : "© 2026 Muqqdim. All rights reserved."}
-          </p>
         </div>
       </footer>
     </div>
