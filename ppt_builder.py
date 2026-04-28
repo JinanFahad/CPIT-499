@@ -25,20 +25,15 @@ def _replace_in_shape(shape, mapping: dict):
 def _fmt(val):
     """تنسيق الأرقام: 50000 → '50,000 SAR' (للقيم المالية)"""
     try:
-        return f"{int(float(str(val).replace(',', ''))):,} SAR"
-    except:
-        return str(val)
+        return f"{int(float(str(val).replace(',', '').replace('SAR', '').strip())):,} SAR"
+    except (ValueError, TypeError):
+        return str(val) if val is not None else ""
 
 
 def _build_mapping_from_deck(deck: dict) -> dict:
     """يبني قاموس استبدال {placeholder: value} من JSON الـ deck"""
     slides = deck.get("slides", []) or []
     mapping = {}
-
-    mapping["Year 1 Revenue"]          = "Year 1 Revenue"
-    mapping["Year 2 Revenue"]          = "Year 2 Revenue"
-    mapping["Year 3 Revenue"]          = "Year 3 Revenue"
-    mapping["Total Investment Needed"] = "Total Investment Needed"
 
     def s(i):
         return slides[i] if i < len(slides) else {}
@@ -78,9 +73,19 @@ def _build_mapping_from_deck(deck: dict) -> dict:
 
     # Slide 8 — Investment Ask
     slide8 = s(7)
-    mapping["{{S9_TITLE}}"]     = slide8.get("title", "")
-    mapping["{{TOTAL_AMOUNT}}"] = slide8.get("subtitle", "")
+    mapping["{{S9_TITLE}}"] = slide8.get("title", "")
+
     nums8 = slide8.get("numbers", [])
+    # نحسب الإجمالي من مجموع البنود لو funding_needed مو متوفر صريحاً
+    total_from_items = 0
+    for item in nums8:
+        try:
+            total_from_items += int(float(str(item.get("value", "0")).replace(",", "").replace("SAR", "").strip()))
+        except (ValueError, TypeError):
+            pass
+    funding = deck.get("funding_needed") or total_from_items
+    mapping["{{TOTAL_AMOUNT}}"] = _fmt(funding) if funding else slide8.get("subtitle", "")
+
     for n in range(3):
         item = nums8[n] if n < len(nums8) else {}
         mapping[f"{{{{B{n+1}_LABEL}}}}"]  = item.get("label", "")
@@ -117,6 +122,10 @@ def build_pptx(deck: dict, out_path: str, template_path: str = None):
     """
     if template_path is None:
         template_path = os.path.join(BASE_DIR, "templates", "pitch_template.pptx")
+
+    slides = deck.get("slides", []) or []
+    if len(slides) != 8:
+        raise ValueError(f"Pitch deck must have exactly 8 slides, got {len(slides)}")
 
     # نفتح القالب ونبني خريطة الاستبدالات
     prs = Presentation(template_path)

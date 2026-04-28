@@ -10,7 +10,7 @@
 
 import { useState, useEffect } from "react";
 import { Link } from "react-router";
-import { Plus, Edit, Trash2, FileText, Download, PresentationIcon, FolderOpen, Loader2, Eye } from "lucide-react";
+import { Plus, Edit, Trash2, FileText, Download, PresentationIcon, FolderOpen, Loader2, Eye, Mail } from "lucide-react";
 import { motion } from "motion/react";
 import { Header } from "../components/Header";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -22,6 +22,8 @@ export default function MyProjectsPageNew() {
   const [projects, setProjects] = useState<any[]>([]);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState<number | null>(null);
   const [isGeneratingPitch, setIsGeneratingPitch] = useState<number | null>(null);
+  const [emailingPDF, setEmailingPDF] = useState<number | null>(null);
+  const [emailingPitch, setEmailingPitch] = useState<number | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const { t, language } = useLanguage();
   const isAr = language === "ar";
@@ -121,6 +123,75 @@ export default function MyProjectsPageNew() {
       alert(isAr ? "حدث خطأ في تنزيل العرض التقديمي" : "Error downloading pitch deck");
     } finally {
       setIsGeneratingPitch(null);
+    }
+  };
+
+  // إرسال دراسة الجدوى على إيميل المستخدم
+  const handleEmailPDF = async (project: any) => {
+    const userEmail = auth.currentUser?.email;
+    if (!userEmail) {
+      alert(isAr ? "لازم تسجّلي الدخول أولاً" : "Please log in first");
+      return;
+    }
+    if (!project.report_id) {
+      alert(isAr ? "لا توجد دراسة مرتبطة. أنشئيها أولاً." : "No report linked. Generate it first.");
+      return;
+    }
+    setEmailingPDF(project.id);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/feasibility/email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          report_id: project.report_id,
+          email: userEmail,
+          project_name: project.project_name,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed");
+      alert(isAr ? `تم الإرسال إلى ${userEmail} ✓` : `Sent to ${userEmail} ✓`);
+    } catch (err: any) {
+      alert(isAr ? `فشل الإرسال: ${err.message}` : `Send failed: ${err.message}`);
+    } finally {
+      setEmailingPDF(null);
+    }
+  };
+
+  // إرسال العرض التقديمي على إيميل المستخدم
+  const handleEmailPitch = async (project: any) => {
+    const userEmail = auth.currentUser?.email;
+    if (!userEmail) {
+      alert(isAr ? "لازم تسجّلي الدخول أولاً" : "Please log in first");
+      return;
+    }
+    setEmailingPitch(project.id);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/pitchdeck/email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: userEmail,
+          project_name: project.project_name,
+          business_type: project.project_type,
+          restaurant_type: project.restaurant_type || "",
+          city: project.city,
+          capital: project.capital,
+          rent: project.rent,
+          employees: project.employees,
+          avg_price: project.avg_price,
+          customers_per_day: project.customers_per_day,
+          target_customers: project.target_customers || "",
+          main_products: project.main_products || [],
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed");
+      alert(isAr ? `تم الإرسال إلى ${userEmail} ✓` : `Sent to ${userEmail} ✓`);
+    } catch (err: any) {
+      alert(isAr ? `فشل الإرسال: ${err.message}` : `Send failed: ${err.message}`);
+    } finally {
+      setEmailingPitch(null);
     }
   };
 
@@ -226,23 +297,43 @@ export default function MyProjectsPageNew() {
                         <span>{isAr ? "عرض الدراسة" : "View Report"}</span>
                       </Link>
 
-                      <button
-                        onClick={() => handleDownloadPDF(project)}
-                        disabled={isGeneratingPDF === project.id}
-                        className="flex items-center justify-center gap-2 bg-gray-50 dark:bg-gray-100 border border-gray-300 hover:bg-gray-100 rounded-lg px-5 py-3 text-[#08312D] transition-all font-semibold shadow-sm font-[Changa] disabled:opacity-50"
-                      >
-                        {isGeneratingPDF === project.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
-                        <span>{t('projects.downloadFeasibility')}</span>
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleDownloadPDF(project)}
+                          disabled={isGeneratingPDF === project.id || emailingPDF === project.id}
+                          className="flex-1 flex items-center justify-center gap-2 bg-gray-50 dark:bg-gray-100 border border-gray-300 hover:bg-gray-100 rounded-lg px-4 py-3 text-[#08312D] transition-all font-semibold shadow-sm font-[Changa] disabled:opacity-50"
+                        >
+                          {isGeneratingPDF === project.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+                          <span>{t('projects.downloadFeasibility')}</span>
+                        </button>
+                        <button
+                          onClick={() => handleEmailPDF(project)}
+                          disabled={emailingPDF === project.id || isGeneratingPDF === project.id}
+                          title={isAr ? "إرسال للإيميل" : "Send to email"}
+                          className="flex items-center justify-center bg-gray-50 dark:bg-gray-100 border border-gray-300 hover:bg-[#08312D] hover:text-white rounded-lg px-4 py-3 text-[#08312D] transition-all shadow-sm disabled:opacity-50"
+                        >
+                          {emailingPDF === project.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Mail className="w-5 h-5" />}
+                        </button>
+                      </div>
 
-                      <button
-                        onClick={() => handleDownloadPitch(project)}
-                        disabled={isGeneratingPitch === project.id}
-                        className="flex items-center justify-center gap-2 bg-[#FFF9F0] border border-[#C6A75E] hover:bg-[#C6A75E] hover:text-white rounded-lg px-5 py-3 text-[#C6A75E] transition-all font-semibold shadow-sm font-[Changa] disabled:opacity-50"
-                      >
-                        {isGeneratingPitch === project.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <PresentationIcon className="w-5 h-5" />}
-                        <span>{t('projects.downloadPitchDeck')}</span>
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleDownloadPitch(project)}
+                          disabled={isGeneratingPitch === project.id || emailingPitch === project.id}
+                          className="flex-1 flex items-center justify-center gap-2 bg-[#FFF9F0] border border-[#C6A75E] hover:bg-[#C6A75E] hover:text-white rounded-lg px-4 py-3 text-[#C6A75E] transition-all font-semibold shadow-sm font-[Changa] disabled:opacity-50"
+                        >
+                          {isGeneratingPitch === project.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <PresentationIcon className="w-5 h-5" />}
+                          <span>{t('projects.downloadPitchDeck')}</span>
+                        </button>
+                        <button
+                          onClick={() => handleEmailPitch(project)}
+                          disabled={emailingPitch === project.id || isGeneratingPitch === project.id}
+                          title={isAr ? "إرسال للإيميل" : "Send to email"}
+                          className="flex items-center justify-center bg-[#FFF9F0] border border-[#C6A75E] hover:bg-[#C6A75E] hover:text-white rounded-lg px-4 py-3 text-[#C6A75E] transition-all shadow-sm disabled:opacity-50"
+                        >
+                          {emailingPitch === project.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Mail className="w-5 h-5" />}
+                        </button>
+                      </div>
 
                       <div className="flex gap-2">
                         <Link

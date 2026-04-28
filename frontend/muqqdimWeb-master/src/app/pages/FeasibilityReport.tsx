@@ -25,20 +25,27 @@ import {
   Lightbulb,
   Trophy,
   Building2,
+  Info,
+  Mail,
 } from "lucide-react";
 import {
   BarChart,
   Bar,
+  LineChart,
+  Line,
   ResponsiveContainer,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   Cell,
+  Legend,
+  ReferenceLine,
 } from "recharts";
 import { motion } from "motion/react";
 import { Header } from "../components/Header";
 import { useLanguage } from "../contexts/LanguageContext";
+import { auth } from "../firebase";
 
 const BACKEND_URL = "http://localhost:5000";
 
@@ -94,6 +101,74 @@ interface Report {
     utilities_cost: number;
     overhead_cost: number;
     marketing_cost: number;
+    // حقول منحنى التدرّج (تُحقن من المحرك المالي بعد توليد الـ AI)
+    month_1_revenue?: number;
+    month_1_net_profit?: number;
+    break_even_month?: number | null;
+    monthly_projection?: Array<{
+      month: number;
+      ramp_percent: number;
+      revenue: number;
+      expenses: number;
+      net_profit: number;
+    }>;
+    year_1_total_revenue?: number;
+    year_1_total_profit?: number;
+    ramp_up_months?: number;
+    salaries_total?: number;
+    cogs_cost?: number;
+    // توقّع 3 سنوات
+    yearly_summary?: Array<{
+      year: number;
+      revenue: number;
+      expenses: number;
+      net_profit: number;
+      cumulative_profit: number;
+      cumulative_roi_pct: number;
+    }>;
+    cumulative_profit_curve?: Array<{
+      month: number;
+      year: number;
+      cumulative_profit: number;
+      remaining_to_recoup: number;
+    }>;
+    total_3_year_profit?: number;
+    roi_3_year_percent?: number;
+    yearly_revenue_growth?: number;
+    yearly_cost_inflation?: number;
+    // توزيع رأس المال + التنبؤ بالنجاح/الفشل
+    capital_allocation?: Array<{
+      key: string;
+      label_ar: string;
+      label_en: string;
+      percent: number;
+      amount: number;
+    }>;
+    operating_cushion?: number;
+    inputs_summary?: {
+      capital: number;
+      rent: number;
+      employees: number;
+      avg_price: number;
+      customers_per_day: number;
+      business_type: string;
+    };
+    success_prediction?: {
+      score: number;
+      max_score: number;
+      score_percent: number;
+      outcome: string;
+      outcome_color: string;
+      outcome_emoji: string;
+      message: string;
+      factors: Array<{
+        name: string;
+        value: string;
+        rating: string;
+        score: number;
+        weight: number;
+      }>;
+    };
     stress_test?: {
       revenue_drop_10pct: number;
       expenses_rise_10pct: number;
@@ -134,6 +209,7 @@ export default function FeasibilityReport() {
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState<TabKey>("financial");
   const [downloading, setDownloading] = useState(false);
+  const [emailing, setEmailing] = useState(false);
 
   // عند فتح الصفحة:
   //   1) نجيب المشروع من /api/projects/:id (نحتاج report_id)
@@ -206,6 +282,34 @@ export default function FeasibilityReport() {
     }
   };
 
+  const handleEmail = async () => {
+    if (!project?.report_id) return;
+    const userEmail = auth.currentUser?.email;
+    if (!userEmail) {
+      alert(isAr ? "لازم تسجّلي الدخول أولاً" : "Please log in first");
+      return;
+    }
+    setEmailing(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/feasibility/email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          report_id: project.report_id,
+          email: userEmail,
+          project_name: project.project_name,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed");
+      alert(isAr ? `تم الإرسال إلى ${userEmail} ✓` : `Sent to ${userEmail} ✓`);
+    } catch (err: any) {
+      alert(isAr ? `فشل الإرسال: ${err.message}` : `Send failed: ${err.message}`);
+    } finally {
+      setEmailing(false);
+    }
+  };
+
   if (loading) {
     return (
       <>
@@ -252,13 +356,19 @@ export default function FeasibilityReport() {
   const exec = report.executive_summary;
   const bo = report.business_overview;
 
-  const cls = dec.classification.toLowerCase();
+  // التصنيفات الـ5 من success_predictor + التوافق مع التصنيفات القديمة
+  const cls = dec.classification;
+  const clsLower = cls.toLowerCase();
   const decisionTheme =
-    cls.includes("suitable") || cls.includes("مناسب")
-      ? { bg: "#f0fdf4", border: "#4caf50", text: "#15803d", icon: "✅" }
-      : cls.includes("moderate") || cls.includes("متوسط")
-        ? { bg: "#fffbeb", border: "#f59e0b", text: "#b45309", icon: "⚠️" }
-        : { bg: "#fff5f5", border: "#e53e3e", text: "#b91c1c", icon: "🔴" };
+    cls.includes("نجاح مرتفع") || cls.includes("مناسب") || clsLower.includes("suitable")
+      ? { bg: "#f0fdf4", border: "#15803d", text: "#15803d", icon: "✅" }
+      : cls.includes("نجاح محتمل")
+        ? { bg: "#f0fdf4", border: "#22c55e", text: "#16a34a", icon: "🟢" }
+        : cls.includes("متوسط") || clsLower.includes("moderate") || cls.includes("بشروط")
+          ? { bg: "#fffbeb", border: "#f59e0b", text: "#b45309", icon: "🟡" }
+          : cls.includes("فشل")
+            ? { bg: "#fef2f2", border: "#dc2626", text: "#b91c1c", icon: "🔴" }
+            : { bg: "#fff7ed", border: "#ea580c", text: "#9a3412", icon: "🟠" };
 
   const costData = [
     { name: isAr ? "مرافق" : "Utilities", value: fs.utilities_cost, color: "#3b82f6" },
@@ -307,11 +417,20 @@ export default function FeasibilityReport() {
               <div className="flex gap-3">
                 <button
                   onClick={handleDownload}
-                  disabled={downloading}
+                  disabled={downloading || emailing}
                   className="bg-[#C6A75E] hover:bg-[#a88f4e] rounded-lg px-5 py-3 text-white font-bold flex items-center gap-2 transition-all disabled:opacity-60 font-[Changa]"
                 >
                   {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                   {isAr ? "تحميل PDF" : "Download PDF"}
+                </button>
+                <button
+                  onClick={handleEmail}
+                  disabled={emailing || downloading}
+                  title={isAr ? "إرسال إلى إيميلي" : "Send to my email"}
+                  className="bg-white hover:bg-gray-100 rounded-lg px-5 py-3 text-[#08312D] font-bold flex items-center gap-2 transition-all disabled:opacity-60 font-[Changa]"
+                >
+                  {emailing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                  {isAr ? "إرسال للإيميل" : "Email Me"}
                 </button>
                 <Link
                   to="/dashboard/my-projects"
@@ -324,19 +443,116 @@ export default function FeasibilityReport() {
             </div>
           </motion.div>
 
+          {/* Success Prediction Banner — prominent at top */}
+          {fs.success_prediction && (() => {
+            const sp = fs.success_prediction;
+            const colorMap: Record<string, { bg: string; border: string; text: string; bar: string }> = {
+              green:      { bg: "#f0fdf4", border: "#86efac", text: "#15803d", bar: "#15803d" },
+              lightgreen: { bg: "#f0fdf4", border: "#86efac", text: "#22c55e", bar: "#22c55e" },
+              amber:      { bg: "#fffbeb", border: "#fcd34d", text: "#b45309", bar: "#f59e0b" },
+              orange:     { bg: "#fff7ed", border: "#fdba74", text: "#ea580c", bar: "#ea580c" },
+              red:        { bg: "#fef2f2", border: "#fca5a5", text: "#b91c1c", bar: "#dc2626" },
+            };
+            const theme = colorMap[sp.outcome_color] || colorMap.amber;
+            return (
+              <motion.div
+                className="rounded-2xl p-6 border-2"
+                style={{ background: theme.bg, borderColor: theme.border }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.05 }}
+              >
+                <div className="flex items-start justify-between flex-wrap gap-4">
+                  <div className="flex-1 min-w-[260px]">
+                    <div className="text-xs text-gray-600 mb-1 font-[Changa] flex items-center gap-2">
+                      <Trophy className="w-4 h-4" />
+                      {isAr ? "تنبؤ نتيجة المشروع" : "Project Outcome Prediction"}
+                    </div>
+                    <div className="text-2xl font-black mb-2 font-[Changa]" style={{ color: theme.text }}>
+                      {sp.outcome_emoji} {sp.outcome}
+                    </div>
+                    <p className="text-sm text-gray-700 font-[Changa] leading-relaxed">{sp.message}</p>
+                  </div>
+                  <div className="flex flex-col items-center gap-2 min-w-[140px]">
+                    <div className="text-5xl font-black font-[Changa]" style={{ color: theme.text }}>
+                      {sp.score}
+                      <span className="text-xl text-gray-400">/{sp.max_score}</span>
+                    </div>
+                    <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full transition-all"
+                        style={{ width: `${sp.score_percent}%`, background: theme.bar }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 font-[Changa]">{isAr ? "درجة النجاح المرجّحة" : "Weighted success score"}</p>
+                  </div>
+                </div>
+
+                {/* Factors breakdown */}
+                <div className="mt-4 pt-4 border-t border-white/50">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2">
+                    {sp.factors.map((f) => {
+                      const pct = (f.score / f.weight) * 100;
+                      return (
+                        <div key={f.name} className="bg-white/70 rounded-lg p-3">
+                          <div className="text-xs text-gray-600 font-[Changa] mb-1 line-clamp-2">{f.name}</div>
+                          <div className="flex items-baseline justify-between mb-1">
+                            <span className="text-sm font-bold text-[#08312D] font-[Changa]">
+                              {f.score}/{f.weight}
+                            </span>
+                            <span className="text-xs text-gray-500 font-[Changa]">{f.rating}</span>
+                          </div>
+                          <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                            <div
+                              className="h-full"
+                              style={{
+                                width: `${pct}%`,
+                                background: pct >= 80 ? "#22c55e" : pct >= 50 ? "#f59e0b" : "#dc2626",
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })()}
+
+          {/* Steady-state notice */}
+          {fs.ramp_up_months && (
+            <motion.div
+              className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.4 }}
+            >
+              <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 text-sm text-blue-900 font-[Changa]">
+                <strong>{isAr ? "ملاحظة منهجية:" : "Methodology note:"}</strong>{" "}
+                {isAr
+                  ? `الأرقام الشهرية بالأسفل تمثّل وضع التشغيل المستقر بعد ${fs.ramp_up_months} أشهر من الافتتاح. الأشهر الأولى بطبيعتها أقل (يبدأ المشروع بـ 50% من العملاء المتوقعين ويتدرّج للوصول لكامل طاقته). راجع جدول التوقع الشهري في التبويب المالي.`
+                  : `The monthly figures below represent steady-state operation after ${fs.ramp_up_months} months. The first months naturally start lower (50% of target customers, ramping up to full capacity). See the monthly projection in the Financial tab.`}
+              </div>
+            </motion.div>
+          )}
+
           {/* Key Metrics */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <KpiCard
               icon={DollarSign}
-              label={isAr ? "إيراد شهري" : "Monthly Revenue"}
+              label={isAr ? "إيراد شهري (مستقر)" : "Monthly Revenue (steady)"}
               value={`${fs.monthly_revenue.toLocaleString()} ${isAr ? "ر.س" : "SAR"}`}
               color="#22c55e"
+              hint={isAr ? "إجمالي المبيعات الشهرية المتوقعة بعد استقرار المشروع." : "Total expected monthly sales after the project stabilizes."}
             />
             <KpiCard
               icon={TrendingUp}
-              label={isAr ? "هامش الربح" : "Profit Margin"}
+              label={isAr ? "هامش الربح (مستقر)" : "Profit Margin (steady)"}
               value={`${fs.profit_margin_percent}%`}
               color="#C6A75E"
+              hint={isAr ? "نسبة صافي الربح من الإيراد. القاعدة: 10% متوسط، 20%+ ممتاز." : "Net profit as % of revenue. 10% is moderate, 20%+ is excellent."}
             />
             <KpiCard
               icon={Calendar}
@@ -347,12 +563,14 @@ export default function FeasibilityReport() {
                   : "—"
               }
               color="#3b82f6"
+              hint={isAr ? "كم شهر تحتاجين لاسترداد رأس المال (مع احتساب خسائر الأشهر الأولى)." : "Months needed to recoup capital (accounting for early-month losses)."}
             />
             <KpiCard
               icon={Target}
               label={isAr ? "فرصة السوق" : "Market Score"}
               value={ma ? `${ma.market_opportunity_score}/10` : "—"}
               color="#8b5cf6"
+              hint={isAr ? "تقييم السوق المحلي بناءً على المنافسين القريبين وكثافة الطلب." : "Market score based on nearby competitors and demand density."}
             />
           </div>
 
@@ -419,6 +637,62 @@ export default function FeasibilityReport() {
             </motion.div>
           </div>
 
+          {/* Project Inputs Summary — for quick reference without going back */}
+          {fs.inputs_summary && (
+            <motion.div
+              className="bg-slate-50 border border-slate-200 rounded-2xl p-5"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.18 }}
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <FileText className="w-4 h-4 text-slate-600" />
+                <h3 className="text-sm font-bold text-slate-700 font-[Changa]">
+                  {isAr ? "📋 بيانات المشروع المُدخلة" : "📋 Project Inputs"}
+                </h3>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div>
+                  <div className="text-xs text-slate-500 font-[Changa] mb-1">{isAr ? "رأس المال" : "Capital"}</div>
+                  <div className="text-sm font-bold text-[#08312D] font-[Changa]">
+                    {fs.inputs_summary.capital.toLocaleString()} {isAr ? "ر.س" : "SAR"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500 font-[Changa] mb-1">{isAr ? "الإيجار/شهر" : "Rent/mo"}</div>
+                  <div className="text-sm font-bold text-[#08312D] font-[Changa]">
+                    {fs.inputs_summary.rent.toLocaleString()} {isAr ? "ر.س" : "SAR"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500 font-[Changa] mb-1">{isAr ? "الموظفين" : "Employees"}</div>
+                  <div className="text-sm font-bold text-[#08312D] font-[Changa]">{fs.inputs_summary.employees}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500 font-[Changa] mb-1">{isAr ? "سعر الوجبة" : "Avg Price"}</div>
+                  <div className="text-sm font-bold text-[#08312D] font-[Changa]">
+                    {fs.inputs_summary.avg_price.toLocaleString()} {isAr ? "ر.س" : "SAR"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500 font-[Changa] mb-1">{isAr ? "العملاء/يوم" : "Customers/day"}</div>
+                  <div className="text-sm font-bold text-[#08312D] font-[Changa]">{fs.inputs_summary.customers_per_day}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500 font-[Changa] mb-1">{isAr ? "الإيراد/شهر (محسوب)" : "Revenue/mo (calc)"}</div>
+                  <div className="text-sm font-bold text-[#08312D] font-[Changa]">
+                    {(fs.inputs_summary.avg_price * fs.inputs_summary.customers_per_day * 28).toLocaleString()} {isAr ? "ر.س" : "SAR"}
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-slate-400 font-[Changa] mt-3">
+                {isAr
+                  ? "الإيراد = سعر الوجبة × العملاء يومياً × 28 يوم (الشهر بـ 28 يوم احتياطاً للإجازات)"
+                  : "Revenue = price × customers/day × 28 days (28-day month accounts for holidays)"}
+              </p>
+            </motion.div>
+          )}
+
           {/* Tabs */}
           <motion.div
             className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden"
@@ -451,9 +725,379 @@ export default function FeasibilityReport() {
               {/* Financial Tab */}
               {activeTab === "financial" && (
                 <div className="space-y-6">
+                  {/* Profit Margin Explainer */}
+                  {(() => {
+                    const m = fs.profit_margin_percent;
+                    const tiers = [
+                      { range: "15%+", label: isAr ? "ممتاز — أعلى من معيار القطاع" : "Excellent", min: 15, max: Infinity, bg: "bg-green-100", border: "border-green-300" },
+                      { range: "7% - 15%", label: isAr ? "جيد — المعدل الطبيعي للقطاع" : "Good (industry standard)", min: 7, max: 15, bg: "bg-green-100", border: "border-green-300" },
+                      { range: "3% - 7%", label: isAr ? "ضعيف لكن موجب — يحتاج تحسين" : "Weak but positive", min: 3, max: 7, bg: "bg-amber-100", border: "border-amber-300" },
+                      { range: "0% - 3%", label: isAr ? "حدّي قرب الصفر — لا يصمد لأي ضغط" : "Marginal — won't survive shocks", min: 0, max: 3, bg: "bg-orange-100", border: "border-orange-300" },
+                      { range: isAr ? "أقل من 0%" : "< 0%", label: isAr ? "خسارة — المصاريف تتجاوز الإيراد" : "Loss", min: -Infinity, max: 0, bg: "bg-red-100", border: "border-red-300" },
+                    ];
+                    return (
+                      <div className="bg-blue-50 border border-blue-200 rounded-xl p-5">
+                        <div className="flex items-start gap-3 mb-4">
+                          <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                            <Lightbulb className="w-5 h-5 text-blue-700" />
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-bold text-blue-900 font-[Changa]">
+                              {isAr ? "📚 ما هو هامش الربح؟ (شرح)" : "What is Profit Margin? (Explained)"}
+                            </h3>
+                            <p className="text-xs text-blue-700 font-[Changa] mt-1">
+                              {isAr
+                                ? "نسبة ما يبقى من كل ريال مبيعات بعد طرح كل التكاليف"
+                                : "% of revenue retained after all costs are paid"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="bg-white rounded-lg p-4 mb-4 border border-blue-200">
+                          <div className="text-xs text-gray-500 font-[Changa] mb-1">{isAr ? "الصيغة" : "Formula"}</div>
+                          <div className="text-sm font-bold text-[#08312D] font-[Changa] mb-3 font-mono" style={{ direction: "ltr" }}>
+                            {isAr ? "هامش الربح" : "Margin"} = ({isAr ? "صافي الربح" : "Net Profit"} ÷ {isAr ? "الإيراد" : "Revenue"}) × 100
+                          </div>
+                          <div className="text-xs text-gray-500 font-[Changa] mb-1 mt-3">{isAr ? "حسابكِ الفعلي" : "Your calculation"}</div>
+                          <div className="text-base font-bold text-blue-900 font-[Changa] font-mono" style={{ direction: "ltr" }}>
+                            ({fs.monthly_net_profit.toLocaleString()} ÷ {fs.monthly_revenue.toLocaleString()}) × 100 = <span className="text-2xl">{m}%</span>
+                          </div>
+                        </div>
+
+                        <div className="text-xs font-bold text-gray-700 mb-2 font-[Changa]">
+                          {isAr ? "التقييم في قطاع المطاعم السعودي:" : "Saudi Restaurant Industry Benchmarks:"}
+                        </div>
+                        <div className="space-y-1.5">
+                          {tiers.map((tier, i) => {
+                            const isCurrent = m >= tier.min && m < tier.max;
+                            return (
+                              <div
+                                key={i}
+                                className={`flex items-center gap-3 px-3 py-2 rounded-lg border ${
+                                  isCurrent ? `${tier.bg} ${tier.border} font-bold` : "bg-white border-gray-200"
+                                }`}
+                              >
+                                <span className="text-xs font-mono text-gray-700 min-w-[80px] font-[Changa]" style={{ direction: "ltr" }}>{tier.range}</span>
+                                <span className="text-xs text-gray-700 flex-1 font-[Changa]">{tier.label}</span>
+                                {isCurrent && <span className="text-sm font-[Changa]">{isAr ? "أنتِ هنا" : "← You"}</span>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Capital Allocation */}
+                  {fs.capital_allocation && fs.capital_allocation.length > 0 && (
+                    <div className="bg-white border border-gray-200 rounded-xl p-5">
+                      <div className="flex items-start gap-3 mb-4">
+                        <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+                          <DollarSign className="w-5 h-5 text-purple-700" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-[#08312D] font-[Changa]">
+                            {isAr ? "توزيع رأس المال" : "Capital Allocation"}
+                          </h3>
+                          <p className="text-xs text-gray-600 font-[Changa] mt-1">
+                            {isAr
+                              ? "توزيع تقديري بناءً على معايير قطاع المطاعم في السعودية"
+                              : "Estimated breakdown based on Saudi restaurant industry standards"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <table className="w-full text-sm font-[Changa]">
+                        <thead>
+                          <tr className="border-b border-gray-200 text-gray-500 text-xs">
+                            <th className={`py-2 ${isAr ? "text-right" : "text-left"}`}>{isAr ? "البند" : "Item"}</th>
+                            <th className={`py-2 ${isAr ? "text-right" : "text-left"}`}>{isAr ? "النسبة" : "%"}</th>
+                            <th className={`py-2 ${isAr ? "text-right" : "text-left"}`}>{isAr ? "المبلغ" : "Amount"}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {fs.capital_allocation.map((a) => (
+                            <tr
+                              key={a.key}
+                              className={`border-b border-gray-100 ${a.key === "cushion" ? "bg-amber-50" : ""}`}
+                            >
+                              <td className="py-3 font-bold text-[#08312D]">
+                                {isAr ? a.label_ar : a.label_en}
+                                {a.key === "cushion" && " ⭐"}
+                              </td>
+                              <td className="py-3 text-gray-600">{a.percent}%</td>
+                              <td className="py-3 font-bold text-[#08312D]">
+                                {a.amount.toLocaleString()} {isAr ? "ر.س" : "SAR"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+
+                      <p className="text-xs text-gray-500 mt-3 font-[Changa] leading-relaxed">
+                        ⭐{" "}
+                        <strong>
+                          {isAr ? "الاحتياطي التشغيلي" : "Operating Cushion"}:
+                        </strong>{" "}
+                        {isAr
+                          ? "المبلغ المخصص لتغطية خسائر الأشهر الأولى قبل وصول المشروع لمرحلة الاستقرار."
+                          : "Reserved to cover early-month losses before the project stabilizes."}
+                      </p>
+
+                      {/* Cushion vs Year-1 loss warning */}
+                      {fs.year_1_total_profit !== undefined &&
+                        fs.year_1_total_profit < 0 &&
+                        fs.operating_cushion !== undefined &&
+                        (() => {
+                          const loss = Math.abs(fs.year_1_total_profit);
+                          const insufficient = fs.operating_cushion < loss;
+                          return insufficient ? (
+                            <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-3">
+                              <p className="text-sm text-red-800 font-[Changa] font-bold mb-1">
+                                ⚠ {isAr ? "تنبيه: الاحتياطي غير كافٍ" : "Warning: Insufficient cushion"}
+                              </p>
+                              <p className="text-xs text-red-700 font-[Changa] leading-relaxed">
+                                {isAr
+                                  ? `الاحتياطي (${fs.operating_cushion.toLocaleString()} ر.س) أقل من خسائر السنة الأولى المتوقعة (${loss.toLocaleString()} ر.س). يُنصح بزيادة رأس المال بـ ${(loss - fs.operating_cushion).toLocaleString()} ر.س على الأقل، أو إعادة هيكلة المشروع.`
+                                  : `Cushion (${fs.operating_cushion.toLocaleString()} SAR) is less than expected Year-1 loss (${loss.toLocaleString()} SAR). Recommend increasing capital by at least ${(loss - fs.operating_cushion).toLocaleString()} SAR, or restructuring.`}
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
+                              <p className="text-sm text-green-800 font-[Changa]">
+                                ✓{" "}
+                                {isAr
+                                  ? `الاحتياطي (${fs.operating_cushion.toLocaleString()} ر.س) يغطي خسائر السنة الأولى المتوقعة (${loss.toLocaleString()} ر.س).`
+                                  : `Cushion (${fs.operating_cushion.toLocaleString()} SAR) covers expected Year-1 loss (${loss.toLocaleString()} SAR).`}
+                              </p>
+                            </div>
+                          );
+                        })()}
+                    </div>
+                  )}
+
+                  {/* Year-1 Journey: Ramp-up projection */}
+                  {fs.monthly_projection && fs.monthly_projection.length > 0 && (
+                    <div className="bg-gradient-to-br from-[#FFF9F0] to-white border border-[#C6A75E]/30 rounded-xl p-5">
+                      <div className="flex items-start gap-3 mb-4">
+                        <div className="w-10 h-10 rounded-lg bg-[#C6A75E]/20 flex items-center justify-center flex-shrink-0">
+                          <TrendingUp className="w-5 h-5 text-[#C6A75E]" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-[#08312D] font-[Changa]">
+                            {isAr ? "رحلة السنة الأولى" : "Year-1 Journey"}
+                          </h3>
+                          <p className="text-xs text-gray-600 font-[Changa] mt-1">
+                            {isAr
+                              ? "توقّع الإيراد والربح شهر-بشهر مع منحنى تدرّج العملاء (50% → 100%)"
+                              : "Monthly revenue & profit projection with customer ramp-up (50% → 100%)"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Quick comparison cards */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                        <RampStat
+                          label={isAr ? "شهر 1" : "Month 1"}
+                          revenue={fs.month_1_revenue ?? 0}
+                          profit={fs.month_1_net_profit ?? 0}
+                          isAr={isAr}
+                        />
+                        <RampStat
+                          label={isAr ? "تشغيل مستقر" : "Steady-state"}
+                          revenue={fs.monthly_revenue}
+                          profit={fs.monthly_net_profit}
+                          isAr={isAr}
+                          highlight
+                        />
+                        <div className="bg-white rounded-lg p-3 border border-gray-200">
+                          <div className="text-xs text-gray-500 mb-1 font-[Changa]">
+                            {isAr ? "أول شهر يصل لنقطة التعادل" : "Break-even month"}
+                          </div>
+                          <div className="text-lg font-bold text-[#08312D] font-[Changa]">
+                            {fs.break_even_month ? `${fs.break_even_month}` : "—"}
+                          </div>
+                        </div>
+                        <div className="bg-white rounded-lg p-3 border border-gray-200">
+                          <div className="text-xs text-gray-500 mb-1 font-[Changa]">
+                            {isAr ? "صافي ربح السنة 1" : "Year-1 net profit"}
+                          </div>
+                          <div className={`text-lg font-bold font-[Changa] ${(fs.year_1_total_profit ?? 0) >= 0 ? "text-green-700" : "text-red-700"}`}>
+                            {(fs.year_1_total_profit ?? 0).toLocaleString()} {isAr ? "ر.س" : "SAR"}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 12-month line chart */}
+                      <ResponsiveContainer width="100%" height={260}>
+                        <LineChart data={fs.monthly_projection}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                          <XAxis dataKey="month" stroke="#6b7280" tickFormatter={(m) => `${isAr ? "ش" : "M"}${m}`} />
+                          <YAxis stroke="#6b7280" tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`} />
+                          <Tooltip
+                            formatter={(v: number) => v.toLocaleString() + (isAr ? " ر.س" : " SAR")}
+                            labelFormatter={(m) => isAr ? `الشهر ${m}` : `Month ${m}`}
+                          />
+                          <Legend />
+                          <ReferenceLine y={0} stroke="#9ca3af" strokeDasharray="3 3" />
+                          <Line type="monotone" dataKey="revenue" name={isAr ? "إيراد" : "Revenue"} stroke="#22c55e" strokeWidth={2} dot={{ r: 3 }} />
+                          <Line type="monotone" dataKey="expenses" name={isAr ? "مصاريف" : "Expenses"} stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} />
+                          <Line type="monotone" dataKey="net_profit" name={isAr ? "صافي ربح" : "Net Profit"} stroke="#08312D" strokeWidth={2.5} dot={{ r: 4 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
+                  {/* 3-Year Projection + Payback Recovery Chart */}
+                  {fs.yearly_summary && fs.yearly_summary.length > 0 && (
+                    <div className="bg-white border border-gray-200 rounded-xl p-5">
+                      <div className="flex items-start gap-3 mb-4">
+                        <div className="w-10 h-10 rounded-lg bg-[#08312D]/10 flex items-center justify-center flex-shrink-0">
+                          <Calendar className="w-5 h-5 text-[#08312D]" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-lg font-bold text-[#08312D] font-[Changa]">
+                            {isAr ? "التوقع لـ 3 سنوات" : "3-Year Projection"}
+                          </h3>
+                          <p className="text-xs text-gray-600 font-[Changa] mt-1">
+                            {isAr
+                              ? `الافتراضات: نمو إيراد +${Math.round((fs.yearly_revenue_growth ?? 0.10) * 100)}% سنوياً، تضخم تكاليف ثابتة +${Math.round((fs.yearly_cost_inflation ?? 0.05) * 100)}% سنوياً`
+                              : `Assumptions: revenue growth +${Math.round((fs.yearly_revenue_growth ?? 0.10) * 100)}%/year, fixed-cost inflation +${Math.round((fs.yearly_cost_inflation ?? 0.05) * 100)}%/year`}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Yearly summary table */}
+                      <div className="overflow-x-auto mb-5">
+                        <table className="w-full text-sm font-[Changa]">
+                          <thead>
+                            <tr className="border-b border-gray-200 text-gray-500 text-xs">
+                              <th className={`py-2 ${isAr ? "text-right" : "text-left"}`}>{isAr ? "السنة" : "Year"}</th>
+                              <th className={`py-2 ${isAr ? "text-right" : "text-left"}`}>{isAr ? "الإيراد" : "Revenue"}</th>
+                              <th className={`py-2 ${isAr ? "text-right" : "text-left"}`}>{isAr ? "المصاريف" : "Expenses"}</th>
+                              <th className={`py-2 ${isAr ? "text-right" : "text-left"}`}>{isAr ? "صافي الربح" : "Net Profit"}</th>
+                              <th className={`py-2 ${isAr ? "text-right" : "text-left"}`}>{isAr ? "تراكمي" : "Cumulative"}</th>
+                              <th className={`py-2 ${isAr ? "text-right" : "text-left"}`}>{isAr ? "ROI" : "ROI"}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {fs.yearly_summary.map((y) => {
+                              const profitPositive = y.net_profit >= 0;
+                              const cumulPositive = y.cumulative_profit >= 0;
+                              const recouped = y.cumulative_roi_pct >= 100;
+                              return (
+                                <tr key={y.year} className="border-b border-gray-100">
+                                  <td className="py-3 font-bold text-[#08312D]">
+                                    {isAr ? `السنة ${y.year}` : `Year ${y.year}`}
+                                  </td>
+                                  <td className="py-3 text-[#08312D]">{y.revenue.toLocaleString()}</td>
+                                  <td className="py-3 text-gray-600">{y.expenses.toLocaleString()}</td>
+                                  <td className={`py-3 font-bold ${profitPositive ? "text-green-700" : "text-red-700"}`}>
+                                    {profitPositive ? "+" : ""}{y.net_profit.toLocaleString()}
+                                  </td>
+                                  <td className={`py-3 font-bold ${cumulPositive ? "text-green-700" : "text-red-700"}`}>
+                                    {cumulPositive ? "+" : ""}{y.cumulative_profit.toLocaleString()}
+                                  </td>
+                                  <td className={`py-3 font-bold ${recouped ? "text-green-700" : "text-amber-700"}`}>
+                                    {y.cumulative_roi_pct.toFixed(0)}%
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* ROI summary banner */}
+                      <div className={`rounded-lg p-4 mb-5 ${(fs.roi_3_year_percent ?? 0) >= 100 ? "bg-green-50 border border-green-200" : "bg-amber-50 border border-amber-200"}`}>
+                        <div className="flex items-center gap-3">
+                          <Trophy className={`w-6 h-6 ${(fs.roi_3_year_percent ?? 0) >= 100 ? "text-green-700" : "text-amber-700"}`} />
+                          <div>
+                            <div className="text-xs text-gray-600 font-[Changa]">
+                              {isAr ? "العائد على الاستثمار بعد 3 سنوات (ROI)" : "Return on Investment after 3 years"}
+                            </div>
+                            <div className={`text-2xl font-black font-[Changa] ${(fs.roi_3_year_percent ?? 0) >= 100 ? "text-green-700" : "text-amber-700"}`}>
+                              {fs.roi_3_year_percent?.toFixed(1) ?? "—"}%
+                              <span className="text-sm font-normal text-gray-600 ml-2">
+                                ({(fs.total_3_year_profit ?? 0).toLocaleString()} {isAr ? "ر.س ربح صافي" : "SAR net"})
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Payback recovery chart */}
+                      {fs.cumulative_profit_curve && (
+                        <div>
+                          <h4 className="text-sm font-bold text-[#08312D] mb-3 font-[Changa] flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-[#3b82f6]" />
+                            {isAr ? "منحنى استرداد رأس المال" : "Capital Recovery Curve"}
+                          </h4>
+                          <p className="text-xs text-gray-600 mb-3 font-[Changa]">
+                            {isAr
+                              ? `الخط الأخضر يبيّن الربح التراكمي شهرياً. لمّا يقطع الخط المتقطع الأحمر (= رأس المال)، تكون استرديتي استثمارك. ${fs.payback_period_months ? `يحدث ذلك في الشهر ${Math.round(fs.payback_period_months)}.` : "لا يحدث استرداد ضمن 3 سنوات."}`
+                              : `The green line shows cumulative profit. When it crosses the dashed red line (= capital), your investment is recouped. ${fs.payback_period_months ? `This happens in month ${Math.round(fs.payback_period_months)}.` : "Recovery does not occur within 3 years."}`}
+                          </p>
+                          <ResponsiveContainer width="100%" height={280}>
+                            <LineChart data={fs.cumulative_profit_curve}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                              <XAxis
+                                dataKey="month"
+                                stroke="#6b7280"
+                                tickFormatter={(m) => `${isAr ? "ش" : "M"}${m}`}
+                                ticks={[1, 6, 12, 18, 24, 30, 36]}
+                              />
+                              <YAxis
+                                stroke="#6b7280"
+                                tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`}
+                              />
+                              <Tooltip
+                                formatter={(v: number) => v.toLocaleString() + (isAr ? " ر.س" : " SAR")}
+                                labelFormatter={(m) => isAr ? `الشهر ${m}` : `Month ${m}`}
+                              />
+                              <ReferenceLine y={0} stroke="#9ca3af" />
+                              <ReferenceLine
+                                y={fs.payback_period_months ? (project?.capital || 0) : 0}
+                                stroke="#dc2626"
+                                strokeDasharray="6 4"
+                                label={{
+                                  value: isAr ? `رأس المال (${(project?.capital || 0).toLocaleString()})` : `Capital (${(project?.capital || 0).toLocaleString()})`,
+                                  fill: "#dc2626",
+                                  fontSize: 11,
+                                  position: "insideTopRight",
+                                }}
+                              />
+                              {fs.payback_period_months && (
+                                <ReferenceLine
+                                  x={Math.round(fs.payback_period_months)}
+                                  stroke="#22c55e"
+                                  strokeDasharray="3 3"
+                                  label={{
+                                    value: isAr ? `استرداد: ش ${Math.round(fs.payback_period_months)}` : `Payback: M${Math.round(fs.payback_period_months)}`,
+                                    fill: "#22c55e",
+                                    fontSize: 11,
+                                    position: "top",
+                                  }}
+                                />
+                              )}
+                              <Line
+                                type="monotone"
+                                dataKey="cumulative_profit"
+                                name={isAr ? "ربح تراكمي" : "Cumulative Profit"}
+                                stroke="#22c55e"
+                                strokeWidth={3}
+                                dot={false}
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div>
                     <h3 className="text-lg font-bold text-[#08312D] mb-4 font-[Changa]">
-                      {isAr ? "الإيرادات والمصاريف" : "Revenue & Expenses"}
+                      {isAr ? "الإيرادات والمصاريف (تشغيل مستقر)" : "Revenue & Expenses (steady-state)"}
                     </h3>
                     <ResponsiveContainer width="100%" height={260}>
                       <BarChart data={financialBars} layout="vertical">
@@ -827,23 +1471,56 @@ export default function FeasibilityReport() {
   );
 }
 
-function KpiCard({ icon: Icon, label, value, color }: any) {
+function KpiCard({ icon: Icon, label, value, color, hint }: any) {
   return (
     <motion.div
-      className="bg-white rounded-xl p-5 shadow-sm border border-gray-200"
+      className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 group relative"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
+      title={hint || undefined}
     >
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
-          <div className="text-xs text-gray-500 mb-1 font-[Changa]">{label}</div>
+          <div className="text-xs text-gray-500 mb-1 font-[Changa] flex items-center gap-1">
+            {label}
+            {hint && (
+              <Info className="w-3 h-3 text-gray-400 cursor-help opacity-60 group-hover:opacity-100" />
+            )}
+          </div>
           <div className="text-xl font-black text-[#08312D] font-[Changa] truncate">{value}</div>
         </div>
         <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${color}15` }}>
           <Icon className="w-5 h-5" style={{ color }} />
         </div>
       </div>
+      {hint && (
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-[#08312D] text-white text-xs rounded-lg px-3 py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none z-10 font-[Changa] leading-relaxed shadow-lg">
+          {hint}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#08312D]" />
+        </div>
+      )}
     </motion.div>
+  );
+}
+
+function RampStat({
+  label, revenue, profit, isAr, highlight,
+}: {
+  label: string; revenue: number; profit: number; isAr: boolean; highlight?: boolean;
+}) {
+  const positive = profit >= 0;
+  return (
+    <div className={`rounded-lg p-3 border ${highlight ? "bg-[#08312D] border-[#08312D] text-white" : "bg-white border-gray-200"}`}>
+      <div className={`text-xs mb-1 font-[Changa] ${highlight ? "text-white/70" : "text-gray-500"}`}>{label}</div>
+      <div className={`text-sm font-bold font-[Changa] ${highlight ? "text-white" : "text-[#08312D]"}`}>
+        {revenue.toLocaleString()} {isAr ? "ر.س" : "SAR"}
+      </div>
+      <div className={`text-xs mt-1 font-[Changa] ${
+        highlight ? (positive ? "text-green-300" : "text-red-300") : (positive ? "text-green-700" : "text-red-700")
+      }`}>
+        {positive ? "+" : ""}{profit.toLocaleString()} {isAr ? "ربح" : "profit"}
+      </div>
+    </div>
   );
 }
 

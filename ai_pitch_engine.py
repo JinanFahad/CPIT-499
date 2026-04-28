@@ -45,6 +45,29 @@ def generate_pitch_deck_json(feasibility_report: dict, extra: dict | None = None
 
     products_text = ", ".join(main_products) if isinstance(main_products, list) else str(main_products)
 
+    # ── حساب توزيع التمويل (40/30/30) في بايثون عشان نضمن دقة الأرقام ──
+    def _to_int(v):
+        try:
+            return int(float(str(v).replace(",", "").replace("SAR", "").strip()))
+        except (ValueError, TypeError):
+            return 0
+
+    funding_int = _to_int(funding_needed)
+    if funding_int > 0:
+        equipment_amount  = round(funding_int * 0.40)
+        fitout_amount     = round(funding_int * 0.30)
+        # نخلي البند الثالث يكمّل المجموع بالضبط (يتفادى أخطاء التقريب)
+        working_amount    = funding_int - equipment_amount - fitout_amount
+        allocation_text = (
+            f"- Equipment & Kitchen Setup: {equipment_amount:,} SAR\n"
+            f"- Fit-out, Interior & Licenses: {fitout_amount:,} SAR\n"
+            f"- Working Capital, Staffing & Marketing: {working_amount:,} SAR"
+        )
+        funding_display = f"{funding_int:,} SAR"
+    else:
+        allocation_text = "- Equipment & Kitchen Setup\n- Fit-out, Interior & Licenses\n- Working Capital, Staffing & Marketing"
+        funding_display = str(funding_needed) if funding_needed else "the required amount"
+
     project_context = f"""
 Project Data (use exactly as provided, do not change the project concept):
 - Project Name: {project_name}
@@ -91,11 +114,13 @@ Core Rules:
 - bullets: 0 to 3 only.
 - numbers: 0 to 4, use [] if none.
 - deck_title must be the project name or a suitable marketing name.
-- tagline must be a short, powerful, catchy sentence.
+- tagline must be a short, powerful, catchy sentence (max 80 characters).
 
 Writing Style:
 - Professional English targeted at investors.
-- Strong, concise titles.
+- Strong, concise titles (max 50 characters).
+- Subtitles must be one short line (max 100 characters).
+- Each bullet must be a brief phrase, MAX 75 characters. No full sentences, no run-ons.
 - No lengthy explanations.
 
 Slide Structure (mandatory order):
@@ -113,18 +138,17 @@ Slide Structure (mandatory order):
    Do not write "N/A" if the numbers are available.
 7) Competitive Advantage ← title + subtitle + bullets (3)
 8) Investment Ask ← title + subtitle + numbers (3 allocation items)
-   - subtitle must explicitly state the total funding needed as: "Seeking [amount] SAR to launch [project name]"
-   - Write the amount with commas, never as a decimal (e.g. 500,000 SAR not 500000.0)
-   - Split the total into 3 realistic allocation items with actual SAR amounts that add up to the total:
-     * Equipment & Kitchen Setup: ~40% of total
-     * Fit-out, Interior & Licenses: ~30% of total
-     * Working Capital, Staffing & Marketing: ~30% of total
-   - Each number must have a label and a real SAR value, not "Portion of X"
+   - subtitle must be exactly: "Seeking {funding_display} to launch {project_name}"
+   - Use these EXACT pre-computed allocation amounts (do not change the numbers):
+{allocation_text}
+   - Each number entry must have:
+     * label = the category name (e.g. "Equipment & Kitchen Setup")
+     * value = the numeric amount only (e.g. "200000"), no commas, no "SAR" suffix
 """
 
     # نرسل البرومبت للـ AI ونلزمه بالـ schema (8 شرائح بالضبط)
     response = client.responses.create(
-        model="gpt-5.2",
+        model="gpt-4o",
         input=prompt,
         text={
             "format": {
@@ -136,4 +160,8 @@ Slide Structure (mandatory order):
         }
     )
 
-    return json.loads(response.output_text)
+    deck = json.loads(response.output_text)
+    # نضيف funding_needed خارج الـ schema عشان ppt_builder يستخدمه في TOTAL_AMOUNT
+    if funding_int > 0:
+        deck["funding_needed"] = funding_int
+    return deck

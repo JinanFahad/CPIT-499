@@ -107,6 +107,7 @@ export default function FeasibilityStudyPage() {
   const [mapOpen, setMapOpen] = useState(false);
 
   const [formData, setFormData] = useState({
+    projectName: "",
     businessType: "",
     restaurantType: "",
     city: "",
@@ -132,6 +133,11 @@ export default function FeasibilityStudyPage() {
   // يمنع عجلة الماوس من تغيير قيمة حقول الأرقام (سلوك افتراضي مزعج في المتصفحات)
   const preventWheelChange = (e: React.WheelEvent<HTMLInputElement>) => {
     (e.target as HTMLInputElement).blur();
+  };
+
+  // يمنع كتابة الأرقام السالبة أو الصيغة العلمية في حقول الأرقام
+  const preventNegativeKeys = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (["-", "+", "e", "E"].includes(e.key)) e.preventDefault();
   };
 
   // callback لما المستخدم يختار موقع من نافذة الخريطة (MapPicker)
@@ -163,6 +169,14 @@ export default function FeasibilityStudyPage() {
   // تنفّذ خطوتين بالتسلسل: توليد التقرير → حفظ المشروع
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // تحديد الموقع مطلوب — نتحقق قبل ما نبدأ التوليد
+    if (!formData.lat || !formData.lng) {
+      setError(isAr ? "يجب تحديد موقع المشروع على الخريطة" : "Please select the project location on the map");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
     setLoading(true);
     setError("");
 
@@ -217,8 +231,8 @@ export default function FeasibilityStudyPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: userId,
-          project_name: businessMap[formData.businessType] || formData.businessType,
-          project_name_en: formData.businessType,
+          project_name: formData.projectName,
+          project_name_en: formData.projectName,
           project_type: businessTypeMap[formData.businessType] || "restaurant",
           restaurant_type: formData.restaurantType,
           city: cityMap[formData.city] || formData.city,
@@ -290,6 +304,20 @@ export default function FeasibilityStudyPage() {
           >
             <div>
               <h2 className={sectionTitle}>{isAr ? "١. معلومات المشروع" : "1. Project Information"}</h2>
+              <div className="grid grid-cols-1 gap-5 mb-5">
+                <div>
+                  <label className={labelClass}>{isAr ? "اسم المشروع" : "Project Name"} <span className="text-red-500">*</span></label>
+                  <Input
+                    type="text"
+                    name="projectName"
+                    value={formData.projectName}
+                    onChange={handleChange}
+                    placeholder={isAr ? "مثال: مطعم برجر الذهبي" : "e.g. Golden Burger Restaurant"}
+                    className={inputClass}
+                    required
+                  />
+                </div>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
                   <label className={labelClass}>{isAr ? "نوع المشروع" : "Business Type"} <span className="text-red-500">*</span></label>
@@ -323,14 +351,14 @@ export default function FeasibilityStudyPage() {
               <div className="grid grid-cols-1 gap-5">
                 <div>
                   <label className={labelClass}>
-                    {isAr ? "نوع / تخصص المطعم (اختياري)" : "Restaurant Specialty (Optional)"}
+                    {isAr ? "وصف المشروع (اختياري)" : "Project Description (Optional)"}
                   </label>
-                  <Input
-                    type="text"
+                  <textarea
                     name="restaurantType"
                     value={formData.restaurantType}
                     onChange={handleChange}
-                    placeholder={isAr ? "مثال: مطعم برجر فاخر، كافيه قهوة مختصة..." : "e.g. gourmet burger, specialty coffee..."}
+                    rows={3}
+                    placeholder={isAr ? "اكتبي وصفاً مختصراً عن مشروعك، فكرته، ومميزاته" : "Briefly describe your project, its concept, and what makes it unique"}
                     className={inputClass}
                   />
                 </div>
@@ -368,11 +396,11 @@ export default function FeasibilityStudyPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
                   <label className={labelClass}>{isAr ? "رأس المال الأولي (ر.س)" : "Initial Capital (SAR)"} <span className="text-red-500">*</span></label>
-                  <Input type="number" name="initialCapital" value={formData.initialCapital} onChange={handleChange} onWheel={preventWheelChange} placeholder={isAr ? "مثال: 100000" : "e.g. 100000"} className={inputClass} required />
+                  <Input type="number" name="initialCapital" value={formData.initialCapital} onChange={handleChange} onWheel={preventWheelChange} onKeyDown={preventNegativeKeys} min={5000} placeholder={isAr ? "مثال: 100000" : "e.g. 100000"} className={inputClass} required />
                 </div>
                 <div>
                   <label className={labelClass}>{isAr ? "الإيجار الشهري (ر.س)" : "Monthly Rent (SAR)"} <span className="text-red-500">*</span></label>
-                  <Input type="number" name="monthlyRent" value={formData.monthlyRent} onChange={handleChange} onWheel={preventWheelChange} placeholder={isAr ? "مثال: 8000" : "e.g. 8000"} className={inputClass} required />
+                  <Input type="number" name="monthlyRent" value={formData.monthlyRent} onChange={handleChange} onWheel={preventWheelChange} onKeyDown={preventNegativeKeys} min={1000} placeholder={isAr ? "مثال: 8000" : "e.g. 8000"} className={inputClass} required />
                 </div>
               </div>
             </div>
@@ -382,21 +410,21 @@ export default function FeasibilityStudyPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div>
                   <label className={labelClass}>{isAr ? "عدد الموظفين" : "No. of Employees"} <span className="text-red-500">*</span></label>
-                  <Input type="number" name="numEmployees" value={formData.numEmployees} onChange={handleChange} onWheel={preventWheelChange} placeholder={isAr ? "مثال: 4" : "e.g. 4"} className={inputClass} required />
+                  <Input type="number" name="numEmployees" value={formData.numEmployees} onChange={handleChange} onWheel={preventWheelChange} onKeyDown={preventNegativeKeys} min={1} placeholder={isAr ? "مثال: 4" : "e.g. 4"} className={inputClass} required />
                 </div>
                 <div>
                   <label className={labelClass}>{isAr ? "متوسط سعر المنتج (ر.س)" : "Avg Product Price (SAR)"} <span className="text-red-500">*</span></label>
-                  <Input type="number" name="avgProductPrice" value={formData.avgProductPrice} onChange={handleChange} onWheel={preventWheelChange} placeholder={isAr ? "مثال: 30" : "e.g. 30"} className={inputClass} required />
+                  <Input type="number" name="avgProductPrice" value={formData.avgProductPrice} onChange={handleChange} onWheel={preventWheelChange} onKeyDown={preventNegativeKeys} min={5} placeholder={isAr ? "مثال: 30" : "e.g. 30"} className={inputClass} required />
                 </div>
                 <div>
                   <label className={labelClass}>{isAr ? "عملاء متوقعون يومياً" : "Expected Customers/Day"} <span className="text-red-500">*</span></label>
-                  <Input type="number" name="expectedCustomersPerDay" value={formData.expectedCustomersPerDay} onChange={handleChange} onWheel={preventWheelChange} placeholder={isAr ? "مثال: 70" : "e.g. 70"} className={inputClass} required />
+                  <Input type="number" name="expectedCustomersPerDay" value={formData.expectedCustomersPerDay} onChange={handleChange} onWheel={preventWheelChange} onKeyDown={preventNegativeKeys} min={1} placeholder={isAr ? "مثال: 70" : "e.g. 70"} className={inputClass} required />
                 </div>
               </div>
             </div>
 
             <div>
-              <h2 className={sectionTitle}>{isAr ? "٥. الموقع (اختياري)" : "5. Location (Optional)"}</h2>
+              <h2 className={sectionTitle}>{isAr ? "٥. الموقع" : "5. Location"} <span className="text-red-500">*</span></h2>
               <div
                 className="relative w-full h-64 rounded-xl overflow-hidden border border-[#C6A75E]/30 bg-gray-100 dark:bg-gray-200 cursor-pointer group"
                 onClick={() => setMapOpen(true)}

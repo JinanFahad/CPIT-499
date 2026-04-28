@@ -26,6 +26,17 @@ interface Message {
   timestamp: Date;
 }
 
+// تحوّل **نص** إلى <strong>نص</strong> ويحافظ على فواصل الأسطر
+function renderFormatted(text: string) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={i} className="font-bold">{part.slice(2, -2)}</strong>;
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
 export default function ConsultantChatPage() {
   const { projectId } = useParams();
   const [project, setProject] = useState<any>(null);
@@ -178,28 +189,26 @@ export default function ConsultantChatPage() {
     <>
       <Header />
       <div
-        className="min-h-screen bg-transparent p-6 lg:p-8"
+        className="min-h-screen bg-transparent p-4 lg:p-6"
         dir={isAr ? "rtl" : "ltr"}
       >
-        <div className="max-w-5xl mx-auto h-[calc(100vh-4rem)] flex flex-col">
+        <div className="max-w-7xl mx-auto h-[calc(100vh-5rem)] flex flex-col">
           {/* Page Header */}
           <motion.div
-            className="bg-white dark:bg-gray-200 rounded-xl p-8 border border-gray-200 dark:border-gray-300 shadow-sm mb-4"
+            className="bg-white dark:bg-gray-200 rounded-xl px-6 py-4 border border-gray-200 dark:border-gray-300 shadow-sm mb-3"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-14 h-14 rounded-lg bg-[#C6A75E] dark:bg-secondary-600 flex items-center justify-center">
-                    <Lightbulb className="w-7 h-7 text-white" />
-                  </div>
-                  <h1 className="text-4xl font-bold text-[#08312d] dark:text-gray-900">
-                    {isAr ? "المستشار الذكي" : "AI Consultant"}
-                  </h1>
-                </div>
-                <p className="text-gray-600 dark:text-gray-700 text-lg font-medium mr-[68px] font-[Changa]">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-lg bg-[#C6A75E] dark:bg-secondary-600 flex items-center justify-center flex-shrink-0">
+                <Lightbulb className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex flex-col">
+                <h1 className="text-2xl font-bold text-[#08312d] dark:text-gray-900 leading-tight">
+                  {isAr ? "المستشار الذكي" : "AI Consultant"}
+                </h1>
+                <p className="text-gray-600 dark:text-gray-700 text-sm font-medium font-[Changa]">
                   {project
                     ? isAr
                       ? `استشارات حول: ${project.project_name || "مشروعك"}`
@@ -220,33 +229,33 @@ export default function ConsultantChatPage() {
             transition={{ duration: 0.6, delay: 0.1 }}
           >
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {messages.map((message) => (
                 <div key={message.id}>
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3 }}
-                    className={`flex gap-2 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+                    className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
                   >
                     {message.role === "assistant" && (
-                      <div className="w-8 h-8 rounded-full bg-[#08312D] dark:bg-primary-600 flex items-center justify-center flex-shrink-0">
+                      <div className="w-9 h-9 rounded-full bg-[#08312D] dark:bg-primary-600 flex items-center justify-center flex-shrink-0">
                         <Bot className="w-5 h-5 text-white" />
                       </div>
                     )}
 
                     <div
-                      className={`max-w-[70%] rounded-2xl px-4 py-2.5 ${
+                      className={`max-w-[85%] rounded-2xl px-5 py-3.5 ${
                         message.role === "user"
                           ? "bg-[#08312D] dark:bg-primary-600 text-white"
                           : "bg-gray-50 dark:bg-gray-100 text-[#08312D] dark:text-gray-900 border border-gray-200 dark:border-gray-300"
                       }`}
                     >
-                      <p className="whitespace-pre-line leading-relaxed text-sm font-medium font-[Changa]">
-                        {message.content}
+                      <p className="whitespace-pre-line leading-7 text-base font-medium font-[Changa]">
+                        {renderFormatted(message.content)}
                       </p>
                       <span
-                        className={`text-[10px] mt-1.5 block ${message.role === "user" ? "text-gray-200" : "text-gray-500 dark:text-gray-600"}`}
+                        className={`text-[11px] mt-2 block ${message.role === "user" ? "text-gray-200" : "text-gray-500 dark:text-gray-600"}`}
                       >
                         {message.timestamp.toLocaleTimeString("ar-SA", {
                           hour: "2-digit",

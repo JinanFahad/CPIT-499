@@ -7,17 +7,22 @@
 #   - يحفظ ويسترجع البيانات من قاعدة البيانات
 # =====================================================================
 
-from flask import Flask, request, jsonify, render_template, make_response, send_file
+from flask import Flask, request, jsonify, render_template, make_response, send_file, after_this_request
 import os
 import uuid
 import json
 import requests
+from dotenv import load_dotenv
 from openai import OpenAI
+
+# نحمّل متغيرات البيئة من .env قبل أي استيراد يحتاجها (OpenAI, SMTP, ...)
+load_dotenv()
 
 # ── محركات توليد التقارير والعروض ──
 from pdf_generator import build_feasibility_pdf          # يحوّل التقرير إلى ملف PDF احترافي
 from ai_pitch_engine import generate_pitch_deck_json      # يولّد محتوى العرض التقديمي بالـ AI
 from ppt_builder import build_pptx                        # يحوّل JSON إلى ملف PowerPoint
+from email_sender import send_file_via_email              # إرسال الملفات للمستخدم على إيميله
 
 # ── محركات الحساب والقرار ──
 from financial_engine import calculate_financials         # حسابات الإيراد، المصاريف، هامش الربح
@@ -138,6 +143,7 @@ def report_pdf():
     decision = classify_project(
         profit_margin_percent=financials["profit_margin_percent"],
         payback_months=financials["payback_period_months"],
+        success_prediction=financials.get("success_prediction"),  # تصنيف موحّد مع تنبؤ النجاح
     )
 
     market_data = {
@@ -225,6 +231,61 @@ def report_pdf():
     resp.headers["Content-Disposition"] = 'attachment; filename="feasibility_report.pdf"'
     resp.headers["X-Report-Id"] = str(report_id)
     return resp
+
+
+# =====================================================================
+# إرسال دراسة الجدوى للمستخدم على الإيميل
+# يأخذ report_id لتقرير محفوظ، يبني الـ PDF، ويرسله مرفقاً بالإيميل
+# =====================================================================
+@app.post("/api/feasibility/email")
+def feasibility_email():
+    import tempfile
+    data       = request.get_json(silent=True) or {}
+    report_id  = data.get("report_id")
+    email      = (data.get("email") or "").strip()
+    project_nm = data.get("project_name") or "مشروعك"
+
+    if not report_id:
+        return jsonify({"error": "report_id مطلوب"}), 400
+    if not email or "@" not in email:
+        return jsonify({"error": "إيميل غير صالح"}), 400
+
+    report = get_report_by_id(report_id)
+    if not report:
+        return jsonify({"error": "الدراسة غير موجودة"}), 404
+
+    # نبني الـ PDF من بيانات التقرير المحفوظة (market_analysis + competitors مدمجة فيه أصلاً)
+    pdf_bytes = build_feasibility_pdf(
+        report=report,
+        market_analysis=report.get("market_analysis"),
+        competitor_places=report.get("competitor_places", []),
+    )
+
+    # نحفظ الـ PDF كملف مؤقت ثم نرسله ونحذفه
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+    try:
+        tmp.write(pdf_bytes)
+        tmp.close()
+        send_file_via_email(
+            to_email=email,
+            subject=f"دراسة الجدوى — {project_nm} | منصة مُقدِّم",
+            body=f"مرفقة دراسة الجدوى لمشروع \"{project_nm}\".\n\nمنصة مُقدِّم",
+            file_path=tmp.name,
+            attachment_name=f"{project_nm}_feasibility.pdf",
+            project_name=project_nm,
+            file_kind_ar="دراسة الجدوى",
+        )
+        return jsonify({"ok": True, "sent_to": email})
+    except EnvironmentError as e:
+        return jsonify({"error": f"إعداد SMTP ناقص: {e}"}), 500
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        try:
+            os.remove(tmp.name)
+        except OSError:
+            pass
 
 
 # =====================================================================
@@ -347,6 +408,7 @@ def pitchdeck_generate():
         decision = classify_project(
             profit_margin_percent=financials["profit_margin_percent"],
             payback_months=financials["payback_period_months"],
+            success_prediction=financials.get("success_prediction"),  # تصنيف موحّد
         )
         market_data = {
             "business_type":     get_label_ar(business_type),
@@ -387,6 +449,15 @@ def pitchdeck_generate():
         out_path = os.path.join("generated", filename)
         build_pptx(deck, out_path)
 
+        # نحذف الملف بعد إرساله عشان مجلد generated/ ما يتراكم
+        @after_this_request
+        def _cleanup(response):
+            try:
+                os.remove(out_path)
+            except OSError:
+                pass
+            return response
+
         return send_file(
             out_path,
             as_attachment=True,
@@ -394,6 +465,95 @@ def pitchdeck_generate():
             mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation",
         )
 
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+# =====================================================================
+# إرسال العرض التقديمي للمستخدم على الإيميل
+# نفس بيانات /api/pitchdeck/generate لكن بدلاً من تنزيل، يُرسل بالإيميل
+# =====================================================================
+@app.post("/api/pitchdeck/email")
+def pitchdeck_email():
+    import tempfile
+    try:
+        data  = request.get_json(silent=True) or {}
+        email = (data.get("email") or "").strip()
+        if not email or "@" not in email:
+            return jsonify({"error": "إيميل غير صالح"}), 400
+
+        business_type = data.get("business_type", "restaurant")
+        if not is_valid_type(business_type):
+            return jsonify({"error": "نوع المشروع غير مدعوم"}), 400
+
+        enriched = enrich_project_data(business_type, data.get("city", "غير محدد"))
+        full_data = {**data,
+            "avg_salary":        DEFAULT_SALARY,
+            "cogs_known":        False,
+            "target_customers":  enriched["target_customers"],
+            "value_proposition": enriched["value_proposition"],
+        }
+
+        financials = calculate_financials(full_data)
+        decision = classify_project(
+            profit_margin_percent=financials["profit_margin_percent"],
+            payback_months=financials["payback_period_months"],
+            success_prediction=financials.get("success_prediction"),
+        )
+        market_data = {
+            "business_type":     get_label_ar(business_type),
+            "city":              data.get("city", ""),
+            "target_customers":  enriched["target_customers"],
+            "value_proposition": enriched["value_proposition"],
+            "competitors":       data.get("competitors", []),
+            "market_notes":      data.get("market_notes", ""),
+            "pricing_notes":     data.get("pricing_notes", ""),
+        }
+        report = generate_feasibility_report(financials, decision, market_data)
+        deck = generate_pitch_deck_json(
+            {**report, **financials},
+            extra={
+                **market_data,
+                "project_name":      data.get("project_name", ""),
+                "idea_description":  data.get("idea_description", ""),
+                "restaurant_type":   data.get("restaurant_type", ""),
+                "city":              data.get("city", ""),
+                "capital":           data.get("capital", ""),
+                "avg_price":         data.get("avg_price", ""),
+                "customers_per_day": data.get("customers_per_day", ""),
+                "employees":         data.get("employees", ""),
+            }
+        )
+        if isinstance(deck, str):
+            deck = json.loads(deck)
+        if "slides" not in deck:
+            return jsonify({"error": "Deck JSON missing 'slides'"}), 500
+
+        project_nm = data.get("project_name") or "مشروعك"
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pptx")
+        tmp.close()
+        try:
+            build_pptx(deck, tmp.name)
+            send_file_via_email(
+                to_email=email,
+                subject=f"العرض التقديمي — {project_nm} | منصة مُقدِّم",
+                body=f"مرفق العرض التقديمي لمشروع \"{project_nm}\".\n\nمنصة مُقدِّم",
+                file_path=tmp.name,
+                attachment_name=f"{project_nm}_pitch_deck.pptx",
+                project_name=project_nm,
+                file_kind_ar="العرض التقديمي",
+            )
+            return jsonify({"ok": True, "sent_to": email})
+        finally:
+            try:
+                os.remove(tmp.name)
+            except OSError:
+                pass
+
+    except EnvironmentError as e:
+        return jsonify({"error": f"إعداد SMTP ناقص: {e}"}), 500
     except Exception as e:
         import traceback
         traceback.print_exc()

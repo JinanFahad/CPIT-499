@@ -6,7 +6,7 @@
 
 import { useState, useEffect } from "react";
 import { Link } from "react-router";
-import { PresentationIcon, FolderOpen, FileText, Loader2 } from "lucide-react";
+import { PresentationIcon, FolderOpen, FileText, Loader2, Mail } from "lucide-react";
 import { motion } from "motion/react";
 import { Header } from "../components/Header";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -20,6 +20,7 @@ export default function PitchDeckPage() {
   const [projects, setProjects] = useState<any[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingProject, setGeneratingProject] = useState<any>(null);
+  const [emailingProject, setEmailingProject] = useState<any>(null);
 
   useEffect(() => {
     const userId = auth.currentUser?.uid || localStorage.getItem("userId") || "";
@@ -67,6 +68,42 @@ export default function PitchDeckPage() {
     } finally {
       setIsGenerating(false);
       setGeneratingProject(null);
+    }
+  };
+
+  const handleEmailPitchDeck = async (project: any) => {
+    const userEmail = auth.currentUser?.email;
+    if (!userEmail) {
+      alert(isAr ? "لازم تسجّلي الدخول أولاً" : "Please log in first");
+      return;
+    }
+    setEmailingProject(project);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/pitchdeck/email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: userEmail,
+          project_name: project.project_name,
+          business_type: project.project_type,
+          restaurant_type: project.restaurant_type || "",
+          city: project.city,
+          capital: project.capital,
+          rent: project.rent,
+          employees: project.employees,
+          avg_price: project.avg_price,
+          customers_per_day: project.customers_per_day,
+          target_customers: project.target_customers || "",
+          main_products: project.main_products || [],
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Failed");
+      alert(isAr ? `تم الإرسال إلى ${userEmail} ✓` : `Sent to ${userEmail} ✓`);
+    } catch (err: any) {
+      alert(isAr ? `فشل الإرسال: ${err.message}` : `Send failed: ${err.message}`);
+    } finally {
+      setEmailingProject(null);
     }
   };
 
@@ -187,19 +224,34 @@ export default function PitchDeckPage() {
                         </div>
                       </div>
 
-                      <button
-                        onClick={() => handleExportPitchDeck(project)}
-                        className="bg-[#FFF9F0] border-2 border-[#C6A75E] hover:bg-[#C6A75E] hover:text-white text-[#C6A75E] flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold shadow-sm transition-all flex-shrink-0 font-[Changa]"
-                      >
-                        {isGenerating && generatingProject?.id === project.id ? (
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                        ) : (
-                          <>
-                            <PresentationIcon className="w-5 h-5" />
-                            <span>{isAr ? "عرض تقديمي" : "Pitch Deck"}</span>
-                          </>
-                        )}
-                      </button>
+                      <div className="flex gap-2 flex-shrink-0">
+                        <button
+                          onClick={() => handleExportPitchDeck(project)}
+                          disabled={isGenerating || emailingProject?.id === project.id}
+                          className="bg-[#FFF9F0] border-2 border-[#C6A75E] hover:bg-[#C6A75E] hover:text-white text-[#C6A75E] flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold shadow-sm transition-all font-[Changa] disabled:opacity-60"
+                        >
+                          {isGenerating && generatingProject?.id === project.id ? (
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                          ) : (
+                            <>
+                              <PresentationIcon className="w-5 h-5" />
+                              <span>{isAr ? "عرض تقديمي" : "Pitch Deck"}</span>
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleEmailPitchDeck(project)}
+                          disabled={emailingProject?.id === project.id || isGenerating}
+                          title={isAr ? "إرسال إلى إيميلي" : "Send to my email"}
+                          className="bg-white border-2 border-[#08312D] hover:bg-[#08312D] hover:text-white text-[#08312D] flex items-center justify-center px-4 py-3 rounded-xl font-semibold shadow-sm transition-all disabled:opacity-60"
+                        >
+                          {emailingProject?.id === project.id ? (
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                          ) : (
+                            <Mail className="w-5 h-5" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}

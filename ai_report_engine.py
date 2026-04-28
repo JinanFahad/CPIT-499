@@ -28,6 +28,13 @@ def generate_feasibility_report(financials: dict, decision: dict, market_data: d
 أنت مستشار استثماري سعودي أول، متخصص في تقييم مشاريع المنشآت الصغيرة والمتوسطة.
 مهمتك تحليل أرقام حقيقية وإصدار تقرير استثماري منضبط — لا عبارات عامة، كل جملة مبنية على رقم.
 
+⚠ ملاحظة منهجية مهمة:
+الأرقام الشهرية (monthly_revenue, monthly_net_profit, profit_margin_percent) تمثّل
+وضع التشغيل المستقر بعد ٦ أشهر من الافتتاح، حسب منحنى تدرّج العملاء (Ramp-up).
+الأشهر الأولى بطبيعتها أقل، والمشروع يصل لكامل طاقته في شهر {financials.get("ramp_up_months", 6)}.
+استخدم monthly_projection لتفهم رحلة السنة الأولى، و year_1_total_profit للنتيجة التراكمية.
+لا تقيّم المشروع كخاسر فقط لأن شهر 1 سلبي — هذا متوقع لأي مشروع جديد.
+
 ══════════════════════════════════════
 البيانات المالية:
 {json.dumps(financials, ensure_ascii=False, indent=2)}
@@ -108,7 +115,32 @@ break_even_revenue, payback_period_months, utilities_cost, overhead_cost, market
         }
     )
 
-    return json.loads(response.output_text)
+    report = json.loads(response.output_text)
+
+    # ── دمج بيانات منحنى التدرّج في التقرير بعد توليد الـ AI ──
+    # الـ schema يفرض بنية محدودة، لذا نضيف حقول التوقع الشهري والإجماليات
+    # السنوية يدوياً ليستطيع الفرونت عرضها (الجدول الشهري، إلخ)
+    fs = report.setdefault("financial_summary", {})
+    for key in (
+        "month_1_revenue", "month_1_net_profit",
+        "break_even_month", "monthly_projection",
+        "year_1_total_revenue", "year_1_total_expenses", "year_1_total_profit",
+        "ramp_up_months",
+        "salaries_total", "salary_breakdown", "cogs_cost",
+        # توقّع 3 سنوات + الربح التراكمي + ROI
+        "yearly_summary", "cumulative_profit_curve",
+        "total_3_year_profit", "roi_3_year_percent",
+        "yearly_revenue_growth", "yearly_cost_inflation",
+        # توزيع رأس المال + التنبؤ بالنجاح/الفشل
+        "capital_allocation", "operating_cushion",
+        "success_prediction",
+        # ملخص المدخلات اللي دخلها المستخدم (رأس المال، الموظفين، إلخ)
+        "inputs_summary",
+    ):
+        if key in financials:
+            fs[key] = financials[key]
+
+    return report
 
 
 def enrich_project_data(business_type: str, city: str) -> dict:

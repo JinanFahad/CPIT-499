@@ -18,7 +18,6 @@ import {
   MessageSquare,
   Building2,
   PresentationIcon,
-  BarChart3,
   ArrowLeft,
   HelpCircle,
   Plus,
@@ -110,17 +109,6 @@ export default function MainDashboard() {
       link: "/dashboard/pitch-deck",
       color: "#C6A75E",
       bgColor: "bg-[#FFF9F0]",
-    },
-    {
-      id: 5,
-      title: isAr ? "تحليل السوق" : "Market Analysis",
-      description: isAr
-        ? "استكشفي المنافسين وفرص السوق في أي موقع"
-        : "Explore competitors and market opportunities in any location",
-      icon: BarChart3,
-      link: "/dashboard/market-analysis",
-      color: "#08312D",
-      bgColor: "bg-[#E6F2F0]",
     },
   ];
 
@@ -528,6 +516,19 @@ export default function MainDashboard() {
         <div className="max-w-6xl mx-auto text-center">
           <div className="flex items-center justify-center gap-3 mb-4">
             <img src={logoImage} alt="مُـقــــدِم" className="h-8 w-auto" />
+          </div>
+          <div className="flex items-center justify-center gap-4 mb-4">
+            <a
+              href="https://x.com/muqqdim"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={isAr ? "حسابنا على إكس" : "Our X account"}
+              className="text-[#08312D] hover:text-[#C6A75E] transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-hidden="true">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+              </svg>
+            </a>
           </div>
           <p className="text-gray-600 text-sm font-[Changa]">
             {isAr

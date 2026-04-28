@@ -19,13 +19,43 @@ from saudi_assumptions import (
 )
 
 
-def classify_project(profit_margin_percent: float, payback_months):
+def classify_project(profit_margin_percent: float, payback_months, success_prediction: dict = None):
+    """يصنّف المشروع.
+
+    إذا توفّر `success_prediction` (من success_predictor): نستخدم نتيجته كمصدر أساسي
+    لأنه يقيّم 5 عوامل (هامش، ROI، استرداد، احتياطي، سوق) بدلاً من 2 فقط.
+    التصنيف هذا يضمن إن شارة الغلاف ('مناسب' / 'متوسط' / 'عالية') تتوافق مع
+    تنبؤ النجاح في تقرير الـ PDF والواجهة.
+
+    لو ما توفر، نرجع للمنطق القديم (هامش + استرداد فقط).
     """
-    يصنّف المشروع ويرجع:
-      - classification: التصنيف النصي
-      - score: النقاط (من 4)
-      - reasons: قائمة بالأسباب المنطقية (تظهر للمستخدم)
-    """
+    # ── المسار الجديد: نستخدم نتيجة success_predictor إذا متوفّرة ──
+    if success_prediction:
+        outcome = success_prediction["outcome"]
+        score_pct = success_prediction.get("score_percent", 0)
+        # تحويل لنظام 0-4 (للتوافق مع الكود القديم)
+        if score_pct >= 75:
+            score = 4
+        elif score_pct >= 55:
+            score = 3
+        elif score_pct >= 35:
+            score = 2
+        elif score_pct >= 15:
+            score = 1
+        else:
+            score = 0
+        # نأخذ تقييمات العوامل الـ 5 كأسباب
+        reasons = [
+            f"{f['name']}: {f['rating']} ({f['value']}) — {f['score']}/{f['weight']}"
+            for f in success_prediction.get("factors", [])
+        ]
+        return {
+            "classification": outcome,
+            "score":          score,
+            "reasons":        reasons,
+        }
+
+    # ── المسار القديم (Fallback) ──
     score = 0
     reasons = []
 
@@ -33,33 +63,42 @@ def classify_project(profit_margin_percent: float, payback_months):
     profit_margin = profit_margin_percent / 100.0  # من نسبة مئوية إلى عدد عشري
     if profit_margin >= STRONG_PROFIT_MARGIN:
         score += 2
-        reasons.append("Profit margin is strong.")
+        reasons.append(f"هامش ربح قوي ({profit_margin_percent}%) — أعلى من معيار {int(STRONG_PROFIT_MARGIN*100)}% للقطاع.")
     elif profit_margin >= MODERATE_PROFIT_MARGIN:
         score += 1
-        reasons.append("Profit margin is moderate.")
+        reasons.append(f"هامش ربح مقبول ({profit_margin_percent}%) — ضمن المعدل الطبيعي لقطاع المطاعم ({int(MODERATE_PROFIT_MARGIN*100)}% فأكثر).")
+    elif profit_margin >= 0.03:
+        # هامش موجب لكن ضعيف — ما يحصّل نقطة كاملة لكن مو "فشل"
+        reasons.append(f"هامش ربح ضعيف ({profit_margin_percent}%) — موجب لكن أقل من المعدل الصحي ({int(MODERATE_PROFIT_MARGIN*100)}%).")
+    elif profit_margin >= 0:
+        reasons.append(f"هامش ربح حدّي ({profit_margin_percent}%) — قرب الصفر، يحتاج تحسين قبل البدء.")
     else:
-        reasons.append("Profit margin is low.")
+        reasons.append(f"هامش ربح سالب ({profit_margin_percent}%) — المشروع خاسر حتى عند الاستقرار.")
 
     # ── تقييم فترة الاسترداد ──
     if payback_months is None:
-        # الربح سلبي → ما نقدر نحسب فترة استرداد
-        reasons.append("Payback period cannot be computed (profit is not positive).")
+        reasons.append("لا يمكن حساب فترة استرداد لأن الربح الصافي غير موجب.")
     elif payback_months <= GOOD_PAYBACK_MONTHS:
         score += 2
-        reasons.append("Payback period is excellent.")
+        reasons.append(f"فترة استرداد ممتازة ({round(payback_months)} شهر) — أقل من معيار القطاع ({GOOD_PAYBACK_MONTHS} شهر).")
     elif payback_months <= ACCEPTABLE_PAYBACK_MONTHS:
         score += 1
-        reasons.append("Payback period is acceptable.")
+        reasons.append(f"فترة استرداد مقبولة ({round(payback_months)} شهر) — ضمن المتوقع لقطاع المطاعم ({ACCEPTABLE_PAYBACK_MONTHS} شهر فأقل).")
+    elif payback_months <= 72:
+        reasons.append(f"فترة استرداد طويلة ({round(payback_months)} شهر) — أعلى من المتوسط لكن ضمن النطاق الممكن.")
     else:
-        reasons.append("Payback period is long (higher risk).")
+        reasons.append(f"فترة استرداد طويلة جداً ({round(payback_months)} شهر) — مخاطرة عالية.")
 
     # ── التصنيف النهائي بناءً على مجموع النقاط ──
     if score >= 3:
-        classification = "Suitable for Investment"
+        classification = "مناسب للاستثمار"
     elif score == 2:
-        classification = "Moderate Risk"
+        classification = "مخاطرة متوسطة"
+    elif score == 1:
+        # هامش ربح إيجابي + استرداد ضمن الممكن، أو هامش قوي مع استرداد طويل
+        classification = "قابل للتطبيق بشروط"
     else:
-        classification = "High Risk"
+        classification = "مخاطرة عالية"
 
     return {
         "classification": classification,
