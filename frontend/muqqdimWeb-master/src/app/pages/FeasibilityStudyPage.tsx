@@ -47,10 +47,10 @@ const ChevronDown = () => (
   </svg>
 );
 
-const inputClass = "w-full bg-gray-50 dark:bg-gray-100 border-gray-300 dark:border-gray-400 text-[#08312d] dark:text-gray-900 placeholder:text-gray-400 rounded-lg px-4 py-3 text-base font-medium font-[Changa] focus:ring-2 focus:ring-[#C6A75E] focus:border-[#C6A75E]";
-const labelClass = "block text-[#08312d] dark:text-gray-900 font-bold text-base mb-2 font-[Changa]";
-const selectClass = "w-full bg-gray-50 dark:bg-gray-100 border border-gray-300 dark:border-gray-400 text-[#08312d] dark:text-gray-900 rounded-lg px-4 py-3 text-base font-medium font-[Changa] focus:ring-2 focus:ring-[#C6A75E] focus:border-[#C6A75E] focus:outline-none appearance-none cursor-pointer";
-const sectionTitle = "text-[#08312d] dark:text-white font-bold text-lg mb-5 pb-2 border-b border-gray-200 dark:border-white/10 font-[Changa]";
+const inputClass = "w-full bg-gray-50 dark:bg-[#062620] border-gray-300 dark:border-white/20 text-[#08312d] dark:text-white placeholder:text-gray-400 dark:placeholder:text-white/40 rounded-lg px-4 py-3 text-base font-medium font-[Changa] focus:ring-2 focus:ring-[#C6A75E] focus:border-[#C6A75E]";
+const labelClass = "block text-[#08312d] dark:text-white font-bold text-base mb-2 font-[Changa]";
+const selectClass = "w-full bg-gray-50 dark:bg-[#062620] border border-gray-300 dark:border-white/20 text-[#08312d] dark:text-white rounded-lg px-4 py-3 text-base font-medium font-[Changa] focus:ring-2 focus:ring-[#C6A75E] focus:border-[#C6A75E] focus:outline-none appearance-none cursor-pointer";
+const sectionTitle = "text-[#08312d] dark:text-white font-bold text-lg mb-5 pb-2 border-b border-gray-200 dark:border-[#C6A75E]/30 font-[Changa]";
 
 // قوائم الأنواع والمدن (نصدّرها للاستخدام في صفحات أخرى مثل EditProjectPage)
 export const businessTypes = [
@@ -269,7 +269,7 @@ export default function FeasibilityStudyPage() {
         <div className="max-w-3xl mx-auto space-y-6">
 
           <motion.div
-            className="bg-white dark:bg-gray-200 rounded-xl p-8 border border-gray-200 dark:border-gray-300 shadow-sm"
+            className="bg-white dark:bg-[#0E4A43] rounded-xl p-8 border border-gray-200 dark:border-[#C6A75E]/20 shadow-sm"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
@@ -297,7 +297,7 @@ export default function FeasibilityStudyPage() {
 
           <motion.form
             onSubmit={handleSubmit}
-            className="bg-white dark:bg-gray-200 rounded-xl p-8 border border-gray-200 dark:border-gray-300 shadow-sm space-y-8"
+            className="bg-white dark:bg-[#0E4A43] rounded-xl p-8 border border-gray-200 dark:border-[#C6A75E]/20 shadow-sm space-y-8"
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -469,7 +469,7 @@ export default function FeasibilityStudyPage() {
               </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t-2 border-gray-200 dark:border-gray-300">
+            <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t-2 border-gray-200 dark:border-[#C6A75E]/20">
               <Button type="submit" disabled={loading} className="flex-1 h-14 bg-[#C6A75E] hover:bg-[#a88f4e] text-white font-bold text-base rounded-lg transition-all font-[Changa]">
                 <CheckCircle className="w-5 h-5 ml-2 flex-shrink-0" />
                 {loading ? isAr ? "جاري التوليد..." : "Generating..." : t("feasibility.generateButton")}

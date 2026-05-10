@@ -340,9 +340,9 @@ export default function MainDashboard() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
               >
-                {/* Connecting line */}
+                {/* Connecting line — يتبع اتجاه اللغة */}
                 {index < 3 && (
-                  <div className="hidden md:block absolute top-[22px] right-[50%] w-full h-[1px] bg-[#C6A75E]/30 z-0" />
+                  <div className={`hidden md:block absolute top-[22px] w-full h-[1px] bg-[#C6A75E]/30 z-0 ${isAr ? "right-[50%]" : "left-[50%]"}`} />
                 )}
 
                 {/* Circle */}

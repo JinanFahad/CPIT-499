@@ -91,10 +91,10 @@ export function Header() {
               </button>
 
               {isDropdownOpen && (
-                <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-gray-200 rounded-md shadow-md border border-gray-200 dark:border-gray-300 overflow-hidden z-50">
+                <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#0E4A43] rounded-md shadow-xl border border-gray-200 dark:border-[#C6A75E]/30 overflow-hidden z-50">
                   <Link
                     to="/dashboard/profile"
-                    className="flex items-center gap-3 px-4 py-3 text-[#08312D] dark:text-gray-900 hover:bg-gray-50 dark:hover:bg-gray-300 transition-colors text-sm border-b border-gray-100"
+                    className="flex items-center gap-3 px-4 py-3 text-[#08312D] dark:text-white hover:bg-gray-50 dark:hover:bg-[#08312D] transition-colors text-sm border-b border-gray-100 dark:border-white/10"
                     onClick={() => setIsDropdownOpen(false)}
                   >
                     <User className="w-4 h-4" />
@@ -102,7 +102,7 @@ export function Header() {
                   </Link>
                   <Link
                     to="/dashboard/my-projects"
-                    className="flex items-center gap-3 px-4 py-3 text-[#08312D] dark:text-gray-900 hover:bg-gray-50 dark:hover:bg-gray-300 transition-colors text-sm border-b border-gray-100"
+                    className="flex items-center gap-3 px-4 py-3 text-[#08312D] dark:text-white hover:bg-gray-50 dark:hover:bg-[#08312D] transition-colors text-sm border-b border-gray-100 dark:border-white/10"
                     onClick={() => setIsDropdownOpen(false)}
                   >
                     <FolderOpen className="w-4 h-4" />
@@ -110,10 +110,10 @@ export function Header() {
                   </Link>
                   <button
                     onClick={() => { setIsDropdownOpen(false); handleLogout(); }}
-                    className="flex items-center gap-3 px-4 py-3 hover:bg-red-50 transition-colors w-full text-left text-sm"
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors w-full text-left text-sm"
                   >
-                    <LogOut className="w-4 h-4 text-red-600" />
-                    <span className="text-red-600 font-semibold">{t("header.logout")}</span>
+                    <LogOut className="w-4 h-4 text-red-600 dark:text-red-400" />
+                    <span className="text-red-600 dark:text-red-400 font-semibold">{t("header.logout")}</span>
                   </button>
                 </div>
               )}
