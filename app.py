@@ -35,13 +35,13 @@ from market_ai import build_competitor_summary, generate_market_analysis_ar
 from gov_consultant import gov_chat, clear_gov_session, get_gov_suggestions
 
 # ── إعدادات وثوابت ──
-from business_types import BUSINESS_TYPES, get_google_type, get_label_ar, is_valid_type
+from business_types import BUSINESS_TYPES, get_google_type, get_label_ar, get_label, is_valid_type
 from saudi_assumptions import DEFAULT_SALARY
 from validators import validate_feasibility_input
 
 # ── قاعدة البيانات (SQLite) ──
 from database import (
-    init_db, save_report, get_all_reports, get_report_by_id, delete_report,
+    init_db, save_report, get_all_reports, get_report_by_id, delete_report, update_report,
     save_project, get_projects_by_user, get_project_by_id, update_project, delete_project,
 )
 
@@ -109,6 +109,11 @@ def report_pdf():
     lat               = data.get("lat")
     lng               = data.get("lng")
 
+    # لغة التقرير: "ar" (افتراضي) أو "en" — تأتي من الفرونت بناءً على اختيار المستخدم
+    language = (data.get("language") or "ar").lower()
+    if language not in ("ar", "en"):
+        language = "ar"
+
     # التحقق من إن نوع المشروع مدعوم
     if not is_valid_type(business_type):
         return jsonify({
@@ -117,11 +122,11 @@ def report_pdf():
         }), 400
 
     # AI يولّد بيانات إضافية تلقائياً (العملاء المستهدفون + عرض القيمة)
-    enriched = enrich_project_data(business_type, city)
+    enriched = enrich_project_data(business_type, city, language=language)
 
     # تخصص المطعم (اختياري) — مثل: "كافيه قهوة مختصة"، "مطعم برجر فاخر"
     restaurant_type = (data.get("restaurant_type") or "").strip()
-    project_type_for_market = restaurant_type or get_label_ar(business_type)
+    project_type_for_market = restaurant_type or get_label(business_type, language)
 
     # المستخدم يقدر يكتب جمهوره المستهدف بنفسه (يطغى على الـ AI)
     user_target_customers = (data.get("target_customers") or "").strip()
@@ -146,16 +151,17 @@ def report_pdf():
         "pricing_notes": "",
     }
 
-    financials = calculate_financials(full_data)
+    financials = calculate_financials(full_data, language=language)
 
     decision = classify_project(
         profit_margin_percent=financials["profit_margin_percent"],
         payback_months=financials["payback_period_months"],
         success_prediction=financials.get("success_prediction"),  # تصنيف موحّد مع تنبؤ النجاح
+        language=language,
     )
 
     market_data = {
-        "business_type": get_label_ar(business_type),
+        "business_type": get_label(business_type, language),
         "restaurant_type": restaurant_type,
         "city": city,
         "target_customers": full_data["target_customers"],
@@ -166,8 +172,8 @@ def report_pdf():
         "pricing_notes": "",
     }
 
-    report = generate_feasibility_report(financials, decision, market_data)
-    
+    report = generate_feasibility_report(financials, decision, market_data, language=language)
+
 
     # ── تحليل السوق عبر قوقل بلايسز (اختياري — فقط لو المستخدم حدد موقع) ──
     market_analysis   = None  # تحليل ذكاء اصطناعي للمنافسين
@@ -206,7 +212,8 @@ def report_pdf():
     project_type_for_market,
     city,
     1500,
-    summary
+    summary,
+    language=language,
 )
                 competitor_places = summary["all_competitors"]
 
@@ -231,6 +238,7 @@ def report_pdf():
         report=report,
         market_analysis=market_analysis,
         competitor_places=competitor_places,
+        language=language,
     )
 
     # رجّع الـ PDF كاستجابة + رقم التقرير في الهيدر (الفرونت يربطه بالمشروع)
@@ -312,6 +320,33 @@ def get_report(report_id):
     if not report:
         return jsonify({"error": "الدراسة غير موجودة"}), 404
     return jsonify(report)
+
+
+@app.post("/api/reports/<int:report_id>/translate")
+def translate_report_endpoint(report_id):
+    """يترجم محتوى التقرير الحرّ إلى اللغة المطلوبة (ar/en) ويخزّن النتيجة في الكاش.
+
+    Body: {"to": "en"} أو {"to": "ar"}
+    Response: التقرير بنسخته المترجمة (جاهز للعرض).
+    """
+    from report_translator import get_or_create_translation
+
+    data = request.get_json(silent=True) or {}
+    target = (data.get("to") or "").lower()
+    if target not in ("ar", "en"):
+        return jsonify({"error": "Invalid target language (use 'ar' or 'en')"}), 400
+
+    report = get_report_by_id(report_id)
+    if not report:
+        return jsonify({"error": "Report not found"}), 404
+
+    translated, was_newly_translated = get_or_create_translation(report, target)
+
+    # إذا تمت ترجمة جديدة، نحدّث الـ DB بحيث الكاش يبقى محفوظاً
+    if was_newly_translated:
+        update_report(report_id, report)  # report.get("_translations") تم تحديثه داخل الدالة
+
+    return jsonify(translated)
 
 
 @app.delete("/api/reports/<int:report_id>")

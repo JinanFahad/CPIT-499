@@ -15,11 +15,11 @@ DEFAULT_SALARY = 5000
 # بعد الـ ٥: الموظفين الإضافيين يكونون عمالة دعم فقط (نظافة/خدمة/كاشير)
 # وما يُكرَّر الشيف أو المساعد لأن المطعم الواحد ما يحتاج عادةً أكثر من شيف.
 STAFF_SALARY_TIERS = [
-    {"role": "chef",             "role_ar": "شيف",          "salary": 5000},
-    {"role": "assistant_chef",   "role_ar": "مساعد شيف",    "salary": 3000},
-    {"role": "cashier",          "role_ar": "كاشير",        "salary": 3000},
-    {"role": "customer_service", "role_ar": "خدمة عملاء",   "salary": 2500},
-    {"role": "cleaner",          "role_ar": "عامل نظافة",   "salary": 1750},
+    {"role": "chef",             "role_ar": "شيف",          "role_en": "Chef",             "salary": 5000},
+    {"role": "assistant_chef",   "role_ar": "مساعد شيف",    "role_en": "Assistant Chef",   "salary": 3000},
+    {"role": "cashier",          "role_ar": "كاشير",        "role_en": "Cashier",          "salary": 3000},
+    {"role": "customer_service", "role_ar": "خدمة عملاء",   "role_en": "Customer Service", "salary": 2500},
+    {"role": "cleaner",          "role_ar": "عامل نظافة",   "role_en": "Cleaner",          "salary": 1750},
 ]
 
 # ترتيب توزيع الموظفين الإضافيين بعد أول ٥ — يدور بينهم بالتسلسل
@@ -60,6 +60,7 @@ def calculate_staff_salaries(employees: int) -> dict:
             breakdown.append({
                 "role":     tier["role"],
                 "role_ar":  tier["role_ar"],
+                "role_en":  tier["role_en"],
                 "count":    count,
                 "salary":   tier["salary"],
                 "subtotal": subtotal,

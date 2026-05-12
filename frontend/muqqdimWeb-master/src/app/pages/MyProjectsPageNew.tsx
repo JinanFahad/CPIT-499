@@ -92,6 +92,8 @@ export default function MyProjectsPageNew() {
           customers_per_day: project.customers_per_day,
           target_customers: project.target_customers || "",
           main_products: project.main_products || [],
+          // اللغة الحالية للموقع — يستخدمها الباك لاختيار برومبت الـ AI وقالب الـ PDF
+          language: language,
           ...(project.lat && project.lng ? { lat: project.lat, lng: project.lng } : {}),
         }),
       });

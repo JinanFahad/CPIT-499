@@ -50,7 +50,7 @@ REPORT_SCHEMA = {
         "additionalProperties": False,
         "properties": {
           "narrative":           {"type": "string"},
-          "competition_level":   {"type": "string", "enum": ["منخفض","متوسط","مرتفع"]},
+          "competition_level":   {"type": "string", "enum": ["منخفض","متوسط","مرتفع","Low","Moderate","High"]},
           "market_opportunity_score": {"type": "integer"},
           "direct_competitor_summary": {
             "type": "object",
@@ -139,7 +139,7 @@ REPORT_SCHEMA = {
           "additionalProperties": False,
           "properties": {
             "risk":       {"type": "string"},
-            "severity":   {"type": "string", "enum": ["عالي","متوسط","منخفض"]},
+            "severity":   {"type": "string", "enum": ["عالي","متوسط","منخفض","High","Medium","Low"]},
             "mitigation": {"type": "string"}
           },
           "required": ["risk","severity","mitigation"]

@@ -193,6 +193,8 @@ export default function FeasibilityStudyPage() {
         customers_per_day: Number(formData.expectedCustomersPerDay),
         target_customers: formData.targetCustomers,
         main_products: mainProductsList,
+        // اللغة الحالية للموقع — يستخدمها الباك لاختيار برومبت الـ AI وقالب الـ PDF
+        language: language,
       };
 
       if (formData.lat && formData.lng) {

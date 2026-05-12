@@ -54,7 +54,7 @@ MARKET_SCHEMA = {
     },
     "competition_level": {
       "type": "string",
-      "enum": ["منخفض", "متوسط", "مرتفع"]
+      "enum": ["منخفض", "متوسط", "مرتفع", "Low", "Moderate", "High"]
     },
     "market_opportunity_score": {   # رقم من 1-10 يساعد في قرار الجدوى
       "type": "integer"

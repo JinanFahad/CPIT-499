@@ -58,7 +58,8 @@ def generate_market_analysis_ar(
     project_type: str,
     city: str,
     radius_m: float,
-    competitor_summary: dict
+    competitor_summary: dict,
+    language: str = "ar",
 ) -> dict:
     """
     يأخذ ملخص المنافسين ويرسلهم لـ AI للتحليل الذكي:
@@ -66,11 +67,35 @@ def generate_market_analysis_ar(
       2) يحسب ملخص المنافسين المباشرين (عدد، متوسط تقييم، أقوى منافس)
       3) يكتب فقرة تحليلية + نقاط + توصيات عملية
       4) يحدد مستوى المنافسة (منخفض/متوسط/مرتفع) ودرجة الفرصة (1-10)
+
+    language: "ar" (افتراضي) أو "en" — يحدد لغة كل النصوص في النتيجة.
     """
 
     payload = json.dumps(competitor_summary, ensure_ascii=False)
 
-    prompt = f"""
+    if language == "en":
+        prompt = _build_english_prompt(project_type, city, radius_m, payload)
+    else:
+        prompt = _build_arabic_prompt(project_type, city, radius_m, payload)
+
+    response = client.responses.create(
+        model="gpt-4o-mini",
+        input=prompt,
+        text={
+            "format": {
+                "type": "json_schema",
+                "name": "market_analysis",
+                "schema": MARKET_SCHEMA,
+                "strict": True
+            }
+        }
+    )
+
+    return json.loads(response.output_text)
+
+
+def _build_arabic_prompt(project_type, city, radius_m, payload) -> str:
+    return f"""
 أنت محلل سوق متخصص في قطاع المطاعم. مهمتك تحليل بيانات منافسين حقيقية من Google Maps
 وتقديم تحليل مفيد وعملي لصاحب مشروع يدرس جدوى افتتاح مطعمه.
 
@@ -122,17 +147,61 @@ def generate_market_analysis_ar(
 - اكتب بالعربية فقط
 """
 
-    response = client.responses.create(
-        model="gpt-4o-mini",          # اسم صحيح
-        input=prompt,
-        text={
-            "format": {
-                "type": "json_schema",
-                "name": "market_analysis",
-                "schema": MARKET_SCHEMA,
-                "strict": True
-            }
-        }
-    )
 
-    return json.loads(response.output_text)
+def _build_english_prompt(project_type, city, radius_m, payload) -> str:
+    return f"""
+You are a market analyst specialized in the restaurant industry. Your task is to analyze
+real competitor data from Google Maps and provide a useful, practical analysis for a project
+owner studying the feasibility of opening a new restaurant.
+
+═══════════════════════════════
+Proposed project information:
+- Restaurant type: {project_type}
+- City: {city}
+- Study radius: {radius_m} meters around the selected location
+═══════════════════════════════
+
+Nearby restaurants data (from Google Places):
+{payload}
+
+═══════════════════════════════
+Required, in order:
+
+1. Classify each restaurant in "classified_competitors":
+   - Use: name + primaryType + types + primaryTypeDisplayName
+   - Determine estimated_cuisine (the most likely cuisine type)
+   - Set is_direct_competitor: true ONLY if it serves the same cuisine as "{project_type}"
+   - Provide confidence between 0 and 1 based on clarity of data
+   - reason_short: one sentence justifying your decision
+
+2. Compute "direct_competitor_summary" from direct competitors only:
+   - count: their number
+   - avg_rating: their average rating (or 0 if no data)
+   - strongest_name: name of the strongest one (highest rating × reviews)
+   - weakest_gap: a clear gap/opportunity — e.g. "most are under 3.5 rating" or
+     "no direct competitor"
+
+3. Write "narrative": a 3-4 sentence paragraph explaining the market state directly
+   to the owner. Focus on: is the market saturated? Where is the opportunity?
+
+4. "bullets": 3-6 concrete points like:
+   - "5 direct restaurants in radius, average rating 3.8"
+   - "Strongest competitor: [name] at 4.6 with 320 reviews"
+   - "No competitor above 4 in this radius — quality opportunity"
+
+5. "recommendations": 2-5 practical, direct recommendations for the owner.
+
+6. "competition_level": MUST be exactly one of these English strings: "Low", "Moderate", or "High".
+   Do NOT use Arabic. Choose based on the number of direct competitors.
+
+7. "market_opportunity_score": a number from 1 to 10
+   (10 = excellent opportunity, 1 = highly saturated market)
+
+Rules:
+- Do NOT make up information.
+- If data is insufficient: low confidence and estimated_cuisine = "Unclear".
+- Numbers in the results must match the actual data.
+- ALL textual output (narrative, bullets, recommendations, reason_short, strongest_name,
+  weakest_gap, estimated_cuisine, competition_level) MUST be in English only.
+- Do NOT use any Arabic word anywhere in the response.
+"""

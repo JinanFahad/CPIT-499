@@ -19,7 +19,22 @@ from saudi_assumptions import (
 )
 
 
-def classify_project(profit_margin_percent: float, payback_months, success_prediction: dict = None):
+# خريطة ترجمة التصنيفات والمصطلحات الشائعة من العربية إلى الإنجليزية.
+# نستخدمها عند تمرير language="en" لتوحيد المخرج بلغة المستخدم.
+_AR_TO_EN = {
+    "مناسب للاستثمار":     "Suitable for Investment",
+    "مخاطرة متوسطة":       "Moderate Risk",
+    "قابل للتطبيق بشروط":  "Viable with Conditions",
+    "مخاطرة عالية":        "High Risk",
+}
+
+
+def _translate_classification(classification_ar: str) -> str:
+    """يُرجع النسخة الإنجليزية للتصنيف، أو نفس النص إذا غير معروف."""
+    return _AR_TO_EN.get(classification_ar, classification_ar)
+
+
+def classify_project(profit_margin_percent: float, payback_months, success_prediction: dict = None, language: str = "ar"):
     """يصنّف المشروع.
 
     إذا توفّر `success_prediction` (من success_predictor): نستخدم نتيجته كمصدر أساسي
@@ -28,6 +43,10 @@ def classify_project(profit_margin_percent: float, payback_months, success_predi
     تنبؤ النجاح في تقرير الـ PDF والواجهة.
 
     لو ما توفر، نرجع للمنطق القديم (هامش + استرداد فقط).
+
+    language: "ar" (افتراضي) أو "en" — يحدد لغة التصنيف في المخرج.
+    لا يؤثر على الـ reasons لأنها تُولَّد بالعربية في الكلتا الحالتين،
+    أما الفرونت لا يعرضها للمستخدم النهائي مباشرة في النسخة الإنجليزية.
     """
     # ── المسار الجديد: نستخدم نتيجة success_predictor إذا متوفّرة ──
     if success_prediction:
@@ -50,7 +69,7 @@ def classify_project(profit_margin_percent: float, payback_months, success_predi
             for f in success_prediction.get("factors", [])
         ]
         return {
-            "classification": outcome,
+            "classification": _translate_classification(outcome) if language == "en" else outcome,
             "score":          score,
             "reasons":        reasons,
         }
@@ -101,7 +120,7 @@ def classify_project(profit_margin_percent: float, payback_months, success_predi
         classification = "مخاطرة عالية"
 
     return {
-        "classification": classification,
+        "classification": _translate_classification(classification) if language == "en" else classification,
         "score": score,
         "reasons": reasons,
     }

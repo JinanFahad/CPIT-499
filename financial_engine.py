@@ -42,7 +42,7 @@ def _ramp_factor(month: int) -> float:
     return RAMP_UP_START + (1.0 - RAMP_UP_START) * (month - 1) / (RAMP_UP_MONTHS - 1)
 
 
-def calculate_financials(data):
+def calculate_financials(data, language: str = "ar"):
     """يحسب كل المؤشرات المالية للمشروع ويرجع dict جاهز للحفظ"""
     # ── المدخلات الأساسية ──
     business_type = data.get("business_type", "restaurant")
@@ -208,6 +208,7 @@ def calculate_financials(data):
         },
         capital_breakdown=capital_breakdown,
         market_score=market_score,
+        language=language,
     )
 
     # ── تفاصيل التكلفة (على أرقام التشغيل المستقر للعرض في الجداول) ──

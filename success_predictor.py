@@ -17,6 +17,7 @@ def predict_project_outcome(
     financials: dict,
     capital_breakdown: dict = None,
     market_score: int = None,
+    language: str = "ar",
 ) -> dict:
     """يتنبأ بنتيجة المشروع بناءً على عدة عوامل وزنية.
 
@@ -24,6 +25,7 @@ def predict_project_outcome(
         financials: ناتج calculate_financials (مع monthly_projection و yearly_summary)
         capital_breakdown: ناتج calculate_capital_allocation (للمقارنة بالاحتياطي)
         market_score: درجة فرصة السوق من 10 (اختياري — لو غير متوفر نتجاهل العامل)
+        language: "ar" (افتراضي) أو "en" — يحدد لغة جميع النصوص الناتجة.
 
     Returns:
         dict فيه: score, max_score, outcome, outcome_color, outcome_emoji, message, factors
@@ -212,7 +214,7 @@ def predict_project_outcome(
             "دون إعادة هيكلة كاملة لمعطيات المشروع."
         )
 
-    return {
+    result = {
         "score":         score,
         "max_score":     max_score,
         "score_percent": round(score / max_score * 100, 1),
@@ -222,3 +224,128 @@ def predict_project_outcome(
         "message":       message,
         "factors":       factors,
     }
+
+    # نترجم كل النصوص للإنجليزية لو المستخدم يبغى التقرير بالإنجليزي
+    if language == "en":
+        result = _translate_result_to_english(result)
+
+    return result
+
+
+# =====================================================================
+# قاموس الترجمة من العربي إلى الإنجليزي لكل النصوص اللي ينتجها هذا المحرك.
+# نستخدمه فقط لما language=="en" — ما يمس النسخة العربية الأصلية.
+# =====================================================================
+_AR_TO_EN = {
+    # ── أسماء العوامل ──
+    "هامش الربح المستقر":                "Stable Profit Margin",
+    "العائد على الاستثمار (3 سنوات)":     "Return on Investment (3 Years)",
+    "فترة الاسترداد":                     "Payback Period",
+    "كفاية الاحتياطي التشغيلي":           "Operating Cushion Adequacy",
+    "فرصة السوق":                         "Market Opportunity",
+
+    # ── التقييمات (ratings) ──
+    "ممتاز":                              "Excellent",
+    "جيد جداً":                            "Very Good",
+    "جيد (المعدل الطبيعي للقطاع)":         "Good (Sector Average)",
+    "جيد (ضمن المتوقع للقطاع)":            "Good (Within Sector Expectations)",
+    "جيد":                                 "Good",
+    "مقبول":                               "Acceptable",
+    "ضعيف لكن موجب":                       "Weak but Positive",
+    "حدّي (قرب الصفر)":                    "Marginal (Near Zero)",
+    "سلبي":                                "Negative",
+    "ضعيف":                                "Weak",
+    "بالكاد موجب":                         "Barely Positive",
+    "خسارة صافية":                         "Net Loss",
+    "ممتاز (استرداد + ضعف خلال 3 سنوات)":  "Excellent (Payback + Double in 3 Years)",
+    "طويل لكن ممكن":                       "Long but Feasible",
+    "طويل جداً":                           "Very Long",
+    "غير عملي":                            "Impractical",
+    "لا يحدث (الربح غير موجب)":            "Does Not Occur (Non-Positive Profit)",
+    "ممتاز (السنة 1 رابحة)":               "Excellent (Year 1 Profitable)",
+    "ممتاز (يغطي الخسائر بأمان)":          "Excellent (Safely Covers Losses)",
+    "كافٍ بحدّ أدنى":                       "Minimally Sufficient",
+    "غير كافٍ — خطر تعثّر":                "Insufficient — Risk of Default",
+    "غير كافٍ على الإطلاق":                "Severely Insufficient",
+    "غير محسوب":                           "Not Calculated",
+    "متوسط":                               "Moderate",
+    "ضعيف (سوق مشبع/ضعيف الطلب)":          "Weak (Saturated / Low Demand)",
+    "غير محدّد (افتراضي)":                  "Undefined (Default)",
+
+    # ── النتائج النهائية ──
+    "نجاح مرتفع":            "High Success",
+    "نجاح محتمل":            "Probable Success",
+    "مخاطرة متوسطة":         "Moderate Risk",
+    "مخاطرة عالية":          "High Risk",
+    "احتمال فشل عالي":       "High Failure Probability",
+
+    # ── قيم خاصة (value labels) ──
+    "غير مطلوب":            "Not Required",
+    "—":                    "—",
+}
+
+
+def _translate_value_string(s: str) -> str:
+    """يترجم قيمة قد تحتوي على نص عربي + رقم (مثل '18 شهر' أو 'احتياطي 30,000 مقابل ...').
+    يستبدل الكلمات العربية المعروفة فقط؛ الأرقام تبقى كما هي.
+
+    الترتيب مهم: نبدأ بالعبارات الكاملة قبل الكلمات المنفردة عشان نتجنب
+    استبدال جزئي يكسر النص."""
+    if not isinstance(s, str):
+        return s
+    out = s
+    # عبارات كاملة أولاً (الأطول قبل الأقصر)
+    phrases = [
+        ("غير مطلوب",  "Not Required"),
+        ("غير محسوب",  "Not Calculated"),
+    ]
+    for ar, en in phrases:
+        out = out.replace(ar, en)
+    # ثم كلمات سياقية منفردة
+    contextual = {
+        "شهر":      "months",
+        "احتياطي":   "Cushion",
+        "مقابل":     "vs",
+        "خسارة":     "Loss",
+    }
+    for ar, en in contextual.items():
+        out = out.replace(ar, en)
+    return out
+
+
+def _translate_result_to_english(result: dict) -> dict:
+    """يترجم القيم النصية في نتيجة predict_project_outcome من العربي للإنجليزي."""
+    result["outcome"] = _AR_TO_EN.get(result["outcome"], result["outcome"])
+
+    # رسالة التوصية: نترجمها بالكامل من الرسائل المعروفة
+    outcome_messages_en = {
+        "High Success": (
+            "All indicators support project success. Disciplined execution of the financial "
+            "and operational plan is expected to deliver the targeted return within the projected timeframe."
+        ),
+        "Probable Success": (
+            "The project is promising but requires close monthly monitoring of KPIs and readiness "
+            "to adjust the plan when actual results diverge from targets."
+        ),
+        "Moderate Risk": (
+            "The project is viable but requires substantial improvements before launch — such as "
+            "restructuring costs, raising prices, or reducing headcount."
+        ),
+        "High Risk": (
+            "Current indicators are weak. A substantial review of the economic model "
+            "(costs, pricing, team size) is advised before committing to any investment."
+        ),
+        "High Failure Probability": (
+            "The project as designed will not achieve sustainable profitability. "
+            "Recommendation: do not invest without a full restructuring of the project's economics."
+        ),
+    }
+    result["message"] = outcome_messages_en.get(result["outcome"], result["message"])
+
+    # العوامل: نترجم الاسم والـ rating وأي نص عربي في القيمة
+    for factor in result.get("factors", []):
+        factor["name"]   = _AR_TO_EN.get(factor["name"],   factor["name"])
+        factor["rating"] = _AR_TO_EN.get(factor["rating"], factor["rating"])
+        factor["value"]  = _translate_value_string(factor["value"])
+
+    return result

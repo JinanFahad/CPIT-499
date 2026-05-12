@@ -118,6 +118,21 @@ def delete_report(report_id: int) -> bool:
     return deleted
 
 
+def update_report(report_id: int, report: dict) -> bool:
+    """يستبدل بيانات تقرير موجود بنسخة مُعدّلة (مثلاً بعد الترجمة المُخزَّنة).
+    يرجع True لو نجح التحديث، False لو الـ id غير موجود.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.execute(
+        "UPDATE reports SET report_json = ? WHERE id = ?",
+        (json.dumps(report, ensure_ascii=False), report_id),
+    )
+    conn.commit()
+    updated = cur.rowcount > 0
+    conn.close()
+    return updated
+
+
 # =====================================================================
 # دوال الـ Projects — حفظ، استرجاع، تحديث، حذف مشاريع المستخدمين
 # =====================================================================

@@ -46,6 +46,7 @@ import { motion } from "motion/react";
 import { Header } from "../components/Header";
 import { Sparkle } from "../components/Sparkle";
 import { useLanguage } from "../contexts/LanguageContext";
+import { tr, trReason } from "../utils/reportTranslate";
 import { auth } from "../firebase";
 
 const BACKEND_URL = "http://localhost:5000";
@@ -211,12 +212,24 @@ export default function FeasibilityReport() {
   const [activeTab, setActiveTab] = useState<TabKey>("financial");
   const [downloading, setDownloading] = useState(false);
   const [emailing, setEmailing] = useState(false);
+  // عند تبديل اللغة من الـ toggle، نطلب من الباك ترجمة التقرير لو اللغة الحالية
+  // مختلفة عن لغة المحتوى المحفوظ. هذا state يخبر المستخدم إن الترجمة جارية.
+  const [translating, setTranslating] = useState(false);
 
-  // عند فتح الصفحة:
+  // عند فتح الصفحة أو تبديل اللغة:
   //   1) نجيب المشروع من /api/projects/:id (نحتاج report_id)
-  //   2) نجيب التقرير من /api/reports/:report_id (الدراسة كاملة)
+  //   2) نجيب التقرير من /api/reports/:report_id
+  //   3) نكتشف لغة التقرير ونقارنها باللغة الحالية، ولو مختلفة نطلب ترجمته
   useEffect(() => {
     if (!projectId) return;
+
+    const detectLang = (rep: any): "ar" | "en" => {
+      const sample =
+        (typeof rep?.executive_summary === "string"
+          ? rep.executive_summary
+          : rep?.executive_summary?.verdict) || rep?.title || "";
+      return /[؀-ۿ]/.test(sample) ? "ar" : "en";
+    };
 
     const load = async () => {
       try {
@@ -235,7 +248,28 @@ export default function FeasibilityReport() {
 
         const repRes = await fetch(`${BACKEND_URL}/api/reports/${proj.report_id}`);
         if (!repRes.ok) throw new Error("Report not found");
-        const rep = await repRes.json();
+        let rep = await repRes.json();
+
+        // إذا لغة التقرير المحفوظ تختلف عن اللغة الحالية → نطلب ترجمته من الباك
+        if (detectLang(rep) !== language) {
+          setTranslating(true);
+          try {
+            const trRes = await fetch(
+              `${BACKEND_URL}/api/reports/${proj.report_id}/translate`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ to: language }),
+              },
+            );
+            if (trRes.ok) {
+              rep = await trRes.json();
+            }
+          } finally {
+            setTranslating(false);
+          }
+        }
+
         setReport(rep);
       } catch (err: any) {
         setError(err.message || "Failed to load report");
@@ -245,7 +279,7 @@ export default function FeasibilityReport() {
     };
 
     load();
-  }, [projectId, isAr]);
+  }, [projectId, language, isAr]);
 
   const handleDownload = async () => {
     if (!project) return;
@@ -265,6 +299,8 @@ export default function FeasibilityReport() {
           customers_per_day: project.customers_per_day,
           target_customers: project.target_customers || "",
           main_products: project.main_products || [],
+          // اللغة الحالية للموقع — يستخدمها الباك لاختيار برومبت الـ AI وقالب الـ PDF
+          language: language,
           ...(project.lat && project.lng ? { lat: project.lat, lng: project.lng } : {}),
         }),
       });
@@ -311,15 +347,17 @@ export default function FeasibilityReport() {
     }
   };
 
-  if (loading) {
+  if (loading || translating) {
     return (
       <>
         <Header />
-        <div className="min-h-screen flex items-center justify-center">
+        <div className="min-h-screen flex items-center justify-center" dir={isAr ? "rtl" : "ltr"}>
           <div className="text-center">
             <Loader2 className="w-10 h-10 text-[#C6A75E] animate-spin mx-auto mb-4" />
             <p className="text-[#08312D] font-[Changa]">
-              {isAr ? "جاري تحميل الدراسة..." : "Loading report..."}
+              {translating
+                ? (isAr ? "جاري ترجمة الدراسة..." : "Translating report...")
+                : (isAr ? "جاري تحميل الدراسة..." : "Loading report...")}
             </p>
           </div>
         </div>
@@ -358,16 +396,18 @@ export default function FeasibilityReport() {
   const bo = report.business_overview;
 
   // التصنيفات الـ5 من success_predictor + التوافق مع التصنيفات القديمة
+  // النص الأصلي (للـ theme detection) + نص معروض بلغة الواجهة الحالية
   const cls = dec.classification;
   const clsLower = cls.toLowerCase();
+  const clsDisplay = tr(cls, language);
   const decisionTheme =
-    cls.includes("نجاح مرتفع") || cls.includes("مناسب") || clsLower.includes("suitable")
+    cls.includes("نجاح مرتفع") || cls.includes("مناسب") || clsLower.includes("suitable") || clsLower.includes("high success")
       ? { bg: "#f0fdf4", border: "#15803d", text: "#15803d", icon: "✅" }
-      : cls.includes("نجاح محتمل")
+      : cls.includes("نجاح محتمل") || clsLower.includes("probable success")
         ? { bg: "#f0fdf4", border: "#22c55e", text: "#16a34a", icon: "🟢" }
-        : cls.includes("متوسط") || clsLower.includes("moderate") || cls.includes("بشروط")
+        : cls.includes("متوسط") || clsLower.includes("moderate") || cls.includes("بشروط") || clsLower.includes("viable with conditions")
           ? { bg: "#fffbeb", border: "#f59e0b", text: "#b45309", icon: "🟡" }
-          : cls.includes("فشل")
+          : cls.includes("فشل") || clsLower.includes("failure")
             ? { bg: "#fef2f2", border: "#dc2626", text: "#b91c1c", icon: "🔴" }
             : { bg: "#fff7ed", border: "#ea580c", text: "#9a3412", icon: "🟠" };
 
@@ -418,7 +458,7 @@ export default function FeasibilityReport() {
                 </div>
                 <h1 className="text-3xl font-bold text-white mb-2 font-[Changa]">{report.title}</h1>
                 <p className="text-white/70 font-[Changa]">
-                  {bo.business_type} · {bo.city}
+                  {tr(bo.business_type, language)} · {bo.city}
                 </p>
               </div>
               <div className="flex gap-3">
@@ -476,9 +516,9 @@ export default function FeasibilityReport() {
                       {isAr ? "تنبؤ نتيجة المشروع" : "Project Outcome Prediction"}
                     </div>
                     <div className="text-2xl font-black mb-2 font-[Changa]" style={{ color: theme.text }}>
-                      {sp.outcome_emoji} {sp.outcome}
+                      {sp.outcome_emoji} {tr(sp.outcome, language)}
                     </div>
-                    <p className="text-sm text-gray-700 font-[Changa] leading-relaxed">{sp.message}</p>
+                    <p className="text-sm text-gray-700 font-[Changa] leading-relaxed">{tr(sp.message, language)}</p>
                   </div>
                   <div className="flex flex-col items-center gap-2 min-w-[140px]">
                     <div className="text-5xl font-black font-[Changa]" style={{ color: theme.text }}>
@@ -502,12 +542,12 @@ export default function FeasibilityReport() {
                       const pct = (f.score / f.weight) * 100;
                       return (
                         <div key={f.name} className="bg-white/70 rounded-lg p-3">
-                          <div className="text-xs text-gray-600 font-[Changa] mb-1 line-clamp-2">{f.name}</div>
+                          <div className="text-xs text-gray-600 font-[Changa] mb-1 line-clamp-2">{tr(f.name, language)}</div>
                           <div className="flex items-baseline justify-between mb-1">
                             <span className="text-sm font-bold text-[#08312D] font-[Changa]">
                               {f.score}/{f.weight}
                             </span>
-                            <span className="text-xs text-gray-500 font-[Changa]">{f.rating}</span>
+                            <span className="text-xs text-gray-500 font-[Changa]">{tr(f.rating, language)}</span>
                           </div>
                           <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
                             <div
@@ -634,7 +674,7 @@ export default function FeasibilityReport() {
                 {isAr ? "القرار الاستثماري" : "Investment Decision"}
               </div>
               <div className="text-xl font-bold mb-3 font-[Changa]" style={{ color: decisionTheme.text }}>
-                {dec.classification}
+                {clsDisplay}
               </div>
               <div className="flex items-center gap-2 text-sm font-[Changa]">
                 <Trophy className="w-4 h-4" style={{ color: decisionTheme.text }} />
@@ -1247,11 +1287,11 @@ export default function FeasibilityReport() {
                       </div>
                       <div className="bg-gray-50 rounded-xl p-4 flex flex-col items-center justify-center">
                         <div className={`inline-block px-3 py-1 rounded-full text-xs font-bold font-[Changa] ${
-                          ma.competition_level === "منخفض" ? "bg-green-100 text-green-700" :
-                          ma.competition_level === "متوسط" ? "bg-yellow-100 text-yellow-700" :
+                          ["منخفض", "Low"].includes(ma.competition_level) ? "bg-green-100 text-green-700" :
+                          ["متوسط", "Moderate"].includes(ma.competition_level) ? "bg-yellow-100 text-yellow-700" :
                           "bg-red-100 text-red-700"
                         }`}>
-                          {ma.competition_level}
+                          {tr(ma.competition_level, language)}
                         </div>
                         <div className="text-xs text-gray-600 mt-2 font-[Changa]">{isAr ? "مستوى المنافسة" : "Competition"}</div>
                       </div>
@@ -1390,10 +1430,11 @@ export default function FeasibilityReport() {
                   </h3>
                   {report.risks_and_mitigations.map((r, i) => {
                     const sev = r.severity || "";
+                    const sevLower = sev.toLowerCase();
                     const theme =
-                      sev === "عالي" || sev === "high"
+                      sev === "عالي" || sevLower === "high"
                         ? { bg: "bg-red-50", border: "border-red-200", badge: "bg-red-100 text-red-700" }
-                        : sev === "متوسط" || sev === "medium"
+                        : sev === "متوسط" || sevLower === "medium" || sevLower === "moderate"
                           ? { bg: "bg-amber-50", border: "border-amber-200", badge: "bg-amber-100 text-amber-700" }
                           : { bg: "bg-green-50", border: "border-green-200", badge: "bg-green-100 text-green-700" };
                     return (
@@ -1402,7 +1443,7 @@ export default function FeasibilityReport() {
                           <h4 className="font-bold text-[#08312D] text-sm font-[Changa]">{r.risk}</h4>
                           {sev && (
                             <span className={`${theme.badge} px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap font-[Changa]`}>
-                              {sev}
+                              {tr(sev, language)}
                             </span>
                           )}
                         </div>
@@ -1428,7 +1469,7 @@ export default function FeasibilityReport() {
                       {dec.reasons.map((r, i) => (
                         <li key={i} className="flex gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-700 font-[Changa]">
                           <span className="text-[#C6A75E]">◆</span>
-                          <span>{r}</span>
+                          <span>{trReason(r, language)}</span>
                         </li>
                       ))}
                     </ul>
@@ -1500,7 +1541,7 @@ export default function FeasibilityReport() {
               {isAr ? "نظرة عامة على المشروع" : "Business Overview"}
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm font-[Changa]">
-              <InfoRow label={isAr ? "نوع النشاط" : "Business Type"} value={bo.business_type} />
+              <InfoRow label={isAr ? "نوع النشاط" : "Business Type"} value={tr(bo.business_type, language)} />
               {bo.restaurant_type && <InfoRow label={isAr ? "التخصص" : "Specialty"} value={bo.restaurant_type} />}
               <InfoRow label={isAr ? "المدينة" : "City"} value={bo.city} />
               <InfoRow label={isAr ? "العملاء المستهدفون" : "Target Customers"} value={bo.target_customers} />
