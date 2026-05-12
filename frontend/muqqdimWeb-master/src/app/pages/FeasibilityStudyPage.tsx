@@ -22,23 +22,18 @@ import { MapPicker } from "../components/MapPicker";
 const BACKEND_URL = "http://localhost:5000";
 
 // خريطة تحويل أسماء الواجهة الإنجليزية إلى المفاتيح اللي يفهمها الباك اند
-// مثال: "Burger Restaurant" → "fast_food_restaurant"
+// متطابقة 1:1 مع BUSINESS_TYPES في business_types.py
 // مُصدَّرة عشان EditProjectPage و MarketAnalysisPage يستخدمونها بدون تكرار
 export const businessTypeMap: Record<string, string> = {
-  "Burger Restaurant": "fast_food_restaurant",
-  "Shawarma Restaurant": "shawarma_restaurant",
-  "Seafood Restaurant": "seafood_restaurant",
-  "Grill Restaurant": "restaurant",
-  "Italian / Pizza Restaurant": "pizza_restaurant",
-  "Asian Restaurant": "restaurant",
-  "Fast Food Restaurant": "fast_food_restaurant",
-  "Specialty Coffee Cafe": "cafe",
-  "General Cafe": "cafe",
-  "Dessert Cafe": "cafe",
-  "Buffet Restaurant": "restaurant",
-  "Food Truck": "fast_food_restaurant",
-  "Cloud Kitchen": "restaurant",
-  "Other": "restaurant",
+  "Pizza Restaurant":               "pizza_restaurant",
+  "Fast Food Restaurant":           "fast_food_restaurant",
+  "Cafe":                           "cafe",
+  "Seafood Restaurant":             "seafood_restaurant",
+  "Breakfast Restaurant":           "breakfast_restaurant",
+  "Sandwich Shop":                  "sandwich_shop",
+  "Shawarma Restaurant":            "shawarma_restaurant",
+  "Traditional / Mandi Restaurant": "traditional_restaurant",
+  "General Restaurant":             "restaurant",
 };
 
 const ChevronDown = () => (
@@ -53,21 +48,17 @@ const selectClass = "w-full bg-gray-50 dark:bg-gray-100 border border-gray-300 d
 const sectionTitle = "text-[#08312d] dark:text-white font-bold text-lg mb-5 pb-2 border-b border-gray-200 dark:border-white/10 font-[Changa]";
 
 // قوائم الأنواع والمدن (نصدّرها للاستخدام في صفحات أخرى مثل EditProjectPage)
+// متطابقة 1:1 مع BUSINESS_TYPES في الباك اند (business_types.py)
 export const businessTypes = [
-  { ar: "مطعم برجر", en: "Burger Restaurant" },
-  { ar: "مطعم شاورما", en: "Shawarma Restaurant" },
-  { ar: "مطعم مأكولات بحرية", en: "Seafood Restaurant" },
-  { ar: "مطعم مشويات", en: "Grill Restaurant" },
-  { ar: "مطعم إيطالي / بيتزا", en: "Italian / Pizza Restaurant" },
-  { ar: "مطعم آسيوي", en: "Asian Restaurant" },
-  { ar: "مطعم وجبات سريعة", en: "Fast Food Restaurant" },
-  { ar: "كافيه قهوة مختصة", en: "Specialty Coffee Cafe" },
-  { ar: "كافيه عام", en: "General Cafe" },
-  { ar: "كافيه حلويات وديزرت", en: "Dessert Cafe" },
-  { ar: "بوفيه مفتوح", en: "Buffet Restaurant" },
-  { ar: "فود ترك", en: "Food Truck" },
-  { ar: "كلاود كيتشن", en: "Cloud Kitchen" },
-  { ar: "أخرى", en: "Other" },
+  { ar: "مطعم بيتزا",        en: "Pizza Restaurant" },
+  { ar: "وجبات سريعة",       en: "Fast Food Restaurant" },
+  { ar: "كافيه",              en: "Cafe" },
+  { ar: "مأكولات بحرية",     en: "Seafood Restaurant" },
+  { ar: "فطور",               en: "Breakfast Restaurant" },
+  { ar: "ساندويتش",           en: "Sandwich Shop" },
+  { ar: "شاورما",             en: "Shawarma Restaurant" },
+  { ar: "مطعم شعبي / مندي",  en: "Traditional / Mandi Restaurant" },
+  { ar: "مطعم عام",           en: "General Restaurant" },
 ];
 
 export const cities = [
@@ -89,13 +80,15 @@ export const cityMap: Record<string, string> = {
 };
 
 export const businessMap: Record<string, string> = {
-  "Burger Restaurant": "مطعم برجر", "Shawarma Restaurant": "مطعم شاورما",
-  "Seafood Restaurant": "مطعم مأكولات بحرية", "Grill Restaurant": "مطعم مشويات",
-  "Italian / Pizza Restaurant": "مطعم إيطالي / بيتزا", "Asian Restaurant": "مطعم آسيوي",
-  "Fast Food Restaurant": "مطعم وجبات سريعة", "Specialty Coffee Cafe": "كافيه قهوة مختصة",
-  "General Cafe": "كافيه عام", "Dessert Cafe": "كافيه حلويات وديزرت",
-  "Buffet Restaurant": "بوفيه مفتوح", "Food Truck": "فود ترك",
-  "Cloud Kitchen": "كلاود كيتشن", "Other": "أخرى"
+  "Pizza Restaurant":               "مطعم بيتزا",
+  "Fast Food Restaurant":           "وجبات سريعة",
+  "Cafe":                           "كافيه",
+  "Seafood Restaurant":             "مأكولات بحرية",
+  "Breakfast Restaurant":           "فطور",
+  "Sandwich Shop":                  "ساندويتش",
+  "Shawarma Restaurant":            "شاورما",
+  "Traditional / Mandi Restaurant": "مطعم شعبي / مندي",
+  "General Restaurant":             "مطعم عام",
 };
 
 export default function FeasibilityStudyPage() {

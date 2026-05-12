@@ -37,6 +37,7 @@ from gov_consultant import gov_chat, clear_gov_session, get_gov_suggestions
 # ── إعدادات وثوابت ──
 from business_types import BUSINESS_TYPES, get_google_type, get_label_ar, is_valid_type
 from saudi_assumptions import DEFAULT_SALARY
+from validators import validate_feasibility_input
 
 # ── قاعدة البيانات (SQLite) ──
 from database import (
@@ -90,6 +91,12 @@ def advisor_page():
 @app.post("/api/feasibility/report-pdf")
 def report_pdf():
     data = request.get_json() or {}
+
+    # ── فاليديشن المدخلات (Defense in Depth) ──
+    # نتحقق حتى لو الفرونت يفلتر، عشان نحمي من Postman/scripts خارجية
+    is_valid, error_msg = validate_feasibility_input(data)
+    if not is_valid:
+        return jsonify({"error": error_msg}), 400
 
     # ── البيانات الأساسية اللي يدخلها المستخدم ──
     business_type     = data.get("business_type", "restaurant")
@@ -763,4 +770,4 @@ def remove_project_route(project_id):
 # نقطة بدء التشغيل (development server فقط، للـ production استخدمي gunicorn)
 # =====================================================================
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
