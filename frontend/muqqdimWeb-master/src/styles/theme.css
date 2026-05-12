@@ -160,33 +160,33 @@
 /* DARK MODE THEME */
 /* ============================================ */
 .dark {
-  /* Primary Colors - Adjusted for Dark Mode */
+  /* Primary Colors - Muted green family (no bright turquoise) */
   --primary-50: #031613;
   --primary-100: #051f1c;
   --primary-200: #062824;
-  --primary-300: #08312d;
+  --primary-300: #08312D;
   --primary-400: #0a5850;
-  --primary-500: #26a497;
-  --primary-600: #4db8ae;
-  --primary-700: #80ccc5;
-  --primary-800: #b3e0dc;
-  --primary-900: #e6f4f3;
+  --primary-500: #2D7A6E;
+  --primary-600: #4A9886;
+  --primary-700: #7AB5A8;
+  --primary-800: #B0D2C7;
+  --primary-900: #E6F4F0;
   
   /* Secondary Colors - Adjusted */
   --secondary-600: #C6A75E;
   --secondary-700: #d4af37;
   
-  /* Accent Colors */
-  --accent-500: #4db8ae;
-  --accent-600: #80ccc5;
-  --accent-700: #b3e0dc;
+  /* Accent Colors - Gold (matches poster) */
+  --accent-500: #C6A75E;
+  --accent-600: #D4AF37;
+  --accent-700: #B8962F;
   
   /* Gray Scale - Dark Theme */
-  --gray-50: #0a2e2a;
+  --gray-50: #08312D;
   --gray-100: rgba(8, 49, 45, 0.18);
   --gray-200: rgba(8, 49, 45, 0.25);
-  --gray-300: rgba(77, 184, 174, 0.2);
-  --gray-400: rgba(77, 184, 174, 0.35);
+  --gray-300: rgba(198, 167, 94, 0.25);
+  --gray-400: rgba(198, 167, 94, 0.4);
   --gray-500: #8ba5a5;
   --gray-600: #c4d4d4;
   --gray-700: #d9e5e5;
@@ -195,20 +195,20 @@
   --gray-950: #ffffff;
   
   /* Glass Effect Variables - Dark Mode */
-  --glass-bg: rgba(26, 58, 58, 0.7);
-  --glass-bg-light: rgba(26, 58, 58, 0.5);
-  --glass-bg-lighter: rgba(26, 58, 58, 0.3);
-  --glass-border: rgba(77, 184, 174, 0.2);
+  --glass-bg: rgba(8, 49, 45, 0.7);
+  --glass-bg-light: rgba(8, 49, 45, 0.5);
+  --glass-bg-lighter: rgba(8, 49, 45, 0.3);
+  --glass-border: rgba(198, 167, 94, 0.25);
   --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
   --glass-blur: 30px;
   
   /* Base Theme - DARK MODE */
-  --background: #0a2e2a;
-  --background-secondary: #0d3530;
+  --background: #08312D;
+  --background-secondary: #0E4A43;
   --foreground: var(--gray-900);
-  --card: rgba(10, 45, 40, 0.8);
+  --card: rgba(8, 49, 45, 0.8);
   --card-foreground: var(--gray-900);
-  --popover: rgba(10, 45, 40, 0.95);
+  --popover: rgba(8, 49, 45, 0.95);
   --popover-foreground: var(--gray-900);
   --primary: var(--primary-600);
   --primary-foreground: #0d1f1e;
@@ -220,7 +220,7 @@
   --accent-foreground: #0d1f1e;
   --destructive: var(--error-600);
   --destructive-foreground: #ffffff;
-  --border: rgba(77, 184, 174, 0.2);
+  --border: rgba(198, 167, 94, 0.25);
   --input: var(--gray-300);
   --input-background: rgba(35, 70, 70, 0.6);
   --switch-background: var(--gray-400);
@@ -233,7 +233,7 @@
   --sidebar-primary-foreground: #0d1f1e;
   --sidebar-accent: var(--gray-300);
   --sidebar-accent-foreground: var(--gray-800);
-  --sidebar-border: rgba(77, 184, 174, 0.2);
+  --sidebar-border: rgba(198, 167, 94, 0.25);
   --sidebar-ring: var(--accent-500);
   
   /* Shadows - Dark Mode */
@@ -243,13 +243,13 @@
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.8), 0 8px 10px -6px rgba(0, 0, 0, 0.7);
   
   /* Neumorphism Colors - Dark Mode */
-  --neu-bg: #0a2e2a;
-  --neu-shadow-dark: #051a17;
-  --neu-shadow-light: #0d3530;
+  --neu-bg: #08312D;
+  --neu-shadow-dark: #04211D;
+  --neu-shadow-light: #0E4A43;
 }
 
 .dark body {
-  background: #0a2e2a;
+  background: #08312D;
   min-height: 100vh;
   position: relative;
   overflow-x: hidden;
@@ -260,7 +260,7 @@
   position: fixed;
   width: 500px;
   height: 200px;
-  background: rgba(0, 217, 192, 0.18);
+  background: rgba(198, 167, 94, 0.22);
   border-radius: 50%;
   top: 15%;
   left: -80px;
@@ -297,26 +297,26 @@
 
 /* Glass Effect Utility Classes - Dark Mode */
 .dark .glass {
-  background: rgba(26, 58, 58, 0.7);
+  background: rgba(8, 49, 45, 0.7);
   backdrop-filter: blur(30px);
   -webkit-backdrop-filter: blur(30px);
-  border: 1px solid rgba(77, 184, 174, 0.2);
+  border: 1px solid rgba(198, 167, 94, 0.25);
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
 }
 
 .dark .glass-light {
-  background: rgba(26, 58, 58, 0.5);
+  background: rgba(8, 49, 45, 0.5);
   backdrop-filter: blur(25px);
   -webkit-backdrop-filter: blur(25px);
-  border: 1px solid rgba(77, 184, 174, 0.15);
+  border: 1px solid rgba(198, 167, 94, 0.18);
   box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.4);
 }
 
 .dark .glass-lighter {
-  background: rgba(26, 58, 58, 0.3);
+  background: rgba(8, 49, 45, 0.3);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(77, 184, 174, 0.1);
+  border: 1px solid rgba(198, 167, 94, 0.12);
   box-shadow: 0 2px 8px 0 rgba(0, 0, 0, 0.3);
 }
 
@@ -384,6 +384,55 @@
 
 .neu-inset-xl {
   box-shadow: inset 8px 8px 16px var(--neu-shadow-dark), inset -8px -8px 16px var(--neu-shadow-light);
+}
+
+/* توهج خفيف ذهبي تحت الكروت — بسيط وأنيق في الوضعين */
+.card-glow {
+  box-shadow:
+    0 4px 12px -2px rgba(0, 0, 0, 0.06),
+    0 25px 35px -20px rgba(198, 167, 94, 0.18);
+}
+
+.dark .card-glow {
+  box-shadow:
+    0 4px 12px -2px rgba(0, 0, 0, 0.4),
+    0 25px 40px -15px rgba(198, 167, 94, 0.2);
+}
+
+/* "ورقة" التقرير — ألوان الرمادي الفاتح حتى في الوضع الليلي
+   لأن خلفية التقرير دايماً فاتحة، فالنصوص يجب أن تكون داكنة بغض النظر عن الثيم */
+.report-paper {
+  --gray-50: #F8FAFB;
+  --gray-100: #F3F6F9;
+  --gray-200: #E8EDF2;
+  --gray-300: #DFE6ED;
+  --gray-400: #C4CFD9;
+  --gray-500: #96A5B8;
+  --gray-600: #6B7C8E;
+  --gray-700: #4A5967;
+  --gray-800: #2F3A45;
+  --gray-900: #1A2B3C;
+  --gray-950: #0F1419;
+}
+
+/* تعطيل لون autofill الأصفر من المتصفح */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  -webkit-text-fill-color: #08312D !important;
+  caret-color: #08312D;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:hover,
+.dark input:-webkit-autofill:focus,
+.dark input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #0E3D38 inset !important;
+  -webkit-text-fill-color: #ffffff !important;
+  caret-color: #ffffff;
 }
 
 /* Neumorphism Text Colors - Auto Theme Switching */

@@ -9,6 +9,7 @@ import { Link } from "react-router";
 import { PresentationIcon, FolderOpen, FileText, Loader2, Mail, CheckCircle2, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Header } from "../components/Header";
+import { Sparkle } from "../components/Sparkle";
 import { useLanguage } from "../contexts/LanguageContext";
 import { auth } from "../firebase";
 
@@ -132,12 +133,18 @@ export default function PitchDeckPage() {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-transparent p-6 lg:p-8" dir={isAr ? "rtl" : "ltr"}>
+      <div className="min-h-screen bg-transparent p-6 lg:p-8 relative" dir={isAr ? "rtl" : "ltr"}>
+        <Sparkle className="top-[5%] left-[5%]" size={18} />
+        <Sparkle className="top-[15%] right-[8%]" size={12} />
+        <Sparkle className="top-[40%] left-[3%]" size={22} />
+        <Sparkle className="top-[60%] right-[5%]" size={14} />
+        <Sparkle className="bottom-[20%] left-[7%]" size={16} />
+        <Sparkle className="bottom-[10%] right-[15%]" size={20} />
         <div className="max-w-5xl mx-auto space-y-6">
 
           {/* Header */}
           <motion.div
-            className="bg-white dark:bg-[#0E4A43] rounded-xl p-8 border border-gray-200 dark:border-[#C6A75E]/20 shadow-sm"
+            className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md rounded-2xl p-8 border border-[#C6A75E]/30 card-glow"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
@@ -158,7 +165,7 @@ export default function PitchDeckPage() {
 
           {/* Info Section */}
           <motion.div
-            className="bg-white dark:bg-[#0E4A43] rounded-xl p-6 border border-gray-200 dark:border-[#C6A75E]/20 shadow-sm"
+            className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md rounded-2xl p-6 border border-[#C6A75E]/30 card-glow"
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -194,7 +201,7 @@ export default function PitchDeckPage() {
 
           {/* Projects List */}
           {projects.length === 0 ? (
-            <div className="bg-white dark:bg-[#0E4A43] rounded-xl p-12 text-center border border-gray-200 dark:border-[#C6A75E]/20 shadow-sm">
+            <div className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md rounded-2xl p-12 text-center border border-[#C6A75E]/30 card-glow">
               <div className="w-20 h-20 rounded-2xl bg-[#C6A75E] flex items-center justify-center mx-auto mb-6">
                 <FolderOpen className="w-10 h-10 text-white" />
               </div>
@@ -221,7 +228,7 @@ export default function PitchDeckPage() {
                 {projects.map((project) => (
                   <div
                     key={project.id}
-                    className="bg-white dark:bg-[#0E4A43] rounded-xl p-6 border border-gray-200 dark:border-[#C6A75E]/20 hover:shadow-lg transition-all duration-300"
+                    className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md rounded-2xl p-6 border border-[#C6A75E]/30 card-glow hover:shadow-xl hover:border-[#C6A75E]/60 transition-all duration-300"
                   >
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex items-start gap-4 flex-1 min-w-0">
@@ -338,7 +345,7 @@ export default function PitchDeckPage() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 10 }}
-              className="bg-white dark:bg-gray-200 rounded-2xl p-8 max-w-md w-full shadow-2xl border border-gray-200 relative overflow-hidden"
+              className="bg-white dark:bg-gray-200 rounded-2xl p-8 max-w-md w-full shadow-2xl border border-gray-200 relative"
               onClick={(e) => e.stopPropagation()}
             >
               <div

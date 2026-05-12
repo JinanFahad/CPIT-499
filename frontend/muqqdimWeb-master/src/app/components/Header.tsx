@@ -67,9 +67,6 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 bg-white dark:bg-[#072520]">
-      {/* شريط علوي حكومي رفيع — أخضر داكن (يشبه شارات وزارات السعودية) */}
-      <div className="h-1.5 w-full" style={{ background: "linear-gradient(90deg, #08312D 0%, #0E4A43 50%, #08312D 100%)" }} />
-
       {/* الشريط الرئيسي */}
       <div className="border-b border-gray-200 dark:border-white/10 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="max-w-7xl mx-auto px-6 py-3">
@@ -81,8 +78,8 @@ export function Header() {
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 className="flex items-center gap-2 bg-white dark:bg-gray-100 rounded-md px-3 py-1.5 border border-gray-300 dark:border-gray-400 hover:border-[#08312D] hover:bg-gray-50 transition-colors"
               >
-                <div className="w-7 h-7 rounded-md bg-[#08312D] dark:bg-primary-600 flex items-center justify-center">
-                  <User className="w-4 h-4 text-white" />
+                <div className="w-7 h-7 rounded-md bg-[#08312D] dark:bg-[#C6A75E] flex items-center justify-center">
+                  <User className="w-4 h-4 text-white dark:text-[#08312D]" />
                 </div>
                 <span className="text-[#08312D] dark:text-gray-900 text-sm font-semibold">
                   {userName}

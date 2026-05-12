@@ -13,6 +13,7 @@ import { User, Mail, Edit2, Save, Loader2, LogOut, X, Lock, CheckCircle2, AlertC
 import { onAuthStateChanged, updateProfile, signOut, sendPasswordResetEmail } from "firebase/auth";
 import { motion, AnimatePresence } from "motion/react";
 import { Header } from "../components/Header";
+import { Sparkle } from "../components/Sparkle";
 import { useLanguage } from "../contexts/LanguageContext";
 import { auth } from "../firebase";
 
@@ -134,12 +135,18 @@ export default function ProfilePage() {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-100 py-10 px-4 lg:px-8" dir={isAr ? "rtl" : "ltr"}>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-100 py-10 px-4 lg:px-8 relative" dir={isAr ? "rtl" : "ltr"}>
+        <Sparkle className="top-[5%] left-[5%]" size={18} />
+        <Sparkle className="top-[15%] right-[8%]" size={12} />
+        <Sparkle className="top-[40%] left-[3%]" size={22} />
+        <Sparkle className="top-[60%] right-[5%]" size={14} />
+        <Sparkle className="bottom-[20%] left-[7%]" size={16} />
+        <Sparkle className="bottom-[10%] right-[15%]" size={20} />
         <div className="max-w-3xl mx-auto">
 
           {/* ── بانر علوي رسمي ── */}
           <motion.div
-            className="bg-white dark:bg-[#0E4A43] border border-gray-200 dark:border-[#C6A75E]/20 rounded-md shadow-sm overflow-hidden mb-6"
+            className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md border border-[#C6A75E]/30 rounded-2xl card-glow overflow-hidden mb-6"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
@@ -172,7 +179,7 @@ export default function ProfilePage() {
 
           {/* ── معلومات الحساب ── */}
           <motion.div
-            className="bg-white dark:bg-[#0E4A43] border border-gray-200 dark:border-[#C6A75E]/20 rounded-md shadow-sm overflow-hidden mb-6"
+            className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md border border-[#C6A75E]/30 rounded-2xl card-glow overflow-hidden mb-6"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.1 }}
@@ -260,7 +267,7 @@ export default function ProfilePage() {
 
           {/* ── بطاقة الأمان ── */}
           <motion.div
-            className="bg-white dark:bg-[#0E4A43] border border-gray-200 dark:border-[#C6A75E]/20 rounded-md shadow-sm overflow-hidden mb-6"
+            className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md border border-[#C6A75E]/30 rounded-2xl card-glow overflow-hidden mb-6"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.15 }}

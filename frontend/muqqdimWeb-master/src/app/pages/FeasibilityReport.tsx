@@ -44,6 +44,7 @@ import {
 } from "recharts";
 import { motion } from "motion/react";
 import { Header } from "../components/Header";
+import { Sparkle } from "../components/Sparkle";
 import { useLanguage } from "../contexts/LanguageContext";
 import { auth } from "../firebase";
 
@@ -392,8 +393,14 @@ export default function FeasibilityReport() {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-gray-50 p-6 lg:p-8" dir={isAr ? "rtl" : "ltr"}>
-        <div className="max-w-6xl mx-auto space-y-6">
+      <div className="min-h-screen bg-gray-50 p-6 lg:p-8 relative" dir={isAr ? "rtl" : "ltr"}>
+        <Sparkle className="top-[5%] left-[3%]" size={18} />
+        <Sparkle className="top-[20%] right-[3%]" size={14} />
+        <Sparkle className="top-[45%] left-[2%]" size={22} />
+        <Sparkle className="top-[65%] right-[2%]" size={16} />
+        <Sparkle className="bottom-[20%] left-[4%]" size={12} />
+        <Sparkle className="bottom-[10%] right-[5%]" size={20} />
+        <div className="report-paper max-w-6xl mx-auto bg-[#F5F7F9] rounded-3xl p-6 lg:p-8 border border-gray-200 dark:border-[#C6A75E]/30 shadow-xl space-y-6 relative z-10">
 
           {/* Header */}
           <motion.div

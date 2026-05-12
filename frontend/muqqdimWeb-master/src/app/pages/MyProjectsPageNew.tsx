@@ -13,6 +13,7 @@ import { Link } from "react-router";
 import { Plus, Edit, Trash2, FileText, Download, PresentationIcon, FolderOpen, Loader2, Eye, Mail, CheckCircle2, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Header } from "../components/Header";
+import { Sparkle } from "../components/Sparkle";
 import { useLanguage } from "../contexts/LanguageContext";
 import { auth } from "../firebase";
 import { cities } from "./FeasibilityStudyPage";
@@ -264,14 +265,20 @@ export default function MyProjectsPageNew() {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-gray-50 p-6 lg:p-8" dir={isAr ? "rtl" : "ltr"}>
+      <div className="min-h-screen bg-gray-50 p-6 lg:p-8 relative" dir={isAr ? "rtl" : "ltr"}>
+        <Sparkle className="top-[5%] left-[5%]" size={18} />
+        <Sparkle className="top-[15%] right-[8%]" size={12} />
+        <Sparkle className="top-[40%] left-[3%]" size={22} />
+        <Sparkle className="top-[60%] right-[5%]" size={14} />
+        <Sparkle className="bottom-[20%] left-[7%]" size={16} />
+        <Sparkle className="bottom-[10%] right-[15%]" size={20} />
         <div className="max-w-7xl mx-auto space-y-6">
 
-          <div className="bg-white dark:bg-[#0E4A43] rounded-xl p-8 border border-gray-200 dark:border-[#C6A75E]/20 shadow-sm">
+          <div className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md rounded-2xl p-8 border border-[#C6A75E]/30 card-glow">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
                 <h1 className="text-4xl font-bold text-[#08312d] dark:text-white mb-2">
-                  {t('projects.welcome')}, {userName} 👋
+                  {t('projects.welcome')}, {userName}
                 </h1>
                 <p className="text-gray-600 dark:text-white/70 text-lg font-medium font-[Changa]">
                   {t('projects.youHave')} <span className="font-bold text-[#08312d] dark:text-[#C6A75E]">{projects.length}</span> {projects.length === 1 ? t('projects.project') : t('projects.projects')}
@@ -288,7 +295,7 @@ export default function MyProjectsPageNew() {
           </div>
 
           {projects.length === 0 ? (
-            <div className="bg-white dark:bg-[#0E4A43] rounded-xl p-20 text-center border border-gray-200 dark:border-[#C6A75E]/20 shadow-sm">
+            <div className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md rounded-2xl p-20 text-center border border-[#C6A75E]/30 card-glow">
               <div className="w-32 h-32 rounded-2xl bg-[#E6F2F0] dark:bg-[#C6A75E]/15 flex items-center justify-center mx-auto mb-8">
                 <FolderOpen className="w-16 h-16 text-[#C6A75E]" />
               </div>
@@ -307,7 +314,7 @@ export default function MyProjectsPageNew() {
           ) : (
             <div className="grid grid-cols-1 gap-6">
               {projects.map((project) => (
-                <div key={project.id} className="bg-white dark:bg-[#0E4A43] rounded-xl p-6 border border-gray-200 dark:border-[#C6A75E]/20 hover:shadow-lg transition-all duration-300">
+                <div key={project.id} className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md rounded-2xl p-6 border border-[#C6A75E]/30 card-glow hover:shadow-xl hover:border-[#C6A75E]/60 transition-all duration-300">
                   <div className="flex flex-col lg:flex-row gap-6">
 
                     <div className="flex-1 min-w-0">
@@ -348,7 +355,7 @@ export default function MyProjectsPageNew() {
                     <div className="flex flex-col gap-3 lg:min-w-[220px]">
                       <Link
                         to={`/dashboard/report/${project.id}`}
-                        className="flex items-center justify-center gap-2 bg-[#08312D] hover:bg-[#0E4A43] rounded-lg px-5 py-3 text-white transition-all font-semibold shadow-sm font-[Changa]"
+                        className="flex items-center justify-center gap-2 bg-[#08312D] hover:bg-[#0E4A43] border border-[#C6A75E]/40 hover:border-[#C6A75E] rounded-lg px-5 py-3 text-white transition-all font-semibold shadow-sm font-[Changa]"
                       >
                         <Eye className="w-5 h-5" />
                         <span>{isAr ? "عرض الدراسة" : "View Report"}</span>

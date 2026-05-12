@@ -15,6 +15,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { motion } from "motion/react";
 import { Header } from "../components/Header";
+import { Sparkle } from "../components/Sparkle";
 import { useLanguage } from "../contexts/LanguageContext";
 
 const BACKEND_URL = "http://localhost:5000";
@@ -189,13 +190,19 @@ export default function ConsultantChatPage() {
     <>
       <Header />
       <div
-        className="min-h-screen bg-transparent p-4 lg:p-6"
+        className="min-h-screen bg-transparent p-4 lg:p-6 relative"
         dir={isAr ? "rtl" : "ltr"}
       >
+        <Sparkle className="top-[5%] left-[5%]" size={18} />
+        <Sparkle className="top-[15%] right-[8%]" size={12} />
+        <Sparkle className="top-[40%] left-[3%]" size={22} />
+        <Sparkle className="top-[60%] right-[5%]" size={14} />
+        <Sparkle className="bottom-[20%] left-[7%]" size={16} />
+        <Sparkle className="bottom-[10%] right-[15%]" size={20} />
         <div className="max-w-7xl mx-auto h-[calc(100vh-5rem)] flex flex-col">
           {/* Page Header */}
           <motion.div
-            className="bg-white dark:bg-[#0E4A43] rounded-xl px-6 py-4 border border-gray-200 dark:border-[#C6A75E]/20 shadow-sm mb-3"
+            className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md rounded-2xl px-6 py-4 border border-[#C6A75E]/30 card-glow mb-3"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
@@ -223,7 +230,7 @@ export default function ConsultantChatPage() {
 
           {/* Chat Container */}
           <motion.div
-            className="flex-1 bg-white dark:bg-[#0E4A43] rounded-xl border border-gray-200 dark:border-[#C6A75E]/20 shadow-sm flex flex-col overflow-hidden"
+            className="flex-1 bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md rounded-2xl border border-[#C6A75E]/30 card-glow flex flex-col overflow-hidden"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
