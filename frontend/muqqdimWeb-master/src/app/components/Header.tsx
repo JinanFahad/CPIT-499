@@ -67,13 +67,10 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 bg-white dark:bg-[#072520]">
-      {/* شريط علوي حكومي رفيع — أخضر داكن (يشبه شارات وزارات السعودية) */}
-      <div className="h-1.5 w-full" style={{ background: "linear-gradient(90deg, #08312D 0%, #0E4A43 50%, #08312D 100%)" }} />
-
       {/* الشريط الرئيسي */}
       <div className="border-b border-gray-200 dark:border-white/10 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="max-w-7xl mx-auto px-6 py-3">
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", direction: "ltr" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", direction: isAr ? "ltr" : "rtl" }}>
 
             {/* اليسار — المستخدم + أزرار */}
             <div className="relative flex items-center gap-2">
@@ -81,8 +78,8 @@ export function Header() {
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 className="flex items-center gap-2 bg-white dark:bg-gray-100 rounded-md px-3 py-1.5 border border-gray-300 dark:border-gray-400 hover:border-[#08312D] hover:bg-gray-50 transition-colors"
               >
-                <div className="w-7 h-7 rounded-md bg-[#08312D] dark:bg-primary-600 flex items-center justify-center">
-                  <User className="w-4 h-4 text-white" />
+                <div className="w-7 h-7 rounded-md bg-[#08312D] dark:bg-[#C6A75E] flex items-center justify-center">
+                  <User className="w-4 h-4 text-white dark:text-[#08312D]" />
                 </div>
                 <span className="text-[#08312D] dark:text-gray-900 text-sm font-semibold">
                   {userName}
@@ -91,10 +88,10 @@ export function Header() {
               </button>
 
               {isDropdownOpen && (
-                <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-gray-200 rounded-md shadow-md border border-gray-200 dark:border-gray-300 overflow-hidden z-50">
+                <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#0E4A43] rounded-md shadow-xl border border-gray-200 dark:border-[#C6A75E]/30 overflow-hidden z-50">
                   <Link
                     to="/dashboard/profile"
-                    className="flex items-center gap-3 px-4 py-3 text-[#08312D] dark:text-gray-900 hover:bg-gray-50 dark:hover:bg-gray-300 transition-colors text-sm border-b border-gray-100"
+                    className="flex items-center gap-3 px-4 py-3 text-[#08312D] dark:text-white hover:bg-gray-50 dark:hover:bg-[#08312D] transition-colors text-sm border-b border-gray-100 dark:border-white/10"
                     onClick={() => setIsDropdownOpen(false)}
                   >
                     <User className="w-4 h-4" />
@@ -102,7 +99,7 @@ export function Header() {
                   </Link>
                   <Link
                     to="/dashboard/my-projects"
-                    className="flex items-center gap-3 px-4 py-3 text-[#08312D] dark:text-gray-900 hover:bg-gray-50 dark:hover:bg-gray-300 transition-colors text-sm border-b border-gray-100"
+                    className="flex items-center gap-3 px-4 py-3 text-[#08312D] dark:text-white hover:bg-gray-50 dark:hover:bg-[#08312D] transition-colors text-sm border-b border-gray-100 dark:border-white/10"
                     onClick={() => setIsDropdownOpen(false)}
                   >
                     <FolderOpen className="w-4 h-4" />
@@ -110,10 +107,10 @@ export function Header() {
                   </Link>
                   <button
                     onClick={() => { setIsDropdownOpen(false); handleLogout(); }}
-                    className="flex items-center gap-3 px-4 py-3 hover:bg-red-50 transition-colors w-full text-left text-sm"
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors w-full text-left text-sm"
                   >
-                    <LogOut className="w-4 h-4 text-red-600" />
-                    <span className="text-red-600 font-semibold">{t("header.logout")}</span>
+                    <LogOut className="w-4 h-4 text-red-600 dark:text-red-400" />
+                    <span className="text-red-600 dark:text-red-400 font-semibold">{t("header.logout")}</span>
                   </button>
                 </div>
               )}

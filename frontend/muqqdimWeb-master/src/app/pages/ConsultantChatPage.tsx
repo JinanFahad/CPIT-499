@@ -15,6 +15,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { motion } from "motion/react";
 import { Header } from "../components/Header";
+import { Sparkle } from "../components/Sparkle";
 import { useLanguage } from "../contexts/LanguageContext";
 
 const BACKEND_URL = "http://localhost:5000";
@@ -176,7 +177,7 @@ export default function ConsultantChatPage() {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 bg-transparent">
         <div className="text-center">
-          <div className="text-[#08312D] dark:text-gray-900 text-xl mb-4 font-[Changa]">
+          <div className="text-[#08312D] dark:text-white text-xl mb-4 font-[Changa]">
             {isAr ? "جاري تحميل بيانات المشروع..." : "Loading project data..."}
           </div>
           <Loader2 className="w-8 h-8 text-[#C6A75E] dark:text-secondary-600 animate-spin mx-auto" />
@@ -189,13 +190,19 @@ export default function ConsultantChatPage() {
     <>
       <Header />
       <div
-        className="min-h-screen bg-transparent p-4 lg:p-6"
+        className="min-h-screen bg-transparent p-4 lg:p-6 relative"
         dir={isAr ? "rtl" : "ltr"}
       >
+        <Sparkle className="top-[5%] left-[5%]" size={18} />
+        <Sparkle className="top-[15%] right-[8%]" size={12} />
+        <Sparkle className="top-[40%] left-[3%]" size={22} />
+        <Sparkle className="top-[60%] right-[5%]" size={14} />
+        <Sparkle className="bottom-[20%] left-[7%]" size={16} />
+        <Sparkle className="bottom-[10%] right-[15%]" size={20} />
         <div className="max-w-7xl mx-auto h-[calc(100vh-5rem)] flex flex-col">
           {/* Page Header */}
           <motion.div
-            className="bg-white dark:bg-gray-200 rounded-xl px-6 py-4 border border-gray-200 dark:border-gray-300 shadow-sm mb-3"
+            className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md rounded-2xl px-6 py-4 border border-[#C6A75E]/30 card-glow mb-3"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
@@ -205,10 +212,10 @@ export default function ConsultantChatPage() {
                 <Lightbulb className="w-6 h-6 text-white" />
               </div>
               <div className="flex flex-col">
-                <h1 className="text-2xl font-bold text-[#08312d] dark:text-gray-900 leading-tight">
+                <h1 className="text-2xl font-bold text-[#08312d] dark:text-white leading-tight">
                   {isAr ? "المستشار الذكي" : "AI Consultant"}
                 </h1>
-                <p className="text-gray-600 dark:text-gray-700 text-sm font-medium font-[Changa]">
+                <p className="text-gray-600 dark:text-white/70 text-sm font-medium font-[Changa]">
                   {project
                     ? isAr
                       ? `استشارات حول: ${project.project_name || "مشروعك"}`
@@ -223,7 +230,7 @@ export default function ConsultantChatPage() {
 
           {/* Chat Container */}
           <motion.div
-            className="flex-1 bg-white dark:bg-gray-200 rounded-xl border border-gray-200 dark:border-gray-300 shadow-sm flex flex-col overflow-hidden"
+            className="flex-1 bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md rounded-2xl border border-[#C6A75E]/30 card-glow flex flex-col overflow-hidden"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
@@ -248,14 +255,14 @@ export default function ConsultantChatPage() {
                       className={`max-w-[85%] rounded-2xl px-5 py-3.5 ${
                         message.role === "user"
                           ? "bg-[#08312D] dark:bg-primary-600 text-white"
-                          : "bg-gray-50 dark:bg-gray-100 text-[#08312D] dark:text-gray-900 border border-gray-200 dark:border-gray-300"
+                          : "bg-gray-50 dark:bg-[#062620] text-[#08312D] dark:text-white border border-gray-200 dark:border-white/15"
                       }`}
                     >
                       <p className="whitespace-pre-line leading-7 text-base font-medium font-[Changa]">
                         {renderFormatted(message.content)}
                       </p>
                       <span
-                        className={`text-[11px] mt-2 block ${message.role === "user" ? "text-gray-200" : "text-gray-500 dark:text-gray-600"}`}
+                        className={`text-[11px] mt-2 block ${message.role === "user" ? "text-gray-200" : "text-gray-500 dark:text-white/50"}`}
                       >
                         {message.timestamp.toLocaleTimeString("ar-SA", {
                           hour: "2-digit",
@@ -282,7 +289,7 @@ export default function ConsultantChatPage() {
                   <div className="w-8 h-8 rounded-full bg-[#08312D] dark:bg-primary-600 flex items-center justify-center">
                     <Bot className="w-5 h-5 text-white" />
                   </div>
-                  <div className="bg-gray-50 dark:bg-gray-100 rounded-2xl px-4 py-2.5 border border-gray-200 dark:border-gray-300">
+                  <div className="bg-gray-50 dark:bg-[#062620] rounded-2xl px-4 py-2.5 border border-gray-200 dark:border-white/15">
                     <div className="flex gap-1">
                       <span
                         className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
@@ -305,14 +312,14 @@ export default function ConsultantChatPage() {
             </div>
 
             {/* Input Area */}
-            <div className="border-t border-gray-200 dark:border-gray-300 p-4">
+            <div className="border-t border-gray-200 dark:border-[#C6A75E]/20 p-4">
               <div className="flex gap-3">
                 <Input
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="اكتب سؤالك هنا..."
-                  className="flex-1 bg-gray-50 dark:bg-gray-100 border-gray-300 dark:border-gray-400 text-[#08312D] dark:text-gray-900 placeholder:text-gray-500 text-base py-6 font-[Changa]"
+                  placeholder={isAr ? "اكتب سؤالك هنا..." : "Type your message here..."}
+                  className="flex-1 bg-gray-50 dark:bg-[#062620] border-gray-300 dark:border-white/20 text-[#08312D] dark:text-white placeholder:text-gray-500 dark:placeholder:text-white/40 text-base py-6 font-[Changa]"
                   disabled={isTyping}
                 />
                 <Button

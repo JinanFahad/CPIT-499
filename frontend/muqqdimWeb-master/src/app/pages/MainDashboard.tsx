@@ -9,61 +9,28 @@
 //   6) FAQ - الأسئلة الشائعة
 // =====================================================================
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link } from "react-router";
 import {
   ChevronDown,
-  FolderOpen,
   FileText,
   MessageSquare,
   Building2,
   PresentationIcon,
   ArrowLeft,
   HelpCircle,
-  Plus,
-  Calendar,
 } from "lucide-react";
 const logoImage = "/assets/logo-color.png";
 import { motion } from "motion/react";
 import { Header } from "../components/Header";
+import { Sparkle } from "../components/Sparkle";
 import { useLanguage } from "../contexts/LanguageContext";
-import { auth } from "../firebase";
-
-const BACKEND_URL = "http://localhost:5000";
 
 export default function MainDashboard() {
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
-  const [projects, setProjects] = useState<any[]>([]);
 
   const { language } = useLanguage();
   const isAr = language === "ar";
-
-  const userName =
-    auth.currentUser?.displayName ||
-    localStorage.getItem("userName") ||
-    (isAr ? "المستخدم" : "User");
-
-  // نجيب مشاريع المستخدم عشان نعرض العدد + آخر ٣ مشاريع
-  useEffect(() => {
-    const userId = auth.currentUser?.uid || localStorage.getItem("userId") || "";
-    if (!userId) return;
-
-    fetch(`${BACKEND_URL}/api/projects?user_id=${userId}`)
-      .then((res) => res.json())
-      .then((data) => setProjects(Array.isArray(data) ? data : []))
-      .catch(() => setProjects([]));
-  }, []);
-
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return "—";
-    try {
-      return new Date(dateStr).toLocaleDateString(isAr ? "ar-SA" : "en-US");
-    } catch {
-      return "—";
-    }
-  };
-
-  const recentProjects = projects.slice(0, 3);
 
   const services = [
     {
@@ -177,7 +144,21 @@ export default function MainDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-transparent" dir={isAr ? "rtl" : "ltr"}>
+    <div className="min-h-screen bg-transparent relative" dir={isAr ? "rtl" : "ltr"}>
+      {/* نجوم متناثرة على الأطراف بعيدة عن المربعات */}
+      <Sparkle className="top-[8%] left-[3%]" size={20} />
+      <Sparkle className="top-[15%] right-[4%]" size={14} />
+      <Sparkle className="top-[25%] left-[8%]" size={12} />
+      <Sparkle className="top-[35%] right-[2%]" size={22} />
+      <Sparkle className="top-[45%] left-[2%]" size={16} />
+      <Sparkle className="top-[55%] right-[6%]" size={18} />
+      <Sparkle className="top-[65%] left-[5%]" size={11} />
+      <Sparkle className="top-[75%] right-[3%]" size={15} />
+      <Sparkle className="top-[85%] left-[4%]" size={13} />
+      <Sparkle className="top-[92%] right-[8%]" size={17} />
+      <Sparkle className="top-[18%] left-[10%]" size={10} />
+      <Sparkle className="top-[50%] right-[10%]" size={12} />
+
       {/* Navigation Bar */}
       <Header />
 
@@ -211,97 +192,23 @@ export default function MainDashboard() {
         </motion.div>
       </section>
 
-      {/* Personalized Dashboard Section */}
-      <section className="px-6 pb-12 pt-4 relative z-10">
-        <div className="max-w-5xl mx-auto">
-          <motion.div
-            className="rounded-3xl p-8 shadow-lg"
-            style={{
-              background: "linear-gradient(135deg, #08312D 0%, #0E4A43 100%)",
-            }}
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-          >
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-              <div>
-                <h2 className="text-3xl font-bold text-white mb-2 font-[Changa]">
-                  {isAr ? `مرحبًا ${userName} 👋` : `Welcome ${userName} 👋`}
-                </h2>
-                <p className="text-white/70 font-[Changa]">
-                  {projects.length > 0
-                    ? isAr
-                      ? `عندك ${projects.length} ${projects.length === 1 ? "مشروع" : "مشاريع"}`
-                      : `You have ${projects.length} project${projects.length === 1 ? "" : "s"}`
-                    : isAr
-                      ? "ابدأ رحلتك وأنشئ مشروعك الأول"
-                      : "Start your journey and create your first project"}
-                </p>
-              </div>
-              <Link
-                to="/dashboard/feasibility-study"
-                className="bg-[#C6A75E] hover:bg-[#a88f4e] rounded-lg px-6 py-3 text-white font-bold flex items-center gap-2 transition-all shadow-md whitespace-nowrap font-[Changa]"
-              >
-                <Plus className="w-5 h-5" />
-                {isAr ? "مشروع جديد" : "New Project"}
-              </Link>
-            </div>
-
-            {recentProjects.length > 0 && (
-              <div>
-                <h3 className="text-white/80 text-sm font-semibold mb-3 font-[Changa]">
-                  {isAr ? "آخر مشاريعك" : "Recent Projects"}
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {recentProjects.map((p) => (
-                    <Link
-                      key={p.id}
-                      to="/dashboard/my-projects"
-                      className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/15 hover:bg-white/15 hover:border-[#C6A75E]/60 transition-all"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-[#C6A75E] flex items-center justify-center flex-shrink-0">
-                          <FolderOpen className="w-5 h-5 text-white" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-white font-bold text-sm truncate font-[Changa]">
-                            {isAr ? p.project_name : p.project_name_en || p.project_name}
-                          </div>
-                          <div className="text-white/60 text-xs flex items-center gap-1 mt-1 font-[Changa]">
-                            <Calendar className="w-3 h-3" />
-                            {formatDate(p.created_at)}
-                          </div>
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-          </motion.div>
-        </div>
-      </section>
-
       {/* About Section */}
       <section id="about" className="py-20 px-6 relative z-10">
         <div className="max-w-6xl mx-auto">
           {/* Hero Part */}
 
-          {/* About Part with Gradient */}
+          {/* About Part */}
           <motion.div
-            className="rounded-3xl p-12 text-center shadow-lg"
-            style={{
-              background: "linear-gradient(135deg, #08312D 0%, #718E8B 100%)",
-            }}
+            className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md rounded-2xl p-12 text-center border border-[#C6A75E]/30 card-glow"
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            <h3 className="text-4xl font-bold text-white mb-6">
+            <h3 className="text-4xl font-bold text-[#08312D] dark:text-white mb-6">
               {isAr ? "من نحن" : "About Us"}
             </h3>
-            <p className="text-white text-lg leading-relaxed font-[Changa] max-w-3xl mx-auto opacity-95">
+            <p className="text-[#08312D]/80 dark:text-white/85 text-lg leading-relaxed font-[Changa] max-w-3xl mx-auto">
               {isAr
                 ? "مُـقــــدِم هي منصة سعودية متخصصة في تمكين رواد الأعمال من خلال تقديم أدوات ذكية ومتطورة لإنشاء دراسات الجدوى الاحترافية. نجمع بين التقنية المتقدمة والخبرة الاستشارية لنوفر تجربة متكاملة تساعدك على اتخاذ قرارات مدروسة وتحويل أفكارك إلى مشاريع ناجحة على أرض الواقع."
                 : "Muqqdim is a Saudi platform specialized in empowering entrepreneurs with smart and advanced tools for creating professional feasibility studies. We combine advanced technology and consulting expertise to provide an integrated experience that helps you make informed decisions and turn your ideas into successful businesses."}
@@ -340,9 +247,9 @@ export default function MainDashboard() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
               >
-                {/* Connecting line */}
+                {/* Connecting line — يتبع اتجاه اللغة */}
                 {index < 3 && (
-                  <div className="hidden md:block absolute top-[22px] right-[50%] w-full h-[1px] bg-[#C6A75E]/30 z-0" />
+                  <div className={`hidden md:block absolute top-[22px] w-full h-[1px] bg-[#C6A75E]/30 z-0 ${isAr ? "right-[50%]" : "left-[50%]"}`} />
                 )}
 
                 {/* Circle */}
@@ -501,18 +408,18 @@ export default function MainDashboard() {
       </section>
 
       {/* Footer — تذييل رسمي بطابع حكومي */}
-      <footer className="mt-20 relative z-10 bg-[#08312D] text-white">
+      <footer className="mt-20 relative z-10 bg-[#08312D] text-white border-t border-[#C6A75E]/30">
         {/* الجزء الرئيسي */}
         <div className="max-w-6xl mx-auto px-6 py-12">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
 
             {/* العمود الأول — العلامة + النبذة */}
             <div>
-              <img src={logoImage} alt="مُقدِّم" className="h-12 w-auto mb-4 brightness-0 invert" />
+              <img src={logoImage} alt="مُقدِّم" className="h-20 w-auto mb-4 brightness-0 invert" />
               <p className="text-white/70 text-sm leading-relaxed">
                 {isAr
-                  ? "منصة سعودية متخصصة في توليد دراسات الجدوى الذكية للمشاريع الصغيرة والمتوسطة في قطاع المطاعم والكافيهات."
-                  : "A Saudi platform specialized in generating intelligent feasibility studies for small and medium-sized restaurant and café projects."}
+                  ? "منصة سعودية متخصصة في توليد دراسات الجدوى الذكية للمشاريع الصغيرة في قطاع المطاعم والكافيهات."
+                  : "A Saudi platform specialized in generating intelligent feasibility studies for small restaurant and café projects."}
               </p>
             </div>
 
@@ -558,7 +465,7 @@ export default function MainDashboard() {
         </div>
 
         {/* الجزء السفلي — حقوق النشر */}
-        <div className="border-t border-white/10">
+        <div>
           <div className="max-w-6xl mx-auto px-6 py-5 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-white/60">
             <p>
               {isAr

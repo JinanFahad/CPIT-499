@@ -11,6 +11,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { Building2, Bot, User, Send, Loader2 } from "lucide-react";
 import { motion } from "motion/react";
 import { Header } from "../components/Header";
+import { Sparkle } from "../components/Sparkle";
 import { useLanguage } from "../contexts/LanguageContext";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
@@ -256,13 +257,19 @@ export default function GovernmentProceduresPage() {
     <>
       <Header />
       <div
-        className="min-h-screen bg-transparent p-6 lg:p-8"
+        className="min-h-screen bg-transparent p-6 lg:p-8 relative"
         dir={isAr ? "rtl" : "ltr"}
       >
+        <Sparkle className="top-[5%] left-[5%]" size={18} />
+        <Sparkle className="top-[15%] right-[8%]" size={12} />
+        <Sparkle className="top-[40%] left-[3%]" size={22} />
+        <Sparkle className="top-[60%] right-[5%]" size={14} />
+        <Sparkle className="bottom-[20%] left-[7%]" size={16} />
+        <Sparkle className="bottom-[10%] right-[15%]" size={20} />
         <div className="max-w-5xl mx-auto h-[calc(100vh-4rem)] flex flex-col">
           {/* Header */}
           <motion.div
-            className="bg-white dark:bg-gray-200 rounded-xl p-8 border border-gray-200 dark:border-gray-300 shadow-sm mb-4"
+            className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md rounded-2xl p-8 border border-[#C6A75E]/30 card-glow mb-4"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
@@ -273,13 +280,13 @@ export default function GovernmentProceduresPage() {
                   <div className="w-14 h-14 rounded-lg bg-[#C6A75E] dark:bg-secondary-600 flex items-center justify-center">
                     <Building2 className="w-7 h-7 text-white" />
                   </div>
-                  <h1 className="text-4xl font-bold text-[#08312d] dark:text-gray-900">
+                  <h1 className="text-4xl font-bold text-[#08312d] dark:text-white">
                     {isAr
                       ? "مساعد الإجراءات الحكومية"
                       : "Government Procedures Assistant"}
                   </h1>
                 </div>
-                <p className="text-gray-600 dark:text-gray-700 text-lg font-medium mr-[68px] font-[Changa]">
+                <p className="text-gray-600 dark:text-white/70 text-lg font-medium mr-[68px] font-[Changa]">
                   {isAr
                     ? "اسأل عن أي إجراء حكومي لمشروعك"
                     : "Ask about any government procedure for your project"}
@@ -290,7 +297,7 @@ export default function GovernmentProceduresPage() {
 
           {/* Chat Container */}
           <motion.div
-            className="flex-1 bg-white dark:bg-gray-200 rounded-xl border border-gray-200 dark:border-gray-300 shadow-sm flex flex-col overflow-hidden"
+            className="flex-1 bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md rounded-2xl border border-[#C6A75E]/30 card-glow flex flex-col overflow-hidden"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
@@ -315,14 +322,14 @@ export default function GovernmentProceduresPage() {
                       className={`max-w-[70%] rounded-2xl px-4 py-2.5 ${
                         message.sender === "user"
                           ? "bg-[#08312D] dark:bg-primary-600 text-white"
-                          : "bg-gray-50 dark:bg-gray-100 text-[#08312D] dark:text-gray-900 border border-gray-200 dark:border-gray-300"
+                          : "bg-gray-50 dark:bg-[#062620] text-[#08312D] dark:text-white border border-gray-200 dark:border-white/15"
                       }`}
                     >
                       <p className="whitespace-pre-line leading-relaxed text-sm font-medium font-[Changa]">
                         {message.text}
                       </p>
                       <span
-                        className={`text-[10px] mt-1.5 block ${message.sender === "user" ? "text-gray-200" : "text-gray-500 dark:text-gray-600"}`}
+                        className={`text-[10px] mt-1.5 block ${message.sender === "user" ? "text-gray-200" : "text-gray-500 dark:text-white/50"}`}
                       >
                         {message.timestamp.toLocaleTimeString("ar-SA", {
                           hour: "2-digit",
@@ -347,7 +354,7 @@ export default function GovernmentProceduresPage() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: 0.2 }}
-                        className="flex flex-col gap-2 mr-10 mt-2 max-w-[55%]"
+                        className="flex flex-col gap-2 ms-10 mt-2 max-w-[55%]"
                       >
                         {message.showOptions === "main" &&
                           mainOptions.map((option) => (
@@ -355,7 +362,7 @@ export default function GovernmentProceduresPage() {
                               key={option.id}
                               onClick={() => handleMainOption(option.action)}
                               disabled={isTyping}
-                              className="w-full bg-white dark:bg-gray-200 hover:bg-gray-50 dark:hover:bg-gray-300 border-2 border-[#08312D] dark:border-primary-600 text-[#08312D] dark:text-gray-900 rounded-lg px-3 py-2 text-center font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-[Changa]"
+                              className="w-full bg-white dark:bg-[#062620] hover:bg-gray-50 dark:hover:bg-[#08312D] border-2 border-[#08312D] dark:border-[#C6A75E]/50 text-[#08312D] dark:text-white rounded-lg px-3 py-2 text-center font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-[Changa]"
                               style={{ fontSize: "12px" }}
                             >
                               {option.text}
@@ -369,7 +376,7 @@ export default function GovernmentProceduresPage() {
                                 handleQuickOption(option.query, option.text)
                               }
                               disabled={isTyping}
-                              className="w-full bg-white dark:bg-gray-200 hover:bg-gray-50 dark:hover:bg-gray-300 border-2 border-[#08312D] dark:border-primary-600 text-[#08312D] dark:text-gray-900 rounded-lg px-3 py-2 text-center font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-[Changa]"
+                              className="w-full bg-white dark:bg-[#062620] hover:bg-gray-50 dark:hover:bg-[#08312D] border-2 border-[#08312D] dark:border-[#C6A75E]/50 text-[#08312D] dark:text-white rounded-lg px-3 py-2 text-center font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-[Changa]"
                               style={{ fontSize: "12px" }}
                             >
                               {option.text}
@@ -389,7 +396,7 @@ export default function GovernmentProceduresPage() {
                   <div className="w-8 h-8 rounded-full bg-[#08312D] dark:bg-primary-600 flex items-center justify-center">
                     <Bot className="w-5 h-5 text-white" />
                   </div>
-                  <div className="bg-gray-50 dark:bg-gray-100 rounded-2xl px-4 py-2.5 border border-gray-200 dark:border-gray-300">
+                  <div className="bg-gray-50 dark:bg-[#062620] rounded-2xl px-4 py-2.5 border border-gray-200 dark:border-white/15">
                     <div className="flex gap-1">
                       <span
                         className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
@@ -412,14 +419,14 @@ export default function GovernmentProceduresPage() {
             </div>
 
             {/* Input Area */}
-            <div className="border-t border-gray-200 dark:border-gray-300 p-4">
+            <div className="border-t border-gray-200 dark:border-[#C6A75E]/20 p-4">
               <div className="flex gap-3">
                 <Input
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder={isAr ? "اكتبي سؤالك هنا..." : "Type your question here..."}
-                  className="flex-1 bg-gray-50 dark:bg-gray-100 border-gray-300 dark:border-gray-400 text-[#08312D] dark:text-gray-900 placeholder:text-gray-500 text-base py-6 font-[Changa]"
+                  className="flex-1 bg-gray-50 dark:bg-[#062620] border-gray-300 dark:border-white/20 text-[#08312D] dark:text-white placeholder:text-gray-500 dark:placeholder:text-white/40 text-base py-6 font-[Changa]"
                   disabled={isTyping}
                 />
                 <Button

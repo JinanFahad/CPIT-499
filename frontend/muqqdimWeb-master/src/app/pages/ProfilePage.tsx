@@ -13,6 +13,7 @@ import { User, Mail, Edit2, Save, Loader2, LogOut, X, Lock, CheckCircle2, AlertC
 import { onAuthStateChanged, updateProfile, signOut, sendPasswordResetEmail } from "firebase/auth";
 import { motion, AnimatePresence } from "motion/react";
 import { Header } from "../components/Header";
+import { Sparkle } from "../components/Sparkle";
 import { useLanguage } from "../contexts/LanguageContext";
 import { auth } from "../firebase";
 
@@ -134,12 +135,18 @@ export default function ProfilePage() {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-100 py-10 px-4 lg:px-8" dir={isAr ? "rtl" : "ltr"}>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-100 py-10 px-4 lg:px-8 relative" dir={isAr ? "rtl" : "ltr"}>
+        <Sparkle className="top-[5%] left-[5%]" size={18} />
+        <Sparkle className="top-[15%] right-[8%]" size={12} />
+        <Sparkle className="top-[40%] left-[3%]" size={22} />
+        <Sparkle className="top-[60%] right-[5%]" size={14} />
+        <Sparkle className="bottom-[20%] left-[7%]" size={16} />
+        <Sparkle className="bottom-[10%] right-[15%]" size={20} />
         <div className="max-w-3xl mx-auto">
 
           {/* ── بانر علوي رسمي ── */}
           <motion.div
-            className="bg-white dark:bg-white border border-gray-200 rounded-md shadow-sm overflow-hidden mb-6"
+            className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md border border-[#C6A75E]/30 rounded-2xl card-glow overflow-hidden mb-6"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
@@ -147,14 +154,14 @@ export default function ProfilePage() {
             {/* شريط أخضر علوي رفيع */}
             <div className="h-1 w-full" style={{ background: "linear-gradient(90deg, #08312D 0%, #C6A75E 50%, #08312D 100%)" }} />
             <div className="px-8 py-7 flex items-start gap-5">
-              <div className="w-14 h-14 rounded-md bg-[#08312D] flex items-center justify-center flex-shrink-0">
-                <User className="w-7 h-7 text-white" />
+              <div className="w-14 h-14 rounded-md bg-[#08312D] dark:bg-[#C6A75E] flex items-center justify-center flex-shrink-0">
+                <User className="w-7 h-7 text-white dark:text-[#08312D]" />
               </div>
               <div className="flex-1">
-                <h1 className="text-2xl font-bold text-[#08312D] mb-1">
+                <h1 className="text-2xl font-bold text-[#08312D] dark:text-white mb-1">
                   {isAr ? "الملف الشخصي" : "Account Profile"}
                 </h1>
-                <p className="text-gray-600 text-sm leading-relaxed">
+                <p className="text-gray-600 dark:text-white/70 text-sm leading-relaxed">
                   {isAr
                     ? "إدارة معلومات حسابك في منصة مُقدِّم."
                     : "Manage your Muqaddim account information."}
@@ -162,7 +169,7 @@ export default function ProfilePage() {
               </div>
               <button
                 onClick={() => setLogoutConfirm(true)}
-                className="flex items-center gap-2 bg-white border border-red-300 hover:bg-red-50 hover:border-red-500 rounded-md px-4 py-2 transition-colors text-sm font-semibold text-red-700 flex-shrink-0 self-center"
+                className="flex items-center gap-2 bg-white dark:bg-transparent border border-red-300 dark:border-red-400/50 hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-500 rounded-md px-4 py-2 transition-colors text-sm font-semibold text-red-700 dark:text-red-400 flex-shrink-0 self-center"
               >
                 <LogOut className="w-4 h-4" />
                 <span className="hidden sm:inline">{isAr ? "تسجيل الخروج" : "Sign Out"}</span>
@@ -172,22 +179,22 @@ export default function ProfilePage() {
 
           {/* ── معلومات الحساب ── */}
           <motion.div
-            className="bg-white dark:bg-white border border-gray-200 rounded-md shadow-sm overflow-hidden mb-6"
+            className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md border border-[#C6A75E]/30 rounded-2xl card-glow overflow-hidden mb-6"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.1 }}
           >
-            <div className="px-8 py-5 border-b border-gray-200 flex items-center justify-between bg-gray-50">
-              <h2 className="text-base font-bold text-[#08312D]">
+            <div className="px-8 py-5 border-b border-gray-200 dark:border-white/10 flex items-center justify-between bg-gray-50 dark:bg-[#08312D]">
+              <h2 className="text-base font-bold text-[#08312D] dark:text-white">
                 {isAr ? "معلومات الحساب" : "Account Information"}
               </h2>
               {!isEditing ? (
                 <button
                   onClick={() => setIsEditing(true)}
-                  className="flex items-center gap-2 bg-white border border-gray-300 hover:border-[#08312D] hover:bg-gray-50 rounded-md px-4 py-2 transition-colors text-sm"
+                  className="flex items-center gap-2 bg-white dark:bg-transparent border border-gray-300 dark:border-[#C6A75E]/40 hover:border-[#08312D] hover:bg-gray-50 dark:hover:bg-[#C6A75E]/10 rounded-md px-4 py-2 transition-colors text-sm"
                 >
                   <Edit2 className="w-3.5 h-3.5 text-[#C6A75E]" />
-                  <span className="text-[#08312D] font-semibold">
+                  <span className="text-[#08312D] dark:text-white font-semibold">
                     {isAr ? "تعديل الاسم" : "Edit Name"}
                   </span>
                 </button>
@@ -196,17 +203,17 @@ export default function ProfilePage() {
                   <button
                     onClick={handleCancel}
                     disabled={isSaving}
-                    className="flex items-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-md px-4 py-2 transition-colors text-sm disabled:opacity-60"
+                    className="flex items-center gap-2 bg-white dark:bg-transparent border border-gray-300 dark:border-white/30 hover:bg-gray-50 dark:hover:bg-white/10 rounded-md px-4 py-2 transition-colors text-sm disabled:opacity-60"
                   >
-                    <X className="w-3.5 h-3.5 text-gray-600" />
-                    <span className="text-gray-700 font-semibold">
+                    <X className="w-3.5 h-3.5 text-gray-600 dark:text-white/70" />
+                    <span className="text-gray-700 dark:text-white/80 font-semibold">
                       {isAr ? "إلغاء" : "Cancel"}
                     </span>
                   </button>
                   <button
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="flex items-center gap-2 bg-[#08312D] hover:bg-[#0E4A43] rounded-md px-4 py-2 text-white transition-colors text-sm disabled:opacity-60"
+                    className="flex items-center gap-2 bg-[#08312D] dark:bg-[#C6A75E] hover:bg-[#0E4A43] dark:hover:bg-[#a88f4e] rounded-md px-4 py-2 text-white dark:text-[#08312D] transition-colors text-sm disabled:opacity-60"
                   >
                     {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                     <span className="font-semibold">
@@ -219,15 +226,15 @@ export default function ProfilePage() {
 
             <div className="px-8 py-7 space-y-5">
               {saveError && (
-                <div className="px-4 py-3 bg-red-50 border-r-4 border-red-500 text-red-800 rounded-md text-sm">
+                <div className="px-4 py-3 bg-red-50 dark:bg-red-950/30 border-r-4 border-red-500 text-red-800 dark:text-red-300 rounded-md text-sm">
                   {saveError}
                 </div>
               )}
 
               {/* الاسم الكامل */}
               <div>
-                <label className="text-xs text-gray-500 mb-2 flex items-center gap-2 font-semibold uppercase tracking-wide">
-                  <User className="w-3.5 h-3.5 text-[#08312D]" />
+                <label className="text-xs text-gray-500 dark:text-white/60 mb-2 flex items-center gap-2 font-semibold uppercase tracking-wide">
+                  <User className="w-3.5 h-3.5 text-[#08312D] dark:text-[#C6A75E]" />
                   {isAr ? "الاسم الكامل" : "Full Name"}
                 </label>
                 {isEditing ? (
@@ -235,24 +242,24 @@ export default function ProfilePage() {
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full bg-white border border-gray-300 rounded-md px-4 py-3 text-[#08312D] focus:border-[#08312D] focus:ring-2 focus:ring-[#08312D]/10 focus:outline-none transition-all"
+                    className="w-full bg-white dark:bg-[#062620] border border-gray-300 dark:border-white/20 rounded-md px-4 py-3 text-[#08312D] dark:text-white focus:border-[#08312D] dark:focus:border-[#C6A75E] focus:ring-2 focus:ring-[#08312D]/10 dark:focus:ring-[#C6A75E]/20 focus:outline-none transition-all"
                     placeholder={isAr ? "أدخلي الاسم الكامل" : "Enter your full name"}
                   />
                 ) : (
-                  <div className="bg-gray-50 border border-gray-200 rounded-md px-4 py-3">
-                    <p className="text-[#08312D] font-semibold">{name || "—"}</p>
+                  <div className="bg-gray-50 dark:bg-[#062620] border border-gray-200 dark:border-white/10 rounded-md px-4 py-3">
+                    <p className="text-[#08312D] dark:text-white font-semibold">{name || "—"}</p>
                   </div>
                 )}
               </div>
 
               {/* البريد الإلكتروني */}
               <div>
-                <label className="text-xs text-gray-500 mb-2 flex items-center gap-2 font-semibold uppercase tracking-wide">
-                  <Mail className="w-3.5 h-3.5 text-[#08312D]" />
+                <label className="text-xs text-gray-500 dark:text-white/60 mb-2 flex items-center gap-2 font-semibold uppercase tracking-wide">
+                  <Mail className="w-3.5 h-3.5 text-[#08312D] dark:text-[#C6A75E]" />
                   {isAr ? "البريد الإلكتروني" : "Email Address"}
                 </label>
-                <div className="bg-gray-50 border border-gray-200 rounded-md px-4 py-3">
-                  <p className="text-[#08312D] font-semibold text-sm" dir="ltr">{email || "—"}</p>
+                <div className="bg-gray-50 dark:bg-[#062620] border border-gray-200 dark:border-white/10 rounded-md px-4 py-3">
+                  <p className="text-[#08312D] dark:text-white font-semibold text-sm" dir="ltr">{email || "—"}</p>
                 </div>
               </div>
             </div>
@@ -260,26 +267,26 @@ export default function ProfilePage() {
 
           {/* ── بطاقة الأمان ── */}
           <motion.div
-            className="bg-white border border-gray-200 rounded-md shadow-sm overflow-hidden mb-6"
+            className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md border border-[#C6A75E]/30 rounded-2xl card-glow overflow-hidden mb-6"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.15 }}
           >
-            <div className="px-8 py-5 border-b border-gray-200 bg-gray-50">
-              <h2 className="text-base font-bold text-[#08312D]">
+            <div className="px-8 py-5 border-b border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-[#08312D]">
+              <h2 className="text-base font-bold text-[#08312D] dark:text-white">
                 {isAr ? "الأمان" : "Security"}
               </h2>
             </div>
             <div className="px-8 py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-md bg-[#FFF9F0] border border-[#C6A75E]/40 flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 rounded-md bg-[#FFF9F0] dark:bg-[#C6A75E]/15 border border-[#C6A75E]/40 flex items-center justify-center flex-shrink-0">
                   <Lock className="w-5 h-5 text-[#C6A75E]" />
                 </div>
                 <div>
-                  <p className="text-[#08312D] font-semibold text-sm mb-1">
+                  <p className="text-[#08312D] dark:text-white font-semibold text-sm mb-1">
                     {isAr ? "كلمة المرور" : "Password"}
                   </p>
-                  <p className="text-gray-600 text-xs leading-relaxed">
+                  <p className="text-gray-600 dark:text-white/60 text-xs leading-relaxed">
                     {isAr
                       ? "سنرسل رابطاً إلى بريدكم الإلكتروني لإعادة تعيين كلمة المرور."
                       : "We will send a reset link to your email address."}
@@ -288,7 +295,7 @@ export default function ProfilePage() {
               </div>
               <button
                 onClick={() => setResetOpen(true)}
-                className="flex items-center justify-center gap-2 bg-white border border-gray-300 hover:border-[#08312D] hover:bg-gray-50 rounded-md px-5 py-2.5 transition-colors text-sm font-semibold text-[#08312D] whitespace-nowrap"
+                className="flex items-center justify-center gap-2 bg-white dark:bg-transparent border border-gray-300 dark:border-[#C6A75E]/40 hover:border-[#08312D] dark:hover:border-[#C6A75E] hover:bg-gray-50 dark:hover:bg-[#C6A75E]/10 rounded-md px-5 py-2.5 transition-colors text-sm font-semibold text-[#08312D] dark:text-white whitespace-nowrap"
               >
                 <Lock className="w-4 h-4" />
                 {isAr ? "تغيير كلمة المرور" : "Change Password"}

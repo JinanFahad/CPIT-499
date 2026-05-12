@@ -9,6 +9,7 @@ import { Link } from "react-router";
 import { PresentationIcon, FolderOpen, FileText, Loader2, Mail, CheckCircle2, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Header } from "../components/Header";
+import { Sparkle } from "../components/Sparkle";
 import { useLanguage } from "../contexts/LanguageContext";
 import { auth } from "../firebase";
 
@@ -132,12 +133,18 @@ export default function PitchDeckPage() {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-transparent dark:bg-gray-100 p-6 lg:p-8" dir={isAr ? "rtl" : "ltr"}>
+      <div className="min-h-screen bg-transparent p-6 lg:p-8 relative" dir={isAr ? "rtl" : "ltr"}>
+        <Sparkle className="top-[5%] left-[5%]" size={18} />
+        <Sparkle className="top-[15%] right-[8%]" size={12} />
+        <Sparkle className="top-[40%] left-[3%]" size={22} />
+        <Sparkle className="top-[60%] right-[5%]" size={14} />
+        <Sparkle className="bottom-[20%] left-[7%]" size={16} />
+        <Sparkle className="bottom-[10%] right-[15%]" size={20} />
         <div className="max-w-5xl mx-auto space-y-6">
 
           {/* Header */}
           <motion.div
-            className="bg-white dark:bg-gray-200 rounded-xl p-8 border border-gray-200 dark:border-gray-300 shadow-sm"
+            className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md rounded-2xl p-8 border border-[#C6A75E]/30 card-glow"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
@@ -147,10 +154,10 @@ export default function PitchDeckPage() {
                 <PresentationIcon className="w-7 h-7 text-white" />
               </div>
               <div>
-                <h1 className="text-4xl font-bold text-[#08312d] dark:text-gray-900">
+                <h1 className="text-4xl font-bold text-[#08312d] dark:text-white">
                   {isAr ? "إعداد العرض الاستثماري" : "Pitch Deck"}
                 </h1>
-                <p className="text-gray-600 dark:text-gray-700 text-lg font-medium font-[Changa] mt-2">                  {isAr ? "قم بتصدير عرض تقديمي احترافي (Pitch Deck) لمشروعك" : "Export a professional Pitch Deck for your project"}
+                <p className="text-gray-600 dark:text-white/70 text-lg font-medium font-[Changa] mt-2">                  {isAr ? "قم بتصدير عرض تقديمي احترافي (Pitch Deck) لمشروعك" : "Export a professional Pitch Deck for your project"}
                 </p>
               </div>
             </div>
@@ -158,16 +165,16 @@ export default function PitchDeckPage() {
 
           {/* Info Section */}
           <motion.div
-            className="bg-white dark:bg-gray-200 rounded-xl p-6 border border-gray-200 dark:border-gray-300 shadow-sm"
+            className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md rounded-2xl p-6 border border-[#C6A75E]/30 card-glow"
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            <h2 className="text-xl font-bold text-[#08312D] dark:text-gray-900 mb-3">
+            <h2 className="text-xl font-bold text-[#08312D] dark:text-white mb-3">
               {isAr ? "ما هو Pitch Deck؟" : "What is a Pitch Deck?"}
             </h2>
-            <p className="text-[#08312D]/70 dark:text-gray-700 mb-4 leading-relaxed font-[Changa]">
+            <p className="text-[#08312D]/70 dark:text-white/70 mb-4 leading-relaxed font-[Changa]">
               {isAr
                 ? "العرض التقديمي (Pitch Deck) هو عرض مختصر واحترافي يستخدم لجذب المستثمرين والشركاء."
                 : "A Pitch Deck is a concise professional presentation used to attract investors and partners."}
@@ -179,14 +186,14 @@ export default function PitchDeckPage() {
                 { title: isAr ? "نموذج العمل" : "Business Model", desc: isAr ? "كيف سيحقق مشروعك الإيرادات" : "How your project will generate revenue" },
                 { title: isAr ? "التوقعات المالية" : "Financial Projections", desc: isAr ? "الإيرادات والتكاليف المتوقعة" : "Expected revenues and costs" },
               ].map((item, index) => (
-                <div key={index} className="bg-gray-50 dark:bg-gray-100 rounded-lg p-4">
+                <div key={index} className="bg-gray-50 dark:bg-[#062620] border border-transparent dark:border-white/10 rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-7 h-7 rounded-lg bg-[#C6A75E] flex items-center justify-center flex-shrink-0">
                       <span className="text-white font-bold text-xs">{index + 1}</span>
                     </div>
-                    <h4 className="text-[#08312D] dark:text-gray-900 font-bold text-sm">{item.title}</h4>
+                    <h4 className="text-[#08312D] dark:text-white font-bold text-sm">{item.title}</h4>
                   </div>
-                  <p className="text-[#08312D]/60 dark:text-gray-700 text-xs mr-9 font-[Changa]">{item.desc}</p>
+                  <p className="text-[#08312D]/60 dark:text-white/60 text-xs mr-9 font-[Changa]">{item.desc}</p>
                 </div>
               ))}
             </div>
@@ -194,14 +201,14 @@ export default function PitchDeckPage() {
 
           {/* Projects List */}
           {projects.length === 0 ? (
-            <div className="bg-white dark:bg-gray-200 rounded-xl p-12 text-center border border-gray-200 dark:border-gray-300 shadow-sm">
+            <div className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md rounded-2xl p-12 text-center border border-[#C6A75E]/30 card-glow">
               <div className="w-20 h-20 rounded-2xl bg-[#C6A75E] flex items-center justify-center mx-auto mb-6">
                 <FolderOpen className="w-10 h-10 text-white" />
               </div>
-              <h3 className="text-xl font-bold text-[#08312D] dark:text-gray-900 mb-3">
+              <h3 className="text-xl font-bold text-[#08312D] dark:text-white mb-3">
                 {isAr ? "لا توجد مشاريع بعد" : "No projects yet"}
               </h3>
-              <p className="text-gray-600 dark:text-gray-700 mb-6 max-w-md mx-auto font-[Changa]">
+              <p className="text-gray-600 dark:text-white/70 mb-6 max-w-md mx-auto font-[Changa]">
                 {isAr ? "أنشئ مشروعك الأول لتتمكن من تصدير عرض تقديمي احترافي له" : "Create your first project to export a professional pitch deck"}
               </p>
               <Link
@@ -214,14 +221,14 @@ export default function PitchDeckPage() {
             </div>
           ) : (
             <div>
-              <h2 className="text-xl font-bold text-[#08312D] dark:text-gray-900 mb-4">
+              <h2 className="text-xl font-bold text-[#08312D] dark:text-white mb-4">
                 {isAr ? "اختر مشروعاً لتصدير Pitch Deck" : "Select a project to export Pitch Deck"}
               </h2>
               <div className="grid grid-cols-1 gap-4">
                 {projects.map((project) => (
                   <div
                     key={project.id}
-                    className="bg-white dark:bg-gray-200 rounded-xl p-6 border border-gray-200 dark:border-gray-300 hover:shadow-lg transition-all duration-300"
+                    className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md rounded-2xl p-6 border border-[#C6A75E]/30 card-glow hover:shadow-xl hover:border-[#C6A75E]/60 transition-all duration-300"
                   >
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex items-start gap-4 flex-1 min-w-0">
@@ -229,14 +236,14 @@ export default function PitchDeckPage() {
                           <PresentationIcon className="w-7 h-7 text-white" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-[#08312D] dark:text-gray-900 font-bold text-lg mb-2">
+                          <h3 className="text-[#08312D] dark:text-white font-bold text-lg mb-2">
                             {isAr ? project.project_name : (project.project_name_en || project.project_name)}
                           </h3>
                           <div className="flex flex-wrap items-center gap-3 text-xs">
-                            <span className="text-[#08312D]/70 dark:text-gray-700 font-[Changa]">
+                            <span className="text-[#08312D]/70 dark:text-white/70 font-[Changa]">
                               {isAr ? "المدينة" : "City"}: {isAr ? project.city : (project.city_en || project.city)}
                             </span>
-                            <span className="text-[#08312D]/70 dark:text-gray-700 font-[Changa]">
+                            <span className="text-[#08312D]/70 dark:text-white/70 font-[Changa]">
                               {isAr ? "رأس المال" : "Capital"}: {project.capital ? project.capital.toLocaleString() : "—"} {isAr ? "ر.س" : "SAR"}
                             </span>
                             <span className="inline-block bg-[#C6A75E]/15 text-[#C6A75E] font-semibold font-[Changa] px-3 py-1 rounded-full">
@@ -250,7 +257,7 @@ export default function PitchDeckPage() {
                         <button
                           onClick={() => handleExportPitchDeck(project)}
                           disabled={isGenerating || emailingProject?.id === project.id}
-                          className="bg-[#FFF9F0] border-2 border-[#C6A75E] hover:bg-[#C6A75E] hover:text-white text-[#C6A75E] flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold shadow-sm transition-all font-[Changa] disabled:opacity-60"
+                          className="bg-[#FFF9F0] dark:bg-[#C6A75E]/15 border-2 border-[#C6A75E] hover:bg-[#C6A75E] hover:text-white text-[#C6A75E] flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold shadow-sm transition-all font-[Changa] disabled:opacity-60"
                         >
                           {isGenerating && generatingProject?.id === project.id ? (
                             <Loader2 className="w-5 h-5 animate-spin" />
@@ -265,7 +272,7 @@ export default function PitchDeckPage() {
                           onClick={() => handleEmailPitchDeck(project)}
                           disabled={emailingProject?.id === project.id || isGenerating}
                           title={isAr ? "إرسال إلى إيميلي" : "Send to my email"}
-                          className="bg-white border-2 border-[#08312D] hover:bg-[#08312D] hover:text-white text-[#08312D] flex items-center justify-center px-4 py-3 rounded-xl font-semibold shadow-sm transition-all disabled:opacity-60"
+                          className="bg-white dark:bg-[#062620] border-2 border-[#08312D] dark:border-white/30 hover:bg-[#08312D] hover:text-white text-[#08312D] dark:text-white flex items-center justify-center px-4 py-3 rounded-xl font-semibold shadow-sm transition-all disabled:opacity-60"
                         >
                           {emailingProject?.id === project.id ? (
                             <Loader2 className="w-5 h-5 animate-spin" />
@@ -338,7 +345,7 @@ export default function PitchDeckPage() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 10 }}
-              className="bg-white dark:bg-gray-200 rounded-2xl p-8 max-w-md w-full shadow-2xl border border-gray-200 relative overflow-hidden"
+              className="bg-white dark:bg-gray-200 rounded-2xl p-8 max-w-md w-full shadow-2xl border border-gray-200 relative"
               onClick={(e) => e.stopPropagation()}
             >
               <div

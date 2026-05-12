@@ -8,6 +8,7 @@ import { Link, useNavigate } from "react-router";
 import { ArrowLeft, MessageSquare, FolderOpen } from "lucide-react";
 import { motion } from "motion/react";
 import { Header } from "../components/Header";
+import { Sparkle } from "../components/Sparkle";
 import { useLanguage } from "../contexts/LanguageContext";
 import { auth } from "../firebase";
 
@@ -36,7 +37,13 @@ export default function ConsultantPage() {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-transparent p-6 lg:p-8" dir={isAr ? "rtl" : "ltr"}>
+      <div className="min-h-screen bg-transparent p-6 lg:p-8 relative" dir={isAr ? "rtl" : "ltr"}>
+        <Sparkle className="top-[5%] left-[5%]" size={18} />
+        <Sparkle className="top-[15%] right-[8%]" size={12} />
+        <Sparkle className="top-[40%] left-[3%]" size={22} />
+        <Sparkle className="top-[60%] right-[5%]" size={14} />
+        <Sparkle className="bottom-[20%] left-[7%]" size={16} />
+        <Sparkle className="bottom-[10%] right-[15%]" size={20} />
         <div className="max-w-5xl mx-auto space-y-6">
 
           {/* Header */}

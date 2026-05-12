@@ -11,6 +11,7 @@ import { Mail, Lock, User, Eye, EyeOff, Loader2, X, CheckCircle2, AlertCircle, G
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
+import { Sparkle } from "../components/Sparkle";
 import { auth } from "../firebase";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail } from "firebase/auth";
 
@@ -121,7 +122,33 @@ export default function AuthPageNew() {
   };
 
   return (
-    <div className="min-h-screen flex relative" dir={isAr ? "rtl" : "ltr"}>
+    <div
+      className="min-h-screen flex relative bg-gradient-to-br from-gray-50 to-gray-100 dark:from-[#062620] dark:via-[#08312D] dark:to-[#0a3d37] overflow-hidden"
+      dir={isAr ? "rtl" : "ltr"}
+    >
+      {/* نجوم متناثرة في الخلفية */}
+      <Sparkle className="top-[8%] left-[12%]" size={20} />
+      <Sparkle className="top-[20%] right-[15%]" size={14} />
+      <Sparkle className="top-[45%] left-[8%]" size={22} />
+      <Sparkle className="bottom-[25%] right-[10%]" size={16} />
+      <Sparkle className="bottom-[12%] left-[20%]" size={18} />
+      <Sparkle className="top-[65%] left-[35%]" size={12} />
+      <Sparkle className="top-[15%] left-[40%]" size={10} />
+      <Sparkle className="top-[35%] right-[35%]" size={13} />
+      <Sparkle className="top-[75%] right-[28%]" size={17} />
+      <Sparkle className="bottom-[40%] left-[55%]" size={11} />
+      <Sparkle className="top-[55%] right-[55%]" size={15} />
+
+      {/* توهج ذهبي خفيف من الأسفل */}
+      <div
+        className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[80%] h-72 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(ellipse at center bottom, rgba(198, 167, 94, 0.15) 0%, transparent 60%)",
+          filter: "blur(40px)",
+        }}
+      />
+
       {/* زر تبديل اللغة — يمين فوق بالعربي، يسار فوق بالإنجليزي */}
       <button
         onClick={toggleLanguage}
@@ -134,17 +161,17 @@ export default function AuthPageNew() {
         {isAr ? "EN" : "ع"}
       </button>
 
-      {/* Right Side - Form Section (Light) */}
-      <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-8">
-        <div className="w-full max-w-md">
+      {/* Right Side - Form Section */}
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="w-full max-w-md bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md rounded-2xl p-8 border border-[#C6A75E]/30 card-glow">
           {/* Tabs */}
-          <div className="flex gap-2 mb-8 bg-gray-200 p-1 rounded-full">
+          <div className="flex gap-2 mb-8 bg-gray-200 dark:bg-[#08312D]/60 dark:border dark:border-[#C6A75E]/20 p-1 rounded-full">
             <button
               onClick={() => setIsLogin(true)}
               className={`flex-1 py-3 px-6 rounded-full font-bold text-sm transition-all duration-300 ${
                 isLogin
-                  ? "bg-[#08312D] text-white shadow-lg"
-                  : "text-gray-600 hover:text-gray-900"
+                  ? "bg-[#08312D] dark:bg-[#C6A75E] text-white dark:text-[#08312D] shadow-lg"
+                  : "text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-[#C6A75E]"
               }`}
             >
               {isAr ? "تسجيل الدخول" : "Sign In"}
@@ -154,8 +181,8 @@ export default function AuthPageNew() {
               onClick={() => setIsLogin(false)}
               className={`flex-1 py-3 px-6 rounded-full font-bold text-sm transition-all duration-300 ${
                 !isLogin
-                  ? "bg-[#08312D] text-white shadow-lg"
-                  : "text-gray-600 hover:text-gray-900"
+                  ? "bg-[#08312D] dark:bg-[#C6A75E] text-white dark:text-[#08312D] shadow-lg"
+                  : "text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-[#C6A75E]"
               }`}
             >
               {isAr ? "إنشاء حساب" : "Create Account"}
@@ -172,10 +199,10 @@ export default function AuthPageNew() {
           {isLogin ? (
             <form onSubmit={handleLogin} className="space-y-6">
               <div className={`mb-8 ${isAr ? "text-right" : "text-left"}`}>
-                <h2 className="text-2xl font-bold text-[#08312D] mb-2">
+                <h2 className="text-2xl font-bold text-[#08312D] dark:text-white mb-2">
                   {isAr ? "أهــلاً بــعــودتــك" : "Welcome Back"}
                 </h2>
-                <p className="text-gray-500 text-sm font-[Changa]">
+                <p className="text-gray-500 dark:text-white/60 text-sm font-[Changa]">
                   {isAr ? "سجّل دخولك للمتابعة" : "Sign in to continue"}
                 </p>
               </div>
@@ -188,7 +215,7 @@ export default function AuthPageNew() {
                     value={loginData.email}
                     onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
                     placeholder={isAr ? "البريد الإلكتروني" : "Email Address"}
-                    className={`w-full bg-white border border-gray-300 focus:border-[#C6A75E] focus:ring-2 focus:ring-[#C6A75E]/30 text-[#08312D] placeholder:text-gray-400 rounded-xl py-4 text-base shadow-sm font-[Changa] ${isAr ? "pr-12" : "pl-12"}`}
+                    className={`w-full bg-white dark:bg-[#08312D]/60 border border-gray-300 dark:border-[#C6A75E]/30 focus:border-[#C6A75E] focus:ring-2 focus:ring-[#C6A75E]/30 text-[#08312D] dark:text-white placeholder:text-gray-400 dark:placeholder:text-white/40 rounded-xl py-4 text-base shadow-sm font-[Changa] ${isAr ? "pr-12" : "pl-12"}`}
                     required
                   />
                 </div>
@@ -202,7 +229,7 @@ export default function AuthPageNew() {
                     value={loginData.password}
                     onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
                     placeholder={isAr ? "كلمة المرور" : "Password"}
-                    className="w-full pr-12 pl-12 bg-white border border-gray-300 focus:border-[#C6A75E] focus:ring-2 focus:ring-[#C6A75E]/30 text-[#08312D] placeholder:text-gray-400 rounded-xl py-4 text-base shadow-sm font-[Changa]"
+                    className="w-full pr-12 pl-12 bg-white dark:bg-[#08312D]/60 border border-gray-300 dark:border-[#C6A75E]/30 focus:border-[#C6A75E] focus:ring-2 focus:ring-[#C6A75E]/30 text-[#08312D] dark:text-white placeholder:text-gray-400 dark:placeholder:text-white/40 rounded-xl py-4 text-base shadow-sm font-[Changa]"
                     required
                   />
                   <button
@@ -237,10 +264,10 @@ export default function AuthPageNew() {
           ) : (
             <form onSubmit={handleRegister} className="space-y-6">
               <div className={`mb-8 ${isAr ? "text-right" : "text-left"}`}>
-                <h2 className="text-2xl font-bold text-[#08312D] mb-2">
+                <h2 className="text-2xl font-bold text-[#08312D] dark:text-white mb-2">
                   {isAr ? "أهــلاً بــك" : "Welcome"}
                 </h2>
-                <p className="text-gray-500 text-sm font-[Changa]">
+                <p className="text-gray-500 dark:text-white/60 text-sm font-[Changa]">
                   {isAr ? "أنشئ حسابك للبدء" : "Create your account to get started"}
                 </p>
               </div>
@@ -253,7 +280,7 @@ export default function AuthPageNew() {
                     value={registerData.name}
                     onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
                     placeholder={isAr ? "الاسم الكامل" : "Full Name"}
-                    className={`w-full bg-white border border-gray-300 focus:border-[#C6A75E] focus:ring-2 focus:ring-[#C6A75E]/30 text-[#08312D] placeholder:text-gray-400 rounded-xl py-4 text-base shadow-sm font-[Changa] ${isAr ? "pr-12" : "pl-12"}`}
+                    className={`w-full bg-white dark:bg-[#08312D]/60 border border-gray-300 dark:border-[#C6A75E]/30 focus:border-[#C6A75E] focus:ring-2 focus:ring-[#C6A75E]/30 text-[#08312D] dark:text-white placeholder:text-gray-400 dark:placeholder:text-white/40 rounded-xl py-4 text-base shadow-sm font-[Changa] ${isAr ? "pr-12" : "pl-12"}`}
                     required
                   />
                 </div>
@@ -267,7 +294,7 @@ export default function AuthPageNew() {
                     value={registerData.email}
                     onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
                     placeholder={isAr ? "البريد الإلكتروني" : "Email Address"}
-                    className={`w-full bg-white border border-gray-300 focus:border-[#C6A75E] focus:ring-2 focus:ring-[#C6A75E]/30 text-[#08312D] placeholder:text-gray-400 rounded-xl py-4 text-base shadow-sm font-[Changa] ${isAr ? "pr-12" : "pl-12"}`}
+                    className={`w-full bg-white dark:bg-[#08312D]/60 border border-gray-300 dark:border-[#C6A75E]/30 focus:border-[#C6A75E] focus:ring-2 focus:ring-[#C6A75E]/30 text-[#08312D] dark:text-white placeholder:text-gray-400 dark:placeholder:text-white/40 rounded-xl py-4 text-base shadow-sm font-[Changa] ${isAr ? "pr-12" : "pl-12"}`}
                     required
                   />
                 </div>
@@ -281,7 +308,7 @@ export default function AuthPageNew() {
                     value={registerData.password}
                     onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
                     placeholder={isAr ? "كلمة المرور" : "Password"}
-                    className="w-full pr-12 pl-12 bg-white border border-gray-300 focus:border-[#C6A75E] focus:ring-2 focus:ring-[#C6A75E]/30 text-[#08312D] placeholder:text-gray-400 rounded-xl py-4 text-base shadow-sm font-[Changa]"
+                    className="w-full pr-12 pl-12 bg-white dark:bg-[#08312D]/60 border border-gray-300 dark:border-[#C6A75E]/30 focus:border-[#C6A75E] focus:ring-2 focus:ring-[#C6A75E]/30 text-[#08312D] dark:text-white placeholder:text-gray-400 dark:placeholder:text-white/40 rounded-xl py-4 text-base shadow-sm font-[Changa]"
                     required
                   />
                   <button
@@ -305,21 +332,12 @@ export default function AuthPageNew() {
         </div>
       </div>
 
-      {/* Left Side - Logo Section (Dark Green) */}
-      <div className="hidden lg:flex flex-1 bg-gradient-to-br from-[#08312D] via-[#0E4A43] to-[#1F2A2A] items-center justify-center relative overflow-hidden">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="absolute w-[600px] h-[600px] rounded-full border border-white/5"></div>
-          <div className="absolute w-[500px] h-[500px] rounded-full border border-white/8"></div>
-          <div className="absolute w-[400px] h-[400px] rounded-full border border-white/10"></div>
-        </div>
-
+      {/* Left Side - Logo Section */}
+      <div className="hidden lg:flex flex-1 items-center justify-center relative overflow-hidden">
         <div className="relative z-10 text-center px-12">
           <div className="mb-8">
-            <img src={logoImage} alt="MOQDDIM" className="h-48 w-auto mx-auto drop-shadow-2xl" />
+            <img src={logoImage} alt="MOQDDIM" className="h-72 w-auto mx-auto drop-shadow-2xl" />
           </div>
-          <h1 className="text-5xl font-bold text-white mb-6">
-            {isAr ? "مُـقــــدِم" : "MUQADDIM"}
-          </h1>
           <div className="flex items-center justify-center gap-3 mb-6">
             <div className="w-32 h-[1px] bg-gradient-to-r from-transparent via-[#C6A75E]/40 to-[#C6A75E]/40 rounded-full"></div>
           </div>
