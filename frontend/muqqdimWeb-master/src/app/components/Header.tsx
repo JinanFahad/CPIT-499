@@ -70,7 +70,7 @@ export function Header() {
       {/* الشريط الرئيسي */}
       <div className="border-b border-gray-200 dark:border-white/10 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="max-w-7xl mx-auto px-6 py-3">
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", direction: "ltr" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", direction: isAr ? "ltr" : "rtl" }}>
 
             {/* اليسار — المستخدم + أزرار */}
             <div className="relative flex items-center gap-2">

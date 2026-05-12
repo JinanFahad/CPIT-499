@@ -437,7 +437,7 @@ export default function FeasibilityReport() {
                   className="bg-white hover:bg-gray-100 rounded-lg px-5 py-3 text-[#08312D] font-bold flex items-center gap-2 transition-all disabled:opacity-60 font-[Changa]"
                 >
                   {emailing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
-                  {isAr ? "إرسال للإيميل" : "Email Me"}
+                  {isAr ? "إرسال للإيميل" : "Send to Email"}
                 </button>
                 <Link
                   to="/dashboard/my-projects"
