@@ -81,17 +81,13 @@ def test_unprofitable_project_classified_as_risky():
     assert decision["score"] <= 2
 
 ##--------------------------------------------------------------
-
 def test_financial_to_pdf_pipeline():
     """End-to-end: financial engine → decision engine → AI report (mocked)
     → PDF generator must produce a valid PDF file. The AI step is mocked
     because it depends on an external service (OpenAI), but the rest of
     the pipeline runs against real code."""
-
-    # Skip cleanly if Playwright/browser is not installed in this environment
     pytest.importorskip("playwright.sync_api")
     from pdf_generator import build_feasibility_pdf
-
     # Step 1 — Real financial calculation
     user_input = {
         "business_type":     "cafe",
@@ -103,17 +99,14 @@ def test_financial_to_pdf_pipeline():
         "cogs_known":        False,
     }
     financials = calculate_financials(user_input)
-
     # Step 2 — Real decision classification
     decision = classify_project(
         profit_margin_percent=financials["profit_margin_percent"],
         payback_months=financials["payback_period_months"],
         success_prediction=financials["success_prediction"],
     )
-
     # Step 3 — Mock the AI report (avoids OpenAI calls during testing)
     mocked_report = _build_mock_ai_report(user_input, financials, decision)
-
     # Step 4 — Real PDF generation from the (real + mocked) data above
     pdf_bytes = build_feasibility_pdf(mocked_report)
 
