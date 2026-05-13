@@ -256,25 +256,37 @@ def report_pdf():
 @app.post("/api/feasibility/email")
 def feasibility_email():
     import tempfile
+    from report_translator import get_or_create_translation
+
     data       = request.get_json(silent=True) or {}
     report_id  = data.get("report_id")
     email      = (data.get("email") or "").strip()
-    project_nm = data.get("project_name") or "مشروعك"
+    language   = (data.get("language") or "ar").lower()
+    if language not in ("ar", "en"):
+        language = "ar"
+    is_en      = language == "en"
+    # اسم المشروع الافتراضي على حسب اللغة (لو ما جاي من الفرونت)
+    project_nm = data.get("project_name") or ("Your Project" if is_en else "مشروعك")
 
     if not report_id:
-        return jsonify({"error": "report_id مطلوب"}), 400
+        return jsonify({"error": "report_id required" if is_en else "report_id مطلوب"}), 400
     if not email or "@" not in email:
-        return jsonify({"error": "إيميل غير صالح"}), 400
+        return jsonify({"error": "Invalid email" if is_en else "إيميل غير صالح"}), 400
 
     report = get_report_by_id(report_id)
     if not report:
-        return jsonify({"error": "الدراسة غير موجودة"}), 404
+        return jsonify({"error": "Report not found" if is_en else "الدراسة غير موجودة"}), 404
 
-    # نبني الـ PDF من بيانات التقرير المحفوظة (market_analysis + competitors مدمجة فيه أصلاً)
+    # لو المستخدم يبغى الإيميل بالإنجليزي، نأخذ النسخة المترجمة من التقرير
+    if is_en:
+        report, _ = get_or_create_translation(report, "en")
+
+    # نبني الـ PDF بنفس لغة المستخدم
     pdf_bytes = build_feasibility_pdf(
         report=report,
         market_analysis=report.get("market_analysis"),
         competitor_places=report.get("competitor_places", []),
+        language=language,
     )
 
     # نحفظ الـ PDF كملف مؤقت ثم نرسله ونحذفه
@@ -282,18 +294,28 @@ def feasibility_email():
     try:
         tmp.write(pdf_bytes)
         tmp.close()
+        if is_en:
+            subject = f"Feasibility Report — {project_nm} | Muqaddim"
+            body    = f'Attached is the feasibility report for "{project_nm}".\n\nMuqaddim'
+        else:
+            subject = f"دراسة الجدوى — {project_nm} | منصة مُقدِّم"
+            body    = f'مرفقة دراسة الجدوى لمشروع "{project_nm}".\n\nمنصة مُقدِّم'
+
         send_file_via_email(
             to_email=email,
-            subject=f"دراسة الجدوى — {project_nm} | منصة مُقدِّم",
-            body=f"مرفقة دراسة الجدوى لمشروع \"{project_nm}\".\n\nمنصة مُقدِّم",
+            subject=subject,
+            body=body,
             file_path=tmp.name,
             attachment_name=f"{project_nm}_feasibility.pdf",
             project_name=project_nm,
             file_kind_ar="دراسة الجدوى",
+            file_kind_en="Feasibility Report",
+            language=language,
         )
         return jsonify({"ok": True, "sent_to": email})
     except EnvironmentError as e:
-        return jsonify({"error": f"إعداد SMTP ناقص: {e}"}), 500
+        msg = f"SMTP configuration missing: {e}" if is_en else f"إعداد SMTP ناقص: {e}"
+        return jsonify({"error": msg}), 500
     except Exception as e:
         import traceback; traceback.print_exc()
         return jsonify({"error": str(e)}), 500
@@ -381,32 +403,52 @@ def advisor_chat():
 
     # برومبت يحدد شخصية المستشار وقواعده
     system_prompt = f"""
-أنت مستشار تجاري متخصص في المشاريع الصغيرة والمتوسطة في السعودية.
-لديك دراسة جدوى كاملة لمشروع صاحبك وتساعده يفهمها ويتخذ قرارات صحيحة.
+أنت "المستشار الذكي" — مستشار تجاري متخصص حصرًا في تحليل دراسات الجدوى للمشاريع الصغيرة والمتوسطة في السعودية.
 
-دراسة الجدوى:
+════════════════════════════════════════
+🎯 نطاق عملك الحصري:
+════════════════════════════════════════
+تساعد صاحب المشروع يفهم دراسة الجدوى المرفقة ويتخذ قرارات بناءً عليها فقط.
+يشمل ذلك:
+• شرح أرقام الدراسة (الإيراد، المصاريف، هامش الربح، فترة الاسترداد)
+• تحليل المخاطر والفرص المذكورة في الدراسة
+• مقارنة سيناريوهات تشغيلية (تخفيض تكاليف، رفع أسعار، تعديل عدد موظفين)
+• توضيح خطوات التحسين المقترحة في الدراسة
+• الإجابة عن استفسارات عامة في إدارة المشاريع الصغيرة (تسويق، تسعير، عمليات) إذا كانت ذات صلة مباشرة بمشروع صاحبك
+
+دراسة الجدوى الخاصة بمشروع صاحبك:
 {json.dumps(report, ensure_ascii=False, indent=2)}
 
-قواعد:
-- اشرح بلغة بسيطة وواضحة
-- استند على أرقام دراسة الجدوى دائماً
-- إذا سألك عن شيء مو في الدراسة قل له بوضوح
-- ركّز على الفائدة العملية لصاحب المشروع
-- لا تكرر نفس المعلومات في كل رد
-- اللغة: لو السؤال بالعربي، رد بالعربي. لو السؤال بالإنجليزي، رد بالإنجليزي.
+════════════════════════════════════════
+📝 قواعد الرد:
+════════════════════════════════════════
+• اشرح بلغة بسيطة وواضحة
+• استند على أرقام دراسة الجدوى دائماً
+• ركّز على الفائدة العملية لصاحب المشروع
+• لا تكرر نفس المعلومات في كل رد
+• اللغة: لو السؤال بالعربي → رد بالعربي. لو السؤال بالإنجليزي → رد بالإنجليزي.
 
-⚠️ قاعدة مهمة جداً — الإجراءات الحكومية:
-لو سألك عن أي شي يخص الإجراءات الحكومية أو التراخيص أو السجل التجاري أو
-رخص البلدية أو رخص الصحة أو التأمينات الاجتماعية أو أي تعامل حكومي،
-**لا تجاوب على السؤال نهائياً**. بدلاً من ذلك، رد بالضبط بهذه الصيغة:
+════════════════════════════════════════
+⛔ متى ترفض وكيف (مهم جداً):
+════════════════════════════════════════
 
-(إذا السؤال بالعربي):
+الحالة الأولى — سؤال عن الإجراءات الحكومية أو التراخيص أو السجلات
+(مثل: السجل التجاري، رخص البلدية، رخص الصحة، التأمينات الاجتماعية، ZATCA، نطاقات، GOSI، أي تعامل حكومي):
+→ رد بالضبط (إذا السؤال بالعربي):
 "هذا السؤال خارج نطاقي. يرجى استخدام مساعد الإجراءات الحكومية من الصفحة الرئيسية."
 
-(إذا السؤال بالإنجليزي):
+→ رد بالضبط (إذا السؤال بالإنجليزي):
 "This question is outside my scope. Please use the Government Procedures Assistant from the home page."
 
-دوري محصور في تحليل دراسة الجدوى والمشروع نفسه — مو الإجراءات الحكومية.
+الحالة الثانية — سؤال لا علاقة له بدراسة الجدوى أو إدارة المشاريع نهائيًا
+(مثل: أسئلة علمية، طبية، تاريخية، ترفيهية، حيوانات، طقس، شخصية، رياضية، أو أي موضوع عشوائي):
+→ رد بالضبط (إذا السؤال بالعربي):
+"هذا السؤال خارج نطاق منصة مُقدِّم. تخصصي في تحليل دراسة جدوى مشروعك فقط."
+
+→ رد بالضبط (إذا السؤال بالإنجليزي):
+"This question is outside Muqaddim's scope. I'm specialized in analyzing your project's feasibility study only."
+
+⚠️ لا تجاوب على السؤال في الحالتين السابقتين أبداً، حتى لو كنت تعرف الإجابة.
 """
 
     # نبني سلسلة الرسائل: system prompt + المحادثات السابقة + السؤال الجديد
@@ -505,6 +547,17 @@ def pitchdeck_generate():
         out_path = os.path.join("generated", filename)
         build_pptx(deck, out_path)
 
+        # لو الطلب فيه project_id من صفحة Pitch Deck → نعلّم المشروع كأن البتش دك تولّد فيه.
+        # هذا يفعّل أزرار التحميل/الإرسال في صفحة "مشاريعي" — الأزرار تظل معطّلة لين المستخدم
+        # يدخل صفحة Pitch Deck ويولّد على الأقل مرة واحدة.
+        project_id = data.get("project_id")
+        if project_id:
+            try:
+                from database import mark_pitch_deck_generated
+                mark_pitch_deck_generated(int(project_id))
+            except (ValueError, TypeError):
+                pass  # project_id غير صالح — نتجاهل بدون فشل التحميل
+
         # نحذف الملف بعد إرساله عشان مجلد generated/ ما يتراكم
         @after_this_request
         def _cleanup(response):
@@ -535,14 +588,19 @@ def pitchdeck_generate():
 def pitchdeck_email():
     import tempfile
     try:
-        data  = request.get_json(silent=True) or {}
-        email = (data.get("email") or "").strip()
+        data     = request.get_json(silent=True) or {}
+        email    = (data.get("email") or "").strip()
+        language = (data.get("language") or "ar").lower()
+        if language not in ("ar", "en"):
+            language = "ar"
+        is_en = language == "en"
+
         if not email or "@" not in email:
-            return jsonify({"error": "إيميل غير صالح"}), 400
+            return jsonify({"error": "Invalid email" if is_en else "إيميل غير صالح"}), 400
 
         business_type = data.get("business_type", "restaurant")
         if not is_valid_type(business_type):
-            return jsonify({"error": "نوع المشروع غير مدعوم"}), 400
+            return jsonify({"error": "Unsupported business type" if is_en else "نوع المشروع غير مدعوم"}), 400
 
         enriched = enrich_project_data(business_type, data.get("city", "غير محدد"))
         full_data = {**data,
@@ -587,19 +645,28 @@ def pitchdeck_email():
         if "slides" not in deck:
             return jsonify({"error": "Deck JSON missing 'slides'"}), 500
 
-        project_nm = data.get("project_name") or "مشروعك"
+        project_nm = data.get("project_name") or ("Your Project" if is_en else "مشروعك")
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pptx")
         tmp.close()
         try:
             build_pptx(deck, tmp.name)
+            if is_en:
+                subject = f"Pitch Deck — {project_nm} | Muqaddim"
+                body    = f'Attached is the pitch deck for "{project_nm}".\n\nMuqaddim'
+            else:
+                subject = f"العرض التقديمي — {project_nm} | منصة مُقدِّم"
+                body    = f'مرفق العرض التقديمي لمشروع "{project_nm}".\n\nمنصة مُقدِّم'
+
             send_file_via_email(
                 to_email=email,
-                subject=f"العرض التقديمي — {project_nm} | منصة مُقدِّم",
-                body=f"مرفق العرض التقديمي لمشروع \"{project_nm}\".\n\nمنصة مُقدِّم",
+                subject=subject,
+                body=body,
                 file_path=tmp.name,
                 attachment_name=f"{project_nm}_pitch_deck.pptx",
                 project_name=project_nm,
                 file_kind_ar="العرض التقديمي",
+                file_kind_en="Pitch Deck",
+                language=language,
             )
             return jsonify({"ok": True, "sent_to": email})
         finally:
@@ -609,7 +676,8 @@ def pitchdeck_email():
                 pass
 
     except EnvironmentError as e:
-        return jsonify({"error": f"إعداد SMTP ناقص: {e}"}), 500
+        msg = f"SMTP configuration missing: {e}" if is_en else f"إعداد SMTP ناقص: {e}"
+        return jsonify({"error": msg}), 500
     except Exception as e:
         import traceback
         traceback.print_exc()

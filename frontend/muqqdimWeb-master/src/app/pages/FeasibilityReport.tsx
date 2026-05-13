@@ -18,6 +18,7 @@ import {
   Target,
   AlertTriangle,
   CheckCircle,
+  CheckCircle2,
   BarChart3,
   Loader2,
   ArrowLeft,
@@ -27,6 +28,7 @@ import {
   Building2,
   Info,
   Mail,
+  X,
 } from "lucide-react";
 import {
   BarChart,
@@ -42,11 +44,11 @@ import {
   Legend,
   ReferenceLine,
 } from "recharts";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { Header } from "../components/Header";
 import { Sparkle } from "../components/Sparkle";
 import { useLanguage } from "../contexts/LanguageContext";
-import { tr, trReason } from "../utils/reportTranslate";
+import { tr, trReason, trEmbeddedCities } from "../utils/reportTranslate";
 import { auth } from "../firebase";
 
 const BACKEND_URL = "http://localhost:5000";
@@ -215,6 +217,7 @@ export default function FeasibilityReport() {
   // عند تبديل اللغة من الـ toggle، نطلب من الباك ترجمة التقرير لو اللغة الحالية
   // مختلفة عن لغة المحتوى المحفوظ. هذا state يخبر المستخدم إن الترجمة جارية.
   const [translating, setTranslating] = useState(false);
+  const [emailModal, setEmailModal] = useState<{ type: "success" | "error"; email?: string; message?: string } | null>(null);
 
   // عند فتح الصفحة أو تبديل اللغة:
   //   1) نجيب المشروع من /api/projects/:id (نحتاج report_id)
@@ -335,13 +338,14 @@ export default function FeasibilityReport() {
           report_id: project.report_id,
           email: userEmail,
           project_name: project.project_name,
+          language,
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Failed");
-      alert(isAr ? `تم الإرسال إلى ${userEmail} ✓` : `Sent to ${userEmail} ✓`);
+      setEmailModal({ type: "success", email: userEmail });
     } catch (err: any) {
-      alert(isAr ? `فشل الإرسال: ${err.message}` : `Send failed: ${err.message}`);
+      setEmailModal({ type: "error", message: err.message });
     } finally {
       setEmailing(false);
     }
@@ -456,9 +460,9 @@ export default function FeasibilityReport() {
                   <FileText className="w-3 h-3" />
                   {isAr ? "دراسة جدوى" : "Feasibility Report"}
                 </div>
-                <h1 className="text-3xl font-bold text-white mb-2 font-[Changa]">{report.title}</h1>
+                <h1 className="text-3xl font-bold text-white mb-2 font-[Changa]">{trEmbeddedCities(report.title, language)}</h1>
                 <p className="text-white/70 font-[Changa]">
-                  {tr(bo.business_type, language)} · {bo.city}
+                  {tr(bo.business_type, language)} · {tr(bo.city, language)}
                 </p>
               </div>
               <div className="flex gap-3">
@@ -1543,9 +1547,9 @@ export default function FeasibilityReport() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm font-[Changa]">
               <InfoRow label={isAr ? "نوع النشاط" : "Business Type"} value={tr(bo.business_type, language)} />
               {bo.restaurant_type && <InfoRow label={isAr ? "التخصص" : "Specialty"} value={bo.restaurant_type} />}
-              <InfoRow label={isAr ? "المدينة" : "City"} value={bo.city} />
-              <InfoRow label={isAr ? "العملاء المستهدفون" : "Target Customers"} value={bo.target_customers} />
-              <InfoRow label={isAr ? "عرض القيمة" : "Value Proposition"} value={bo.value_proposition} />
+              <InfoRow label={isAr ? "المدينة" : "City"} value={tr(bo.city, language)} />
+              <InfoRow label={isAr ? "العملاء المستهدفون" : "Target Customers"} value={trEmbeddedCities(bo.target_customers, language)} />
+              <InfoRow label={isAr ? "عرض القيمة" : "Value Proposition"} value={trEmbeddedCities(bo.value_proposition, language)} />
               {bo.main_products && bo.main_products.length > 0 && (
                 <InfoRow label={isAr ? "المنتجات الرئيسية" : "Main Products"} value={bo.main_products.join(" · ")} />
               )}
@@ -1553,6 +1557,106 @@ export default function FeasibilityReport() {
           </motion.div>
         </div>
       </div>
+
+      {/* Email send result modal — styled to match site theme */}
+      <AnimatePresence>
+        {emailModal && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: "rgba(8, 49, 45, 0.55)", backdropFilter: "blur(4px)" }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setEmailModal(null)}
+            dir={isAr ? "rtl" : "ltr"}
+          >
+            <motion.div
+              className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
+              initial={{ opacity: 0, scale: 0.92, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 8 }}
+              transition={{ type: "spring", stiffness: 320, damping: 26 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div
+                className="h-2 w-full"
+                style={{
+                  background:
+                    emailModal.type === "success"
+                      ? "linear-gradient(90deg, #C6A75E 0%, #08312D 100%)"
+                      : "linear-gradient(90deg, #dc2626 0%, #08312D 100%)",
+                }}
+              />
+              <button
+                onClick={() => setEmailModal(null)}
+                aria-label={isAr ? "إغلاق" : "Close"}
+                className={`absolute top-3 ${isAr ? "left-3" : "right-3"} w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-[#08312D] hover:bg-gray-100 transition`}
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="p-7 text-center">
+                <div
+                  className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center"
+                  style={{
+                    background:
+                      emailModal.type === "success"
+                        ? "linear-gradient(135deg, #C6A75E22 0%, #08312D11 100%)"
+                        : "rgba(220, 38, 38, 0.10)",
+                  }}
+                >
+                  {emailModal.type === "success" ? (
+                    <CheckCircle2 className="w-9 h-9 text-[#C6A75E]" strokeWidth={2.2} />
+                  ) : (
+                    <AlertTriangle className="w-9 h-9 text-red-600" strokeWidth={2.2} />
+                  )}
+                </div>
+
+                <h3 className="text-xl font-bold text-[#08312D] mb-2 font-[Changa]">
+                  {emailModal.type === "success"
+                    ? (isAr ? "تم الإرسال بنجاح" : "Sent Successfully")
+                    : (isAr ? "تعذّر الإرسال" : "Send Failed")}
+                </h3>
+
+                {emailModal.type === "success" ? (
+                  <p className="text-sm text-gray-600 font-[Changa] leading-relaxed mb-1">
+                    {isAr
+                      ? "تم إرسال دراسة الجدوى إلى بريدك الإلكتروني"
+                      : "Your feasibility report has been sent to your email"}
+                  </p>
+                ) : (
+                  <p className="text-sm text-gray-600 font-[Changa] leading-relaxed mb-1">
+                    {isAr ? "صار خطأ أثناء الإرسال:" : "An error occurred while sending:"}
+                  </p>
+                )}
+
+                {emailModal.type === "success" && emailModal.email && (
+                  <div
+                    className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold font-[Changa]"
+                    style={{ background: "#FFF9F0", color: "#08312D", border: "1px solid #C6A75E40" }}
+                  >
+                    <Mail className="w-4 h-4 text-[#C6A75E]" />
+                    <span style={{ direction: "ltr" }}>{emailModal.email}</span>
+                  </div>
+                )}
+
+                {emailModal.type === "error" && emailModal.message && (
+                  <p className="mt-3 text-sm text-red-700 font-[Changa] bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                    {emailModal.message}
+                  </p>
+                )}
+
+                <button
+                  onClick={() => setEmailModal(null)}
+                  className="mt-6 w-full bg-[#08312D] hover:bg-[#0E4A43] text-white rounded-lg px-5 py-3 font-bold font-[Changa] transition-all flex items-center justify-center gap-2"
+                >
+                  {isAr ? "تمام" : "Got it"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

@@ -49,10 +49,16 @@ def init_db():
             lat                 REAL,                  -- إحداثيات الموقع
             lng                 REAL,
             report_id           INTEGER,               -- ربط مع جدول reports
+            pitch_deck_generated INTEGER DEFAULT 0,   -- 1 لو المستخدم ولّد البتش دك من صفحته (يفعّل أزرار صفحة المشاريع)
             created_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at          DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    # هجرة آمنة للقاعدة القديمة: نضيف العمود لو ما كان موجود (SQLite ما يدعم IF NOT EXISTS على ADD COLUMN)
+    try:
+        conn.execute("ALTER TABLE projects ADD COLUMN pitch_deck_generated INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass  # العمود موجود مسبقاً
     conn.commit()
     conn.close()
 
@@ -254,6 +260,17 @@ def _row_to_project(r) -> dict:
         main_products = json.loads(main_products_raw) if main_products_raw else []
     except (ValueError, TypeError):
         main_products = []  # لو الـ JSON تالف، نرجع قائمة فاضية بدل ما نطيح
+    # العمود "pitch_deck_generated" تمت إضافته متأخراً عبر ALTER TABLE،
+    # فيكون في الموضع 18 (بعد report_id). نتحمّل الصفوف القديمة قبل ما العمود يتضاف بأمان.
+    pitch_generated = 0
+    if len(r) > 18 and r[18] is not None:
+        try:
+            pitch_generated = int(r[18])
+        except (ValueError, TypeError):
+            pitch_generated = 0
+    # created_at/updated_at تتزحزح موضعهم بسبب العمود الجديد
+    created_at = r[19] if len(r) > 19 else None
+    updated_at = r[20] if len(r) > 20 else None
     return {
         "id":                r[0],
         "user_id":           r[1],
@@ -273,6 +290,21 @@ def _row_to_project(r) -> dict:
         "lat":               r[15],
         "lng":               r[16],
         "report_id":         r[17],
-        "created_at":        r[18],
-        "updated_at":        r[19],
+        "pitch_deck_generated": pitch_generated,
+        "created_at":        created_at,
+        "updated_at":        updated_at,
     }
+
+
+def mark_pitch_deck_generated(project_id: int) -> bool:
+    """يعلّم أن المستخدم ولّد بتش دك لهذا المشروع من صفحة Pitch Deck.
+    يفعّل أزرار التحميل والإرسال في صفحة "مشاريعي"."""
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.execute(
+        "UPDATE projects SET pitch_deck_generated = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (project_id,),
+    )
+    conn.commit()
+    updated = cur.rowcount > 0
+    conn.close()
+    return updated

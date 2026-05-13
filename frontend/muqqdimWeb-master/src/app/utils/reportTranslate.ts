@@ -107,6 +107,17 @@ const PAIRS: Array<[string, string]> = [
   ["منخفض",             "Low"],
   // ملاحظة: "متوسط" مكرر أعلاه لكن JavaScript ييسر التعامل لأنه نفس الترجمة "Moderate"
   // والـ severity العربي "متوسط" ينطبق عليه "Medium" بدل "Moderate" — نعالجه أدناه.
+
+  // ── المدن السعودية (business_overview.city) ──
+  ["الرياض",             "Riyadh"],
+  ["جدة",                "Jeddah"],
+  ["مكة المكرمة",        "Makkah"],
+  ["المدينة المنورة",    "Madinah"],
+  ["الدمام",             "Dammam"],
+  ["الخبر",              "Khobar"],
+  ["أبها",               "Abha"],
+  ["تبوك",               "Tabuk"],
+  ["الطائف",             "Taif"],
 ];
 
 // قاموسان متجانسان: العربي → الإنجليزي، والعكس.
@@ -145,24 +156,122 @@ export function tr(value: unknown, target: Lang): string {
  * الصيغة المعروفة: "<اسم العامل>: <تقييم> (<قيمة>) — X/Y"
  * مثال: "هامش الربح المستقر: ممتاز (28.14%) — 25/25"
  *      "Stable Profit Margin: Excellent (28.14%) — 25/25"
- * نترجم الـ name والـ rating فقط؛ الأرقام والنسب تبقى كما هي.
+ *
+ * ملاحظة: التقييم نفسه قد يحتوي على أقواس، مثل:
+ *   "فترة الاسترداد: لا يحدث (الربح غير موجب) (—) — 0/20"
+ *   "فرصة السوق: غير محدّد (افتراضي) (—) — 5/10"
+ * لذلك نمسح الأقواس من اليمين لليسار للعثور على آخر مجموعة أقواس متطابقة
+ * (وهي قوس الـ value)، وكل ما قبلها هو التقييم — حتى لو فيه أقواس داخلية.
  */
 export function trReason(reason: string, target: Lang): string {
   if (typeof reason !== "string" || !reason) return reason;
   if (detectLang(reason) === target) return reason;
 
-  // نفصل قبل ":" و"("
+  // نفصل عند أول ":" — اسم العامل قد يحتوي أقواس (مثل "Return on Investment (3 Years)")
+  // لكن لا يحتوي ":" داخله.
   const colonIdx = reason.indexOf(":");
   if (colonIdx < 0) return reason;
   const name = reason.slice(0, colonIdx).trim();
   const rest = reason.slice(colonIdx + 1).trim();
 
-  // قسم الـ rating قبل "("
-  const parenIdx = rest.indexOf("(");
-  const rating = (parenIdx < 0 ? rest : rest.slice(0, parenIdx)).trim();
-  const tail   = parenIdx < 0 ? ""  : rest.slice(parenIdx);
+  // نبحث عن آخر مجموعة أقواس متطابقة من اليمين — هي قوس الـ value.
+  // كل ما قبلها هو التقييم (قد يحتوي أقواسه الداخلية).
+  // الصيغة بعد الفاصلة: "<rating[(...)]> (<value>) — X/Y"
+  // نقسم أولاً عند آخر " — " للحصول على score/weight ثم نحلّل اليسار.
+  const sepIdx = rest.lastIndexOf(" — ");
+  let left = rest;
+  let scoreTail = "";
+  if (sepIdx >= 0) {
+    left = rest.slice(0, sepIdx).trim();
+    scoreTail = rest.slice(sepIdx); // يشمل " — "
+  }
 
-  const trName   = tr(name, target);
-  const trRating = tr(rating, target);
-  return `${trName}: ${trRating}${tail ? " " + tail : ""}`;
+  // الآن left = "<rating> (<value>)" — نبحث عن قوس الـ value الفاتح من اليمين
+  let depth = 0;
+  let valueOpenIdx = -1;
+  for (let i = left.length - 1; i >= 0; i--) {
+    const ch = left[i];
+    if (ch === ")") depth++;
+    else if (ch === "(") {
+      depth--;
+      if (depth === 0) {
+        valueOpenIdx = i;
+        break;
+      }
+    }
+  }
+
+  let rating: string;
+  let valueGroup = "";
+  if (valueOpenIdx >= 0) {
+    rating = left.slice(0, valueOpenIdx).trim();
+    valueGroup = left.slice(valueOpenIdx); // يشمل "(...)"
+  } else {
+    rating = left;
+  }
+
+  const trName       = tr(name, target);
+  const trRating     = tr(rating, target);
+  const trValueGroup = valueGroup ? translateValueGroup(valueGroup, target) : "";
+  const valueSep     = trValueGroup ? " " : "";
+  return `${trName}: ${trRating}${valueSep}${trValueGroup}${scoreTail}`;
+}
+
+/**
+ * يترجم قيمة عامل داخل قوسي الـ value — قد تكون نص ديناميكي مثل
+ * "احتياطي 1,800 مقابل خسارة 164,844" أو "18 شهر".
+ * نستبدل الكلمات السياقية المعروفة فقط، الأرقام تبقى كما هي.
+ */
+const VALUE_WORD_PAIRS: Array<[string, string]> = [
+  // الأطول قبل الأقصر لتفادي الاستبدال الجزئي
+  ["غير مطلوب",  "Not Required"],
+  ["غير محسوب",  "Not Calculated"],
+  ["احتياطي",    "Cushion"],
+  ["مقابل",      "vs"],
+  ["خسارة",      "Loss"],
+  ["شهر",        "months"],
+];
+
+function translateValueGroup(text: string, target: Lang): string {
+  if (!text) return text;
+  // محاولة الترجمة الكاملة من القاموس (الحالات المعروفة مثل "—" أو "غير مطلوب")
+  const inner = text.startsWith("(") && text.endsWith(")") ? text.slice(1, -1) : text;
+  const fromDict = tr(inner, target);
+  if (fromDict !== inner) {
+    return text.startsWith("(") ? `(${fromDict})` : fromDict;
+  }
+  // وإلا استبدال كلمات (طريقة الـ _translate_value_string في الباك)
+  let out = text;
+  for (const [ar, en] of VALUE_WORD_PAIRS) {
+    if (target === "en") out = out.split(ar).join(en);
+    else out = out.split(en).join(ar);
+  }
+  return out;
+}
+
+/**
+ * يستبدل أسماء المدن العربية المضمّنة داخل نصوص حرّة بالإنجليزي والعكس.
+ * مفيد لو الـ AI ترجم الفقرة لكن خلّى اسم المدينة بلغة المصدر
+ * (مثلاً: "Customers seeking a unique experience in جدة").
+ */
+const CITY_PAIRS: Array<[string, string]> = [
+  ["الرياض", "Riyadh"],
+  ["جدة", "Jeddah"],
+  ["مكة المكرمة", "Makkah"],
+  ["المدينة المنورة", "Madinah"],
+  ["الدمام", "Dammam"],
+  ["الخبر", "Khobar"],
+  ["أبها", "Abha"],
+  ["تبوك", "Tabuk"],
+  ["الطائف", "Taif"],
+];
+
+export function trEmbeddedCities(text: unknown, target: Lang): string {
+  if (typeof text !== "string" || !text) return text as string;
+  let out = text;
+  for (const [ar, en] of CITY_PAIRS) {
+    if (target === "en") out = out.split(ar).join(en);
+    else out = out.split(en).join(ar);
+  }
+  return out;
 }

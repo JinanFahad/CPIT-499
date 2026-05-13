@@ -3,14 +3,15 @@
 // لكل مشروع توفر:
 //   - زر "عرض الدراسة" (يفتح FeasibilityReport بدون تنزيل ملف)
 //   - زر تنزيل PDF
-//   - زر تنزيل العرض التقديمي (PowerPoint)
 //   - زر تعديل
 //   - زر حذف (مع modal تأكيد)
+// ملاحظة: زرّا "تنزيل / إرسال العرض التقديمي" مَوجودان فقط في صفحة PitchDeckPage
+// تجنّبًا للتكرار وللإلزام بأن المستخدم ينشئ العرض من مكان واحد.
 // =====================================================================
 
 import { useState, useEffect } from "react";
-import { Link } from "react-router";
-import { Plus, Edit, Trash2, FileText, Download, PresentationIcon, FolderOpen, Loader2, Eye, Mail, CheckCircle2, AlertCircle } from "lucide-react";
+import { Link, useLocation } from "react-router";
+import { Plus, Edit, Trash2, FileText, Download, FolderOpen, Loader2, Eye, Mail, CheckCircle2, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Header } from "../components/Header";
 import { Sparkle } from "../components/Sparkle";
@@ -35,9 +36,7 @@ const BACKEND_URL = "http://localhost:5000";
 export default function MyProjectsPageNew() {
   const [projects, setProjects] = useState<any[]>([]);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState<number | null>(null);
-  const [isGeneratingPitch, setIsGeneratingPitch] = useState<number | null>(null);
   const [emailingPDF, setEmailingPDF] = useState<number | null>(null);
-  const [emailingPitch, setEmailingPitch] = useState<number | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [notice, setNotice] = useState<{ type: "success" | "error"; title: string; message: string } | null>(null);
   const { t, language } = useLanguage();
@@ -49,7 +48,10 @@ export default function MyProjectsPageNew() {
   const showError = (title: string, message: string) =>
     setNotice({ type: "error", title, message });
 
-  // عند تحميل الصفحة: نجيب مشاريع المستخدم من الباك اند
+  // عند تحميل الصفحة وكلّ مرة المستخدم يرجع لهذي الصفحة (location.key يتغير):
+  // نعيد جلب المشاريع. ضروري عشان لو ولّد بتش دك من صفحة Pitch Deck ورجع هنا،
+  // الحقل pitch_deck_generated يكون محدّث (يفعّل أزرار البتش دك).
+  const location = useLocation();
   useEffect(() => {
     // userId من Firebase (الأساسي)، أو localStorage كاحتياط لو Firebase ما حمّل بعد
     const userId = auth.currentUser?.uid || localStorage.getItem("userId") || "";
@@ -59,7 +61,7 @@ export default function MyProjectsPageNew() {
       .then(res => res.json())
       .then(data => setProjects(Array.isArray(data) ? data : []))
       .catch(() => setProjects([]));
-  }, []);
+  }, [location.key]);
 
   const handleDelete = async (projectId: number) => {
     try {
@@ -117,46 +119,6 @@ export default function MyProjectsPageNew() {
     }
   };
 
-  // توليد + تنزيل العرض التقديمي PowerPoint
-  const handleDownloadPitch = async (project: any) => {
-    setIsGeneratingPitch(project.id);
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/pitchdeck/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          business_type: project.project_type,
-          restaurant_type: project.restaurant_type || "",
-          city: project.city,
-          capital: project.capital,
-          rent: project.rent,
-          employees: project.employees,
-          avg_price: project.avg_price,
-          customers_per_day: project.customers_per_day,
-          target_customers: project.target_customers || "",
-          main_products: project.main_products || [],
-        }),
-      });
-
-      if (!response.ok) throw new Error("Failed to generate pitch deck");
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${project.project_name}_pitch_deck.pptx`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-    } catch {
-      showError(
-        isAr ? "تعذّر تحميل العرض الاستثماري" : "Unable to Download Pitch Deck",
-        isAr ? "نأسف، لم نتمكن من إتمام تحميل العرض الاستثماري. نرجو إعادة المحاولة لاحقاً." : "We were unable to download the pitch deck. Please try again later."
-      );
-    } finally {
-      setIsGeneratingPitch(null);
-    }
-  };
-
   // إرسال دراسة الجدوى على إيميل المستخدم
   const handleEmailPDF = async (project: any) => {
     const userEmail = auth.currentUser?.email;
@@ -183,6 +145,7 @@ export default function MyProjectsPageNew() {
           report_id: project.report_id,
           email: userEmail,
           project_name: project.project_name,
+          language,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -202,56 +165,6 @@ export default function MyProjectsPageNew() {
       );
     } finally {
       setEmailingPDF(null);
-    }
-  };
-
-  // إرسال العرض التقديمي على إيميل المستخدم
-  const handleEmailPitch = async (project: any) => {
-    const userEmail = auth.currentUser?.email;
-    if (!userEmail) {
-      showError(
-        isAr ? "يلزم تسجيل الدخول" : "Authentication Required",
-        isAr ? "يرجى تسجيل الدخول لإتمام إرسال الملف إلى بريدكم الإلكتروني." : "Please sign in to send the document to your email address."
-      );
-      return;
-    }
-    setEmailingPitch(project.id);
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/pitchdeck/email`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: userEmail,
-          project_name: project.project_name,
-          business_type: project.project_type,
-          restaurant_type: project.restaurant_type || "",
-          city: project.city,
-          capital: project.capital,
-          rent: project.rent,
-          employees: project.employees,
-          avg_price: project.avg_price,
-          customers_per_day: project.customers_per_day,
-          target_customers: project.target_customers || "",
-          main_products: project.main_products || [],
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Failed");
-      showSuccess(
-        isAr ? "تم إرسال العرض الاستثماري بنجاح" : "Pitch Deck Sent Successfully",
-        isAr
-          ? `تم تسليم العرض الاستثماري الخاص بمشروعكم إلى بريدكم الإلكتروني ${userEmail}. نشكركم لاستخدامكم منصة مُقدِّم.`
-          : `Your project's pitch deck has been delivered to ${userEmail}. Thank you for using Muqaddim.`
-      );
-    } catch (err: any) {
-      showError(
-        isAr ? "تعذّر إرسال البريد الإلكتروني" : "Email Delivery Failed",
-        isAr
-          ? `نأسف، تعذّر إتمام إرسال البريد الإلكتروني. السبب: ${err.message}`
-          : `We were unable to deliver the email. Reason: ${err.message}`
-      );
-    } finally {
-      setEmailingPitch(null);
     }
   };
 
@@ -383,25 +296,6 @@ export default function MyProjectsPageNew() {
                       </div>
 
                       <div className="flex gap-2">
-                        <button
-                          onClick={() => handleDownloadPitch(project)}
-                          disabled={isGeneratingPitch === project.id || emailingPitch === project.id}
-                          className="flex-1 flex items-center justify-center gap-2 bg-[#FFF9F0] dark:bg-[#C6A75E]/15 border border-[#C6A75E] hover:bg-[#C6A75E] hover:text-white rounded-lg px-4 py-3 text-[#C6A75E] transition-all font-semibold shadow-sm font-[Changa] disabled:opacity-50"
-                        >
-                          {isGeneratingPitch === project.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <PresentationIcon className="w-5 h-5" />}
-                          <span>{t('projects.downloadPitchDeck')}</span>
-                        </button>
-                        <button
-                          onClick={() => handleEmailPitch(project)}
-                          disabled={emailingPitch === project.id || isGeneratingPitch === project.id}
-                          title={isAr ? "إرسال للإيميل" : "Send to email"}
-                          className="flex items-center justify-center bg-[#FFF9F0] dark:bg-[#C6A75E]/15 border border-[#C6A75E] hover:bg-[#C6A75E] hover:text-white rounded-lg px-4 py-3 text-[#C6A75E] transition-all shadow-sm disabled:opacity-50"
-                        >
-                          {emailingPitch === project.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Mail className="w-5 h-5" />}
-                        </button>
-                      </div>
-
-                      <div className="flex gap-2">
                         <Link
                           to={`/dashboard/edit-project/${project.id}`}
                           className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-[#062620] border border-gray-300 dark:border-white/20 hover:bg-gray-100 dark:hover:bg-[#08312D] rounded-lg px-4 py-3 text-gray-700 dark:text-white/80 transition-all shadow-sm"
@@ -443,6 +337,47 @@ export default function MyProjectsPageNew() {
                 <button onClick={() => setDeleteConfirm(null)} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-4 rounded-xl transition-all font-[Changa]">
                   {isAr ? "إلغاء" : "Cancel"}
                 </button>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Loading Modal — يطلع لما المستخدم يضغط تنزيل دراسة الجدوى */}
+      {isGeneratingPDF !== null && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-6"
+          dir={isAr ? "rtl" : "ltr"}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white dark:bg-gray-200 rounded-2xl p-8 max-w-md w-full shadow-2xl border border-gray-200 dark:border-gray-300"
+          >
+            <div className="flex flex-col items-center text-center">
+              <div className="w-20 h-20 rounded-full bg-[#C6A75E] flex items-center justify-center mb-6 shadow-lg">
+                <Loader2 className="w-10 h-10 text-white animate-spin" />
+              </div>
+              <h3 className="text-2xl font-bold text-[#08312d] dark:text-gray-900 mb-3">
+                {isAr ? "جاري التحضير" : "Preparing..."}
+              </h3>
+              <p className="text-gray-600 dark:text-gray-700 text-lg leading-relaxed mb-2 font-[Changa]">
+                {isAr
+                  ? "جاري إنشاء ملف دراسة الجدوى وتحميله"
+                  : "Generating and downloading your feasibility report"}
+              </p>
+              <p className="text-[#C6A75E] font-bold text-lg font-[Changa]">
+                {isAr ? "الرجاء الانتظار..." : "Please wait..."}
+              </p>
+              <div className="mt-6 w-full bg-gray-200 dark:bg-gray-300 rounded-full h-2 overflow-hidden">
+                <motion.div
+                  className="h-full bg-[#C6A75E]"
+                  initial={{ width: "0%" }}
+                  animate={{ width: "100%" }}
+                  transition={{ duration: 3, ease: "linear" }}
+                />
               </div>
             </div>
           </motion.div>

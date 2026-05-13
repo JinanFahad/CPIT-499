@@ -48,6 +48,8 @@ export default function PitchDeckPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          project_id: project.id,                  // عشان السيرفر يعلّم المشروع كأن البتش دك تولّد
+          project_name: project.project_name,
           business_type: project.project_type,
           restaurant_type: project.restaurant_type || "",
           city: project.city,
@@ -108,6 +110,7 @@ export default function PitchDeckPage() {
           customers_per_day: project.customers_per_day,
           target_customers: project.target_customers || "",
           main_products: project.main_products || [],
+          language: isAr ? "ar" : "en",
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -312,7 +315,7 @@ export default function PitchDeckPage() {
                 {isAr ? "جاري التحضير" : "Preparing..."}
               </h3>
               <p className="text-gray-600 dark:text-gray-700 text-lg leading-relaxed mb-2 font-[Changa]">
-                {isAr ? "سيقوم الذكاء الاصطناعي بإنشاء عرضك التقديمي وتحميله" : "AI will generate and download your pitch deck"}
+                {isAr ? "جاري إنشاء عرضك التقديمي وتحميله" : "Generating and downloading your pitch deck"}
               </p>
               <p className="text-[#C6A75E] font-bold text-lg font-[Changa]">
                 {isAr ? "الرجاء الانتظار..." : "Please wait..."}
