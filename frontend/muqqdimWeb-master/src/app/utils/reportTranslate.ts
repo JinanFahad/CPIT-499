@@ -1,19 +1,30 @@
 // =====================================================================
-// reportTranslate.ts — مترجم قيم التقرير الثابتة للعرض في الموقع.
+// reportTranslate.ts — Translates structured report values for display
+// =====================================================================
+// Background: feasibility reports are saved in the database in the
+// language they were generated in. When the user toggles the UI language,
+// the labels in the frontend update — but the saved report text stays
+// Arabic or English.
 //
-// الفكرة: التقارير تُحفظ في الـ DB بنفس لغة التوليد. لما المستخدم يبدّل
-// لغة الواجهة، الـ UI labels تتغير لكن المحتوى المحفوظ يبقى عربي/إنجليزي.
+// This file solves the problem for the "structured values" inside a
+// report (classifications, ratings, severity levels, factor names) by
+// using bidirectional dictionaries. Free-form text (the AI-generated
+// verdict, narrative, recommendations …) cannot be translated this way —
+// translating those requires calling the AI again, which the backend
+// handles via a separate endpoint.
 //
-// هذا الملف يعالج المشكلة لـ "القيم المنظّمة" (تصنيفات، تقييمات، severity،
-// أسماء العوامل) باستخدام قواميس ثنائية. النصوص الحرّة (verdict, narrative,
-// recommendations …) المولّدة من الـ AI تبقى بلغة التوليد الأصلية لأن
-// ترجمتها تتطلب استدعاء AI آخر.
+// Three exported helpers:
+//   - tr(text, lang)             → translate a known phrase to `lang`
+//   - trReason(text, lang)       → like tr(), but for risk-reason strings
+//   - trEmbeddedCities(s, lang)  → translate city names inside a sentence
 // =====================================================================
 
 type Lang = "ar" | "en";
 
-// قاموس موحّد: المفتاح بأي لغة، والقيمة الثانية للترجمة المعاكسة.
-// الترتيب: [arabic, english]
+// ── Bidirectional dictionary of known phrases ─────────────────────────
+// Each entry is a tuple: [Arabic, English]. Whichever side matches the
+// input is used to look up the other side, so callers don't need to
+// know which direction they're translating.
 const PAIRS: Array<[string, string]> = [
   // ── تصنيفات النتيجة النهائية (success_predictor outcomes) ──
   ["نجاح مرتفع",            "High Success"],
@@ -120,28 +131,38 @@ const PAIRS: Array<[string, string]> = [
   ["الطائف",             "Taif"],
 ];
 
-// قاموسان متجانسان: العربي → الإنجليزي، والعكس.
+// Two flat dictionaries built from the PAIRS table above for O(1) lookup.
+// AR_TO_EN: Arabic phrase → English phrase
+// EN_TO_AR: English phrase → Arabic phrase
 const AR_TO_EN: Record<string, string> = {};
 const EN_TO_AR: Record<string, string> = {};
 for (const [ar, en] of PAIRS) {
   AR_TO_EN[ar] = en;
   EN_TO_AR[en] = ar;
 }
-// تعديل خاص: severity "Medium" بالإنجليزي يقابل "متوسط" بالعربي.
+// Special case: severity "Medium" maps to Arabic "متوسط".
+// (We can't add it to PAIRS because "متوسط" already maps to "Moderate".)
 EN_TO_AR["Medium"] = "متوسط";
 
-/** يكتشف لغة نص: عربي إذا فيه أي حرف عربي، وإلا إنجليزي. */
+
+/**
+ * Detect a string's language: Arabic if it contains any Arabic letter,
+ * English otherwise. Returns "en" for non-strings to keep things safe.
+ */
 export function detectLang(text: unknown): Lang {
   if (typeof text !== "string" || !text) return "en";
   return /[؀-ۿ]/.test(text) ? "ar" : "en";
 }
 
+
 /**
- * يترجم قيمة معروفة (تصنيف، تقييم، severity …) إلى اللغة المطلوبة.
- * إذا القيمة غير معروفة في القاموس → نرجّعها كما هي (نص حر من الـ AI).
+ * Translate a known structured value (classification, rating, severity, …)
+ * into the target language. If the value isn't in the dictionary,
+ * we return it unchanged (assume it's free-form text from the AI).
  *
- * استخدمه على الحقول الـ "قصيرة المنظّمة" فقط، لا تستخدمه على
- * الفقرات الحرّة (narrative, verdict, recommendations).
+ * Use this only for the "short structured" fields. Do NOT use it for
+ * paragraphs (narrative, verdict, recommendations) — those need a real
+ * AI translation pass.
  */
 export function tr(value: unknown, target: Lang): string {
   if (typeof value !== "string" || !value) return value as string;
@@ -152,16 +173,20 @@ export function tr(value: unknown, target: Lang): string {
 }
 
 /**
- * يترجم سطر "reason" من decision.reasons.
- * الصيغة المعروفة: "<اسم العامل>: <تقييم> (<قيمة>) — X/Y"
- * مثال: "هامش الربح المستقر: ممتاز (28.14%) — 25/25"
- *      "Stable Profit Margin: Excellent (28.14%) — 25/25"
+ * Translate one entry from decision.reasons.
  *
- * ملاحظة: التقييم نفسه قد يحتوي على أقواس، مثل:
+ * Expected format: "<factor name>: <rating> (<value>) — X/Y"
+ * Examples:
+ *   Arabic:  "هامش الربح المستقر: ممتاز (28.14%) — 25/25"
+ *   English: "Stable Profit Margin: Excellent (28.14%) — 25/25"
+ *
+ * Tricky cases: the rating itself may contain parentheses, e.g.
  *   "فترة الاسترداد: لا يحدث (الربح غير موجب) (—) — 0/20"
  *   "فرصة السوق: غير محدّد (افتراضي) (—) — 5/10"
- * لذلك نمسح الأقواس من اليمين لليسار للعثور على آخر مجموعة أقواس متطابقة
- * (وهي قوس الـ value)، وكل ما قبلها هو التقييم — حتى لو فيه أقواس داخلية.
+ *
+ * Strategy: scan parentheses from right to left to find the OUTERMOST
+ * matching pair — that pair holds the value. Everything to its left is
+ * the rating (which may contain its own inner parens).
  */
 export function trReason(reason: string, target: Lang): string {
   if (typeof reason !== "string" || !reason) return reason;
@@ -218,12 +243,13 @@ export function trReason(reason: string, target: Lang): string {
 }
 
 /**
- * يترجم قيمة عامل داخل قوسي الـ value — قد تكون نص ديناميكي مثل
- * "احتياطي 1,800 مقابل خسارة 164,844" أو "18 شهر".
- * نستبدل الكلمات السياقية المعروفة فقط، الأرقام تبقى كما هي.
+ * Translate the value inside the parentheses of a factor reason.
+ * The value can be dynamic, like:
+ *   "احتياطي 1,800 مقابل خسارة 164,844"  or  "18 شهر"
+ * We do word-by-word replacement of known terms; numbers stay intact.
  */
 const VALUE_WORD_PAIRS: Array<[string, string]> = [
-  // الأطول قبل الأقصر لتفادي الاستبدال الجزئي
+  // Longest first to avoid partial-word replacement collisions
   ["غير مطلوب",  "Not Required"],
   ["غير محسوب",  "Not Calculated"],
   ["احتياطي",    "Cushion"],
@@ -250,9 +276,10 @@ function translateValueGroup(text: string, target: Lang): string {
 }
 
 /**
- * يستبدل أسماء المدن العربية المضمّنة داخل نصوص حرّة بالإنجليزي والعكس.
- * مفيد لو الـ AI ترجم الفقرة لكن خلّى اسم المدينة بلغة المصدر
- * (مثلاً: "Customers seeking a unique experience in جدة").
+ * Swap Arabic city names inside free-form text for their English equivalents
+ * (and vice versa). Useful when the AI translated a paragraph but left the
+ * city name in the source language, e.g.:
+ *   "Customers seeking a unique experience in جدة"
  */
 const CITY_PAIRS: Array<[string, string]> = [
   ["الرياض", "Riyadh"],

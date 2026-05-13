@@ -1,12 +1,6 @@
-// =====================================================================
-// MarketAnalysisPage.tsx — تحليل السوق المستقل (بدون إنشاء مشروع)
-// المستخدم يختار: نوع المشروع + موقع على الخريطة + نطاق البحث
-// عند الضغط على "تحليل":
-//   - يستدعي /analyze (يستدعي قوقل بلايسز + AI)
-//   - يعرض: درجة الفرصة، عدد المنافسين، تقييماتهم، نقاط، توصيات، جدول
-// =====================================================================
-
 import { useState, useEffect } from "react";
+
+// Lucide icons used in the form and the result cards
 import {
   BarChart3,
   MapPin,
@@ -17,15 +11,26 @@ import {
   Target,
   Lightbulb,
 } from "lucide-react";
+
+// Reusable UI primitives + layout pieces + i18n
 import { Button } from "../components/ui/button";
 import { motion } from "motion/react";
 import { Header } from "../components/Header";
 import { useLanguage } from "../contexts/LanguageContext";
 import { MapPicker } from "../components/MapPicker";
-import { businessTypes, cities, cityMap, businessTypeMap } from "./FeasibilityStudyPage";
+
+// Lookup tables shared with the create/edit feasibility pages
+import {
+  businessTypes,
+  cities,
+  cityMap,
+  businessTypeMap,
+} from "./FeasibilityStudyPage";
 
 const BACKEND_URL = "http://localhost:5000";
 
+// ── TypeScript interfaces — describe the shape of the API response ──
+// One competitor as classified by the AI ("direct" / "not direct")
 interface ClassifiedCompetitor {
   id: string;
   estimated_cuisine: string;
@@ -43,9 +48,19 @@ interface SummaryCompetitor {
 }
 
 interface AnalysisResult {
-  input: { lat: number; lng: number; type: string; label: string; radius: number };
+  input: {
+    lat: number;
+    lng: number;
+    type: string;
+    label: string;
+    radius: number;
+  };
   places_found: number;
-  summary: { count: number; avg_rating: number | null; all_competitors: SummaryCompetitor[] };
+  summary: {
+    count: number;
+    avg_rating: number | null;
+    all_competitors: SummaryCompetitor[];
+  };
   ai_analysis: {
     classified_competitors: ClassifiedCompetitor[];
     direct_competitor_summary: {
@@ -63,41 +78,62 @@ interface AnalysisResult {
 }
 
 const ChevronDown = () => (
-  <svg className="w-4 h-4 text-[#C6A75E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+  <svg
+    className="w-4 h-4 text-[#C6A75E]"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M19 9l-7 7-7-7"
+    />
   </svg>
 );
 
-const labelClass = "block text-[#08312d] dark:text-gray-900 font-bold text-base mb-2 font-[Changa]";
-const selectClass = "w-full bg-gray-50 dark:bg-gray-100 border border-gray-300 dark:border-gray-400 text-[#08312d] dark:text-gray-900 rounded-lg px-4 py-3 text-base font-medium font-[Changa] focus:ring-2 focus:ring-[#C6A75E] focus:border-[#C6A75E] focus:outline-none appearance-none cursor-pointer";
-const sectionTitle = "text-[#08312d] dark:text-white font-bold text-lg mb-5 pb-2 border-b border-gray-200 dark:border-white/10 font-[Changa]";
+const labelClass =
+  "block text-[#08312d] dark:text-gray-900 font-bold text-base mb-2 font-[Changa]";
+const selectClass =
+  "w-full bg-gray-50 dark:bg-gray-100 border border-gray-300 dark:border-gray-400 text-[#08312d] dark:text-gray-900 rounded-lg px-4 py-3 text-base font-medium font-[Changa] focus:ring-2 focus:ring-[#C6A75E] focus:border-[#C6A75E] focus:outline-none appearance-none cursor-pointer";
+const sectionTitle =
+  "text-[#08312d] dark:text-white font-bold text-lg mb-5 pb-2 border-b border-gray-200 dark:border-white/10 font-[Changa]";
 
 export default function MarketAnalysisPage() {
+  // ── i18n ───────────────────────────────────────────────────────────
   const { language } = useLanguage();
   const isAr = language === "ar";
 
-  const [businessType, setBusinessType] = useState("");
-  const [city, setCity] = useState("");
-  const [lat, setLat] = useState("");
-  const [lng, setLng] = useState("");
-  const [radius, setRadius] = useState("1500");
+  // ── Form fields ────────────────────────────────────────────────────
+  const [businessType, setBusinessType] = useState(""); // selected business type
+  const [city, setCity] = useState(""); // selected city (for the dropdown)
+  const [lat, setLat] = useState(""); // map-picked latitude
+  const [lng, setLng] = useState(""); // map-picked longitude
+  const [radius, setRadius] = useState("1500"); // search radius in meters
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [mapOpen, setMapOpen] = useState(false);
+  // ── UI state ───────────────────────────────────────────────────────
+  const [loading, setLoading] = useState(false); // analysis request in flight
+  const [error, setError] = useState(""); // error message to show
+  const [result, setResult] = useState<AnalysisResult | null>(null); // analysis result
+  const [mapOpen, setMapOpen] = useState(false); // is the map picker open?
 
+  // Scroll to top on first render
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
+  // Map picker callback — store the chosen point as 6-decimal strings
   const handleLocationSelect = (newLat: number, newLng: number) => {
     setLat(newLat.toFixed(6));
     setLng(newLng.toFixed(6));
   };
 
-  // الدالة الرئيسية: استدعاء الباك اند لتحليل الموقع
-  // تتطلب: نوع المشروع + إحداثيات (lat/lng)
+  // ── Run the analysis ───────────────────────────────────────────────
+  // Sends the inputs to the backend, which:
+  //   1) Calls Google Places to fetch nearby businesses
+  //   2) Asks the AI to classify each as "direct competition" or not
+  //   3) Returns a structured result with score + recommendations
   const handleAnalyze = async () => {
     setError("");
     if (!businessType) {
@@ -105,7 +141,9 @@ export default function MarketAnalysisPage() {
       return;
     }
     if (!lat || !lng) {
-      setError(isAr ? "حدّدي الموقع على الخريطة" : "Select a location on the map");
+      setError(
+        isAr ? "حدّدي الموقع على الخريطة" : "Select a location on the map",
+      );
       return;
     }
 
@@ -129,15 +167,20 @@ export default function MarketAnalysisPage() {
       const data: AnalysisResult = await res.json();
       setResult(data);
     } catch (err: any) {
-      setError(err.message || (isAr ? "فشل التحليل — تأكدي أن الباك اند شغّال" : "Analysis failed"));
+      setError(
+        err.message ||
+          (isAr ? "فشل التحليل — تأكدي أن الباك اند شغّال" : "Analysis failed"),
+      );
     } finally {
       setLoading(false);
     }
   };
 
   const getCompetitionBadgeClasses = (level: string) => {
-    if (level === "منخفض") return "bg-green-100 text-green-800 border-green-300";
-    if (level === "متوسط") return "bg-yellow-100 text-yellow-800 border-yellow-300";
+    if (level === "منخفض")
+      return "bg-green-100 text-green-800 border-green-300";
+    if (level === "متوسط")
+      return "bg-yellow-100 text-yellow-800 border-yellow-300";
     return "bg-red-100 text-red-800 border-red-300";
   };
 
@@ -149,14 +192,18 @@ export default function MarketAnalysisPage() {
 
   const sortedCompetitors = result
     ? [...result.ai_analysis.classified_competitors].sort(
-        (a, b) => Number(b.is_direct_competitor) - Number(a.is_direct_competitor),
+        (a, b) =>
+          Number(b.is_direct_competitor) - Number(a.is_direct_competitor),
       )
     : [];
 
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-transparent p-6 lg:p-8" dir={isAr ? "rtl" : "ltr"}>
+      <div
+        className="min-h-screen bg-transparent p-6 lg:p-8"
+        dir={isAr ? "rtl" : "ltr"}
+      >
         <div className="max-w-5xl mx-auto space-y-6">
           {/* Page Header */}
           <motion.div
@@ -197,11 +244,14 @@ export default function MarketAnalysisPage() {
           >
             {/* Section 1 */}
             <div>
-              <h2 className={sectionTitle}>{isAr ? "١. معلومات المشروع" : "1. Project Information"}</h2>
+              <h2 className={sectionTitle}>
+                {isAr ? "١. معلومات المشروع" : "1. Project Information"}
+              </h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div>
                   <label className={labelClass}>
-                    {isAr ? "نوع المشروع" : "Business Type"} <span className="text-red-500">*</span>
+                    {isAr ? "نوع المشروع" : "Business Type"}{" "}
+                    <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <select
@@ -210,7 +260,9 @@ export default function MarketAnalysisPage() {
                       className={selectClass}
                       required
                     >
-                      <option value="">{isAr ? "اختاري النوع" : "Select type"}</option>
+                      <option value="">
+                        {isAr ? "اختاري النوع" : "Select type"}
+                      </option>
                       {businessTypes.map((b) => (
                         <option key={b.en} value={b.en}>
                           {isAr ? b.ar : b.en}
@@ -223,14 +275,18 @@ export default function MarketAnalysisPage() {
                   </div>
                 </div>
                 <div>
-                  <label className={labelClass}>{isAr ? "المدينة (اختياري)" : "City (Optional)"}</label>
+                  <label className={labelClass}>
+                    {isAr ? "المدينة (اختياري)" : "City (Optional)"}
+                  </label>
                   <div className="relative">
                     <select
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
                       className={selectClass}
                     >
-                      <option value="">{isAr ? "اختاري المدينة" : "Select city"}</option>
+                      <option value="">
+                        {isAr ? "اختاري المدينة" : "Select city"}
+                      </option>
                       {cities.map((c) => (
                         <option key={c.en} value={c.en}>
                           {isAr ? c.ar : c.en}
@@ -269,7 +325,8 @@ export default function MarketAnalysisPage() {
             {/* Section 2: Location */}
             <div>
               <h2 className={sectionTitle}>
-                {isAr ? "٢. الموقع" : "2. Location"} <span className="text-red-500">*</span>
+                {isAr ? "٢. الموقع" : "2. Location"}{" "}
+                <span className="text-red-500">*</span>
               </h2>
               <div
                 className="relative w-full h-64 rounded-xl overflow-hidden border border-[#C6A75E]/30 bg-gray-100 dark:bg-gray-200 cursor-pointer group"
@@ -293,7 +350,9 @@ export default function MarketAnalysisPage() {
                   <div className="bg-white/90 dark:bg-gray-100/90 backdrop-blur-sm rounded-lg px-4 py-2 shadow-md group-hover:bg-[#C6A75E]/10 transition-all border border-[#C6A75E]/20">
                     <p className="text-[#08312d] text-sm font-medium font-[Changa] flex items-center gap-2">
                       <MapPin className="w-4 h-4 text-[#C6A75E]" />
-                      {isAr ? "اضغطي لتحديد الموقع على الخريطة" : "Click to select location on map"}
+                      {isAr
+                        ? "اضغطي لتحديد الموقع على الخريطة"
+                        : "Click to select location on map"}
                     </p>
                   </div>
                 </div>
@@ -301,8 +360,8 @@ export default function MarketAnalysisPage() {
                   <div className="absolute top-3 right-3 bg-green-500 text-white text-xs font-medium font-[Changa] px-3 py-1 rounded-full flex items-center gap-1">
                     <span>✓</span>
                     <span>
-                      {isAr ? "تم تحديد الموقع" : "Location selected"}: {Number(lat).toFixed(4)},{" "}
-                      {Number(lng).toFixed(4)}
+                      {isAr ? "تم تحديد الموقع" : "Location selected"}:{" "}
+                      {Number(lat).toFixed(4)}, {Number(lng).toFixed(4)}
                     </span>
                   </div>
                 )}
@@ -364,7 +423,8 @@ export default function MarketAnalysisPage() {
                     <div
                       className={`inline-block px-4 py-2 rounded-full border font-bold text-sm font-[Changa] ${getCompetitionBadgeClasses(result.ai_analysis.competition_level)}`}
                     >
-                      {isAr ? "منافسة" : "Competition"}: {result.ai_analysis.competition_level}
+                      {isAr ? "منافسة" : "Competition"}:{" "}
+                      {result.ai_analysis.competition_level}
                     </div>
                   </div>
                   <div className="text-center">
@@ -377,7 +437,9 @@ export default function MarketAnalysisPage() {
                   </div>
                   <div className="text-center">
                     <div className="text-4xl font-bold text-yellow-300">
-                      {result.ai_analysis.direct_competitor_summary.avg_rating?.toFixed(1) || "—"}
+                      {result.ai_analysis.direct_competitor_summary.avg_rating?.toFixed(
+                        1,
+                      ) || "—"}
                     </div>
                     <div className="text-xs text-white/70 mt-1 font-[Changa]">
                       {isAr ? "متوسط تقييمهم" : "Avg Rating"}
@@ -398,7 +460,8 @@ export default function MarketAnalysisPage() {
                         {isAr ? "أقوى منافس" : "Strongest Competitor"}
                       </div>
                       <div className="text-[#08312D] dark:text-gray-900 font-bold text-lg">
-                        {result.ai_analysis.direct_competitor_summary.strongest_name || "—"}
+                        {result.ai_analysis.direct_competitor_summary
+                          .strongest_name || "—"}
                       </div>
                     </div>
                   </div>
@@ -413,7 +476,8 @@ export default function MarketAnalysisPage() {
                         {isAr ? "الفرصة المتاحة" : "Opportunity Gap"}
                       </div>
                       <div className="text-[#08312D] dark:text-gray-900 font-medium text-sm leading-relaxed font-[Changa]">
-                        {result.ai_analysis.direct_competitor_summary.weakest_gap || "—"}
+                        {result.ai_analysis.direct_competitor_summary
+                          .weakest_gap || "—"}
                       </div>
                     </div>
                   </div>
@@ -422,7 +486,9 @@ export default function MarketAnalysisPage() {
 
               {/* Narrative */}
               <div className="bg-white dark:bg-gray-200 rounded-xl p-6 border border-gray-200 dark:border-gray-300 shadow-sm">
-                <h3 className={sectionTitle}>{isAr ? "نظرة على السوق" : "Market Overview"}</h3>
+                <h3 className={sectionTitle}>
+                  {isAr ? "نظرة على السوق" : "Market Overview"}
+                </h3>
                 <p className="text-[#08312D] dark:text-gray-900 leading-relaxed font-[Changa]">
                   {result.ai_analysis.narrative}
                 </p>
@@ -431,7 +497,9 @@ export default function MarketAnalysisPage() {
               {/* Bullets + Recommendations */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-white dark:bg-gray-200 rounded-xl p-6 border border-gray-200 dark:border-gray-300 shadow-sm">
-                  <h3 className={sectionTitle}>{isAr ? "أبرز النقاط" : "Key Points"}</h3>
+                  <h3 className={sectionTitle}>
+                    {isAr ? "أبرز النقاط" : "Key Points"}
+                  </h3>
                   <ul className="space-y-3">
                     {result.ai_analysis.bullets.map((b, i) => (
                       <li key={i} className="flex items-start gap-3">
@@ -470,7 +538,9 @@ export default function MarketAnalysisPage() {
               {/* Competitors table */}
               <div className="bg-white dark:bg-gray-200 rounded-xl p-6 border border-gray-200 dark:border-gray-300 shadow-sm">
                 <h3 className={sectionTitle}>
-                  {isAr ? `المطاعم المجاورة (${result.places_found})` : `Nearby Restaurants (${result.places_found})`}
+                  {isAr
+                    ? `المطاعم المجاورة (${result.places_found})`
+                    : `Nearby Restaurants (${result.places_found})`}
                 </h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
@@ -508,7 +578,9 @@ export default function MarketAnalysisPage() {
                             </td>
                             <td className="py-3 px-2">
                               {rating ? (
-                                <span className="text-yellow-600 font-bold">★ {rating}</span>
+                                <span className="text-yellow-600 font-bold">
+                                  ★ {rating}
+                                </span>
                               ) : (
                                 <span className="text-gray-400">—</span>
                               )}

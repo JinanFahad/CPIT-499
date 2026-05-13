@@ -1,29 +1,29 @@
-// =====================================================================
-// LandingPage.tsx — صفحة الهبوط العامة (المسار /)
-// أول صفحة يشوفها أي زائر قبل تسجيل الدخول
-// التصميم: ثنائي اللغة (عربي + English) — كلاهما يظهر معاً
-// =====================================================================
-
 import { Link } from "react-router";
 import { ArrowLeft } from "lucide-react";
 import { motion } from "motion/react";
+
+// Brand logo shown inside the rotating circles
 const logoImage = "/assets/logo-color.png";
 
 export default function LandingPage() {
   return (
+    // Full-screen container with a subtle dark-green gradient background
     <div
       className="min-h-screen flex items-center justify-center p-6 lg:p-12 relative overflow-hidden"
       dir="rtl"
       style={{
-        background: "linear-gradient(135deg, #062620 0%, #08312D 50%, #0a3d37 100%)",
+        background:
+          "linear-gradient(135deg, #062620 0%, #08312D 50%, #0a3d37 100%)",
       }}
     >
-      {/* الخلفية المتحركة */}
+      {/* ── Animated background layer (decorative only) ─────────────── */}
+      {/* pointer-events-none ensures none of these absorb mouse clicks */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <motion.div
           className="absolute w-[600px] h-[600px] rounded-full"
           style={{
-            background: "radial-gradient(circle, rgba(198,167,94,0.12) 0%, transparent 70%)",
+            background:
+              "radial-gradient(circle, rgba(198,167,94,0.12) 0%, transparent 70%)",
             top: "-10%",
             right: "-5%",
           }}
@@ -33,12 +33,18 @@ export default function LandingPage() {
         <motion.div
           className="absolute w-[400px] h-[400px] rounded-full"
           style={{
-            background: "radial-gradient(circle, rgba(8,49,45,0.5) 0%, transparent 70%)",
+            background:
+              "radial-gradient(circle, rgba(8,49,45,0.5) 0%, transparent 70%)",
             bottom: "5%",
             left: "10%",
           }}
           animate={{ scale: [1, 1.2, 1], opacity: [0.4, 0.8, 0.4] }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+          transition={{
+            duration: 8,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 2,
+          }}
         />
         {[...Array(6)].map((_, i) => (
           <motion.div
@@ -46,15 +52,19 @@ export default function LandingPage() {
             className="absolute w-1.5 h-1.5 rounded-full bg-[#C6A75E]/40"
             style={{ left: `${15 + i * 15}%`, top: `${20 + (i % 3) * 25}%` }}
             animate={{ y: [-15, 15, -15], opacity: [0.3, 0.8, 0.3] }}
-            transition={{ duration: 3 + i * 0.5, repeat: Infinity, ease: "easeInOut", delay: i * 0.4 }}
+            transition={{
+              duration: 3 + i * 0.5,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: i * 0.4,
+            }}
           />
         ))}
       </div>
 
       <div className="max-w-7xl mx-auto relative z-10 w-full">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-
-          {/* جانب الشعار */}
+          {/* ── Logo side (rotating decorative rings + brand mark) ── */}
           <motion.div
             className="flex justify-center items-center order-2 lg:order-1"
             initial={{ opacity: 0, x: 60 }}
@@ -76,7 +86,10 @@ export default function LandingPage() {
               />
               <div
                 className="absolute inset-0 rounded-full"
-                style={{ background: "radial-gradient(circle, rgba(198,167,94,0.08) 0%, transparent 65%)" }}
+                style={{
+                  background:
+                    "radial-gradient(circle, rgba(198,167,94,0.08) 0%, transparent 65%)",
+                }}
               />
               <motion.img
                 src={logoImage}
@@ -86,10 +99,9 @@ export default function LandingPage() {
             </div>
           </motion.div>
 
-          {/* جانب النص — ثنائي اللغة */}
+          {/* ── Text side (bilingual: Arabic + English shown together) ── */}
           <div className="text-white space-y-7 order-1 lg:order-2">
-
-            {/* العلامة — عربي + إنجليزي */}
+            {/* Brand mark — Arabic name on top + English transliteration below */}
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
@@ -117,7 +129,7 @@ export default function LandingPage() {
               </p>
             </motion.div>
 
-            {/* فاصل ذهبي */}
+            {/* Gold accent divider — animates in by scaling from right to left */}
             <motion.div
               className="flex items-center gap-3"
               initial={{ opacity: 0, scaleX: 0 }}
@@ -130,7 +142,7 @@ export default function LandingPage() {
               <div className="w-7 h-px bg-[#C6A75E]/40" />
             </motion.div>
 
-            {/* الوصف — عربي + إنجليزي مدموج */}
+            {/* Tagline — same message in Arabic then English (stacked) */}
             <motion.div
               className="space-y-3 max-w-lg"
               initial={{ opacity: 0, y: 20 }}
@@ -145,7 +157,8 @@ export default function LandingPage() {
                   textAlign: "right",
                 }}
               >
-                مساعدك الذكي لدراسات الجدوى الاحترافية، نحوّل أفكارك إلى مشاريع ناجحة بذكاء اصطناعي متقدم.
+                مساعدك الذكي لدراسات الجدوى الاحترافية، نحوّل أفكارك إلى مشاريع
+                ناجحة بذكاء اصطناعي متقدم.
               </p>
               <p
                 className="leading-relaxed font-light"
@@ -157,11 +170,13 @@ export default function LandingPage() {
                   fontFamily: "'IBM Plex Sans', sans-serif",
                 }}
               >
-                Your intelligent assistant for professional feasibility studies — transforming ideas into successful projects through advanced AI.
+                Your intelligent assistant for professional feasibility studies
+                — transforming ideas into successful projects through advanced
+                AI.
               </p>
             </motion.div>
 
-            {/* زر البداية — ثنائي اللغة */}
+            {/* Call-to-action button — sends the user to /auth (sign-in / sign-up) */}
             <motion.div
               className="pt-3"
               initial={{ opacity: 0, y: 20 }}
@@ -172,7 +187,8 @@ export default function LandingPage() {
                 <motion.div
                   className="inline-flex items-center gap-4 px-8 py-4 rounded-md text-white font-bold cursor-pointer"
                   style={{
-                    background: "linear-gradient(135deg, #C6A75E 0%, #a88f4e 100%)",
+                    background:
+                      "linear-gradient(135deg, #C6A75E 0%, #a88f4e 100%)",
                   }}
                   whileHover={{
                     scale: 1.03,
@@ -182,7 +198,9 @@ export default function LandingPage() {
                   transition={{ duration: 0.2 }}
                 >
                   <div className="text-right">
-                    <div className="font-bold text-base font-[Changa]">ابدأ الآن</div>
+                    <div className="font-bold text-base font-[Changa]">
+                      ابدأ الآن
+                    </div>
                     <div
                       className="text-[10px] font-light opacity-80 mt-0.5"
                       style={{
@@ -197,11 +215,9 @@ export default function LandingPage() {
                 </motion.div>
               </Link>
             </motion.div>
-
           </div>
         </div>
       </div>
-
     </div>
   );
 }

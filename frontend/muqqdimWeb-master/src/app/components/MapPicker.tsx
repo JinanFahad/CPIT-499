@@ -1,17 +1,11 @@
-// =====================================================================
-// MapPicker.tsx — مكوّن نافذة منبثقة لاختيار موقع على خريطة Google
-// يستخدمها: FeasibilityStudyPage, EditProjectPage, MarketAnalysisPage
-// المميزات:
-//   - خريطة Google Maps حقيقية بلغة عربية
-//   - بحث مع Autocomplete (يقترح أحياء/شوارع وأنت تكتب)
-//   - الضغط على الخريطة → يسقط دبوس ذهبي
-//   - زر "استخدم هذا الموقع" يرسل lat/lng للصفحة الأم
-// =====================================================================
-
 import { useEffect, useRef, useState } from "react";
 import { X, MapPin, Search, Loader2, CheckCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
+// ── Component props ────────────────────────────────────────────────────
+// `open` controls visibility (parent decides when to show the modal).
+// `initialLat`/`initialLng` (optional) place the marker at a starting
+// location, useful when editing an existing project.
 interface MapPickerProps {
   open: boolean;
   initialLat?: string;
@@ -20,13 +14,15 @@ interface MapPickerProps {
   onSelect: (lat: number, lng: number) => void;
 }
 
+// Google Maps API key (restricted on the Google Cloud console to this domain)
 const GOOGLE_API_KEY = "AIzaSyCMVLHJiz-3hOnp-oOPPE2r72fjKwf6xcQ";
 
-// نخزّن الـ Promise عشان نتأكد إن مكتبة Google Maps تنحمّل مرة واحدة فقط
-// حتى لو فتح المستخدم الـ MapPicker عدة مرات
+// Cache the in-flight load promise so the Google Maps script is only
+// requested once even if the user opens the picker multiple times.
 let googleMapsLoadPromise: Promise<void> | null = null;
 
-// تحميل سكريبت Google Maps ديناميكياً (نطلبه مرة واحدة عند أول استخدام)
+// Dynamically inject the Google Maps script tag the first time the
+// picker is opened. Subsequent calls reuse the cached promise.
 function loadGoogleMaps(): Promise<void> {
   if ((window as any).google?.maps) return Promise.resolve();
   if (googleMapsLoadPromise) return googleMapsLoadPromise;
@@ -46,21 +42,33 @@ function loadGoogleMaps(): Promise<void> {
   return googleMapsLoadPromise;
 }
 
-export function MapPicker({ open, initialLat, initialLng, onClose, onSelect }: MapPickerProps) {
-  const mapRef = useRef<HTMLDivElement | null>(null);
-  const searchRef = useRef<HTMLInputElement | null>(null);
-  const mapInstance = useRef<any>(null);
-  const markerInstance = useRef<any>(null);
-  const [selectedLat, setSelectedLat] = useState<number | null>(null);
-  const [selectedLng, setSelectedLng] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
+export function MapPicker({
+  open,
+  initialLat,
+  initialLng,
+  onClose,
+  onSelect,
+}: MapPickerProps) {
+  // ── Refs to DOM elements + Google instances ────────────────────────
+  // useRef is preferred over useState here because changes to these don't
+  // need to trigger a re-render (we only need stable references).
+  const mapRef = useRef<HTMLDivElement | null>(null); // <div> the map renders inside
+  const searchRef = useRef<HTMLInputElement | null>(null); // <input> for the autocomplete box
+  const mapInstance = useRef<any>(null); // the google.maps.Map object
+  const markerInstance = useRef<any>(null); // the dropped marker
 
-  // عند فتح النافذة:
-  //   1) نحمّل Google Maps (لو ما اتحمّلت بعد)
-  //   2) نرسم الخريطة على mapRef
-  //   3) لو فيه إحداثيات سابقة (وضع التعديل) نسقط دبوس فوقها
-  //   4) نضيف listener للضغط على الخريطة
-  //   5) نضيف Autocomplete لخانة البحث
+  // ── State ──────────────────────────────────────────────────────────
+  const [selectedLat, setSelectedLat] = useState<number | null>(null); // currently picked latitude
+  const [selectedLng, setSelectedLng] = useState<number | null>(null); // currently picked longitude
+  const [loading, setLoading] = useState(true); // is Google Maps still loading?
+
+  // ── Initialize the map every time the modal opens ──────────────────
+  // Steps:
+  //   1) Load the Google Maps script if it isn't loaded yet
+  //   2) Create the Map instance inside the mapRef <div>
+  //   3) If we have initial coordinates (edit mode), drop a marker there
+  //   4) Listen for clicks on the map → drop a marker at that point
+  //   5) Wire up the Places Autocomplete on the search box
   useEffect(() => {
     if (!open) return;
 
@@ -115,9 +123,12 @@ export function MapPicker({ open, initialLat, initialLng, onClose, onSelect }: M
         });
 
         if (searchRef.current) {
-          const autocomplete = new google.maps.places.Autocomplete(searchRef.current, {
-            language: "ar",
-          });
+          const autocomplete = new google.maps.places.Autocomplete(
+            searchRef.current,
+            {
+              language: "ar",
+            },
+          );
           autocomplete.addListener("place_changed", () => {
             const place = autocomplete.getPlace();
             if (!place.geometry?.location) return;
@@ -180,7 +191,9 @@ export function MapPicker({ open, initialLat, initialLng, onClose, onSelect }: M
                     <MapPin className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-[#08312D] font-[Changa]">تحديد موقع المشروع</h2>
+                    <h2 className="text-xl font-bold text-[#08312D] font-[Changa]">
+                      تحديد موقع المشروع
+                    </h2>
                     <p className="text-xs text-gray-600 font-[Changa] mt-0.5">
                       ابحث عن موقع أو اضغط على الخريطة لوضع دبوس
                     </p>
@@ -213,7 +226,9 @@ export function MapPicker({ open, initialLat, initialLng, onClose, onSelect }: M
                   <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 backdrop-blur-sm">
                     <div className="flex flex-col items-center gap-3">
                       <Loader2 className="w-8 h-8 text-[#C6A75E] animate-spin" />
-                      <span className="text-sm text-gray-600 font-[Changa]">جاري تحميل الخريطة...</span>
+                      <span className="text-sm text-gray-600 font-[Changa]">
+                        جاري تحميل الخريطة...
+                      </span>
                     </div>
                   </div>
                 )}
@@ -227,11 +242,14 @@ export function MapPicker({ open, initialLat, initialLng, onClose, onSelect }: M
                     <span className="flex items-center gap-2 text-[#08312D]">
                       <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                       <span className="font-medium">
-                        تم تحديد الموقع: {selectedLat.toFixed(5)}, {selectedLng.toFixed(5)}
+                        تم تحديد الموقع: {selectedLat.toFixed(5)},{" "}
+                        {selectedLng.toFixed(5)}
                       </span>
                     </span>
                   ) : (
-                    <span className="text-gray-500">اضغط على الخريطة لتحديد الموقع</span>
+                    <span className="text-gray-500">
+                      اضغط على الخريطة لتحديد الموقع
+                    </span>
                   )}
                 </div>
                 <div className="flex gap-3 w-full sm:w-auto">

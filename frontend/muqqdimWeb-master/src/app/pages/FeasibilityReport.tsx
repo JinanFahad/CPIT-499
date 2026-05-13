@@ -1,15 +1,7 @@
-// =====================================================================
-// FeasibilityReport.tsx — عارض التقرير الداخلي (تفاعلي بدون تنزيل PDF)
-// مكوّن من ٤ تبويبات: مالي، سوق، مخاطر، خطوات
-// يحتوي على:
-//   - رسوم بيانية بـ Recharts (الإيراد/المصاريف، توزيع التكاليف)
-//   - بطاقات مؤشرات (هامش الربح، فترة الاسترداد، إلخ)
-//   - جدول المنافسين الحقيقيين من قوقل بلايسز (لو متوفر)
-//   - زر "تحميل PDF" يستدعي الباك اند لإعادة التوليد
-// =====================================================================
-
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router";
+
+// Lucide icon set used across the badges, banners, and buttons
 import {
   Download,
   TrendingUp,
@@ -30,6 +22,7 @@ import {
   Mail,
   X,
 } from "lucide-react";
+// Recharts — chart primitives used in the financial tab
 import {
   BarChart,
   Bar,
@@ -44,15 +37,28 @@ import {
   Legend,
   ReferenceLine,
 } from "recharts";
+
+// Framer Motion for fade/slide animations
 import { motion, AnimatePresence } from "motion/react";
+
+// Layout pieces + i18n + report translation helpers + Firebase auth
 import { Header } from "../components/Header";
 import { Sparkle } from "../components/Sparkle";
 import { useLanguage } from "../contexts/LanguageContext";
 import { tr, trReason, trEmbeddedCities } from "../utils/reportTranslate";
 import { auth } from "../firebase";
 
+
+// Backend (Python/Flask) API root
 const BACKEND_URL = "http://localhost:5000";
 
+
+// =====================================================================
+// TypeScript interfaces — describe the shape of the API response.
+// Keep these in sync with the backend's report_schema.py if anything moves.
+// =====================================================================
+
+// One competitor classified by the AI as "direct" or "not direct" competition
 interface ClassifiedCompetitor {
   id: string;
   estimated_cuisine: string;
@@ -200,32 +206,47 @@ interface Report {
   next_steps: string[];
 }
 
+// Type alias for the 4 possible tabs (helps TypeScript catch typos)
 type TabKey = "financial" | "market" | "risks" | "steps";
 
+
 export default function FeasibilityReport() {
-  const { projectId } = useParams();
+  // ── Routing + i18n ─────────────────────────────────────────────────
+  const { projectId } = useParams();          // :projectId from the URL
   const { language } = useLanguage();
   const isAr = language === "ar";
 
-  const [report, setReport] = useState<Report | null>(null);
-  const [project, setProject] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState<TabKey>("financial");
-  const [downloading, setDownloading] = useState(false);
-  const [emailing, setEmailing] = useState(false);
-  // عند تبديل اللغة من الـ toggle، نطلب من الباك ترجمة التقرير لو اللغة الحالية
-  // مختلفة عن لغة المحتوى المحفوظ. هذا state يخبر المستخدم إن الترجمة جارية.
+  // ── State ──────────────────────────────────────────────────────────
+  const [report, setReport] = useState<Report | null>(null); // the AI report data
+  const [project, setProject] = useState<any>(null);          // the project metadata (used for the title bar)
+  const [loading, setLoading] = useState(true);                // showing the spinner?
+  const [error, setError] = useState("");                       // error message to display
+  const [activeTab, setActiveTab] = useState<TabKey>("financial"); // currently selected tab
+  const [downloading, setDownloading] = useState(false);        // PDF download in progress?
+  const [emailing, setEmailing] = useState(false);              // email send in progress?
+
+  // When the user toggles the language, we ask the backend to translate
+  // the saved report. This flag tells the UI a translation request is
+  // currently in flight (so we can show a "translating…" indicator).
   const [translating, setTranslating] = useState(false);
+
+  // Floating modal that appears after the email send (success or error)
   const [emailModal, setEmailModal] = useState<{ type: "success" | "error"; email?: string; message?: string } | null>(null);
 
-  // عند فتح الصفحة أو تبديل اللغة:
-  //   1) نجيب المشروع من /api/projects/:id (نحتاج report_id)
-  //   2) نجيب التقرير من /api/reports/:report_id
-  //   3) نكتشف لغة التقرير ونقارنها باللغة الحالية، ولو مختلفة نطلب ترجمته
+
+  // ── Initial load + react to language changes ───────────────────────
+  // Steps the effect performs on mount AND every time the language changes:
+  //   1) GET /api/projects/:id      → so we know which report to fetch
+  //   2) GET /api/reports/:reportId → fetch the actual feasibility report
+  //   3) Detect the report's saved language. If it doesn't match the current
+  //      UI language, POST to /api/reports/:reportId/translate to get a
+  //      translated copy back.
   useEffect(() => {
     if (!projectId) return;
 
+    // Quick heuristic: look at the verdict/title text and check whether
+    // it contains Arabic characters. This is much faster than asking the
+    // backend "what language is this?".
     const detectLang = (rep: any): "ar" | "en" => {
       const sample =
         (typeof rep?.executive_summary === "string"
@@ -236,6 +257,7 @@ export default function FeasibilityReport() {
 
     const load = async () => {
       try {
+        // ① Fetch the project record (needed for the report_id and the title)
         const projRes = await fetch(`${BACKEND_URL}/api/projects/${projectId}`);
         if (!projRes.ok) throw new Error("Project not found");
         const proj = await projRes.json();
@@ -249,11 +271,13 @@ export default function FeasibilityReport() {
           );
         }
 
+        // ② Fetch the saved report by ID
         const repRes = await fetch(`${BACKEND_URL}/api/reports/${proj.report_id}`);
         if (!repRes.ok) throw new Error("Report not found");
         let rep = await repRes.json();
 
-        // إذا لغة التقرير المحفوظ تختلف عن اللغة الحالية → نطلب ترجمته من الباك
+        // ③ If the saved report's language differs from the current UI
+        // language, request a translated copy from the backend.
         if (detectLang(rep) !== language) {
           setTranslating(true);
           try {
@@ -302,12 +326,14 @@ export default function FeasibilityReport() {
           customers_per_day: project.customers_per_day,
           target_customers: project.target_customers || "",
           main_products: project.main_products || [],
-          // اللغة الحالية للموقع — يستخدمها الباك لاختيار برومبت الـ AI وقالب الـ PDF
+          // Current site language — backend uses this to pick the
+          // correct AI prompt and the matching PDF template (Arabic/English)
           language: language,
           ...(project.lat && project.lng ? { lat: project.lat, lng: project.lng } : {}),
         }),
       });
       if (!res.ok) throw new Error("Download failed");
+      // Trigger a browser download by clicking a temporary <a> element
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -322,6 +348,8 @@ export default function FeasibilityReport() {
     }
   };
 
+
+  // ── Email the feasibility PDF to the logged-in user ────────────────
   const handleEmail = async () => {
     if (!project?.report_id) return;
     const userEmail = auth.currentUser?.email;
@@ -351,6 +379,8 @@ export default function FeasibilityReport() {
     }
   };
 
+  // ── Early returns ─────────────────────────────────────────────────
+  // While loading or translating we show a spinner instead of the report.
   if (loading || translating) {
     return (
       <>
@@ -369,6 +399,8 @@ export default function FeasibilityReport() {
     );
   }
 
+  // If anything went wrong (or the report is missing), show an error card
+  // with a button back to the projects list.
   if (error || !report) {
     return (
       <>
@@ -393,14 +425,19 @@ export default function FeasibilityReport() {
     );
   }
 
-  const fs = report.financial_summary;
-  const ma = report.market_analysis;
-  const dec = report.decision;
-  const exec = report.executive_summary;
-  const bo = report.business_overview;
+  // ── Short aliases for the deeply-nested report sub-objects ─────────
+  // These are used heavily in the JSX below; aliasing keeps the markup readable.
+  const fs = report.financial_summary;       // numbers (revenue, expenses, etc.)
+  const ma = report.market_analysis;          // competition + market data
+  const dec = report.decision;                 // verdict + reasons + classification
+  const exec = report.executive_summary;       // top-level summary text
+  const bo = report.business_overview;         // project metadata (type, city, etc.)
 
-  // التصنيفات الـ5 من success_predictor + التوافق مع التصنيفات القديمة
-  // النص الأصلي (للـ theme detection) + نص معروض بلغة الواجهة الحالية
+
+  // ── Decision theme — color/icon for the success-prediction banner ──
+  // Maps the AI-returned classification (one of 5 levels) to a color theme.
+  // We support both the new English labels AND the original Arabic ones
+  // so old database rows still render with the right colors.
   const cls = dec.classification;
   const clsLower = cls.toLowerCase();
   const clsDisplay = tr(cls, language);
@@ -427,6 +464,8 @@ export default function FeasibilityReport() {
     { name: isAr ? "ربح" : "Profit", value: fs.monthly_net_profit, color: "#08312D" },
   ];
 
+  // ── Tab definitions for the 4 sections of the report ──────────────
+  // Each tab has its key (matches TabKey), localized label, and icon.
   const tabs: Array<{ key: TabKey; label: string; icon: any }> = [
     { key: "financial", label: isAr ? "التحليل المالي" : "Financial", icon: DollarSign },
     { key: "market", label: isAr ? "تحليل السوق" : "Market", icon: BarChart3 },
@@ -446,7 +485,7 @@ export default function FeasibilityReport() {
         <Sparkle className="bottom-[10%] right-[5%]" size={20} />
         <div className="report-paper max-w-6xl mx-auto bg-[#F5F7F9] rounded-3xl p-6 lg:p-8 border border-gray-200 dark:border-[#C6A75E]/30 shadow-xl space-y-6 relative z-10">
 
-          {/* Header */}
+          {/* ════════ Page header — title, project info, action buttons ════════ */}
           <motion.div
             className="rounded-2xl p-8 shadow-lg"
             style={{ background: "linear-gradient(135deg, #08312D 0%, #0E4A43 100%)" }}
@@ -494,9 +533,12 @@ export default function FeasibilityReport() {
             </div>
           </motion.div>
 
-          {/* Success Prediction Banner — prominent at top */}
+          {/* ════════ Success Prediction Banner — colored verdict + score + 5 factors ════════
+               The banner color is driven by sp.outcome_color which the AI
+               returns ("green" / "lightgreen" / "amber" / "orange" / "red"). */}
           {fs.success_prediction && (() => {
             const sp = fs.success_prediction;
+            // Map outcome_color → a complete color palette (bg, border, text, bar)
             const colorMap: Record<string, { bg: string; border: string; text: string; bar: string }> = {
               green:      { bg: "#f0fdf4", border: "#86efac", text: "#15803d", bar: "#15803d" },
               lightgreen: { bg: "#f0fdf4", border: "#86efac", text: "#22c55e", bar: "#22c55e" },
@@ -589,7 +631,8 @@ export default function FeasibilityReport() {
             </motion.div>
           )}
 
-          {/* Unviable Project Warning Banner */}
+          {/* ════════ Red warning shown when the project is financially unviable ════════
+               Appears whenever profit margin is ≤ 0 OR payback cannot be computed. */}
           {(fs.profit_margin_percent <= 0 || !fs.payback_period_months) && (
             <motion.div
               className="bg-red-50 border-2 border-red-300 rounded-2xl p-5 shadow-sm"
@@ -623,7 +666,8 @@ export default function FeasibilityReport() {
             </motion.div>
           )}
 
-          {/* Key Metrics */}
+          {/* ════════ Key Performance Indicators (KPIs) ════════
+               Four large stat cards: revenue, profit margin, payback, market score */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <KpiCard
               icon={DollarSign}
@@ -663,9 +707,9 @@ export default function FeasibilityReport() {
             />
           </div>
 
-          {/* Decision + Executive Summary */}
+          {/* ════════ Decision card + Executive Summary (two-column area) ════════ */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Decision */}
+            {/* Left column — the colored Decision card (recommendation + reasons) */}
             <motion.div
               className="lg:col-span-1 rounded-2xl p-6 border-2 shadow-sm"
               style={{ background: decisionTheme.bg, borderColor: decisionTheme.border }}
@@ -726,7 +770,9 @@ export default function FeasibilityReport() {
             </motion.div>
           </div>
 
-          {/* Project Inputs Summary — for quick reference without going back */}
+          {/* ════════ Project Inputs Summary — recap of the form values ════════
+               Shows what the user entered (capital, rent, employees, etc.)
+               so they can sanity-check the report without going back. */}
           {fs.inputs_summary && (
             <motion.div
               className="bg-slate-50 border border-slate-200 rounded-2xl p-5"
@@ -782,7 +828,11 @@ export default function FeasibilityReport() {
             </motion.div>
           )}
 
-          {/* Tabs */}
+          {/* ════════════════════════════════════════════════════════════════
+               TABBED CONTENT — the main body of the report
+               Four tabs (Financial / Market / Risks / Steps).
+               Only the active tab's content is rendered (controlled by activeTab).
+               ════════════════════════════════════════════════════════════════ */}
           <motion.div
             className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden"
             initial={{ opacity: 0, y: 20 }}
@@ -811,10 +861,10 @@ export default function FeasibilityReport() {
             </div>
 
             <div className="p-6 lg:p-8">
-              {/* Financial Tab */}
+              {/* ──────── Financial Tab — numbers, charts, stress tests ──────── */}
               {activeTab === "financial" && (
                 <div className="space-y-6">
-                  {/* Profit Margin Explainer */}
+                  {/* Explains the profit margin tier the project landed in */}
                   {(() => {
                     const m = fs.profit_margin_percent;
                     const tiers = [
@@ -1271,7 +1321,7 @@ export default function FeasibilityReport() {
                 </div>
               )}
 
-              {/* Market Tab */}
+              {/* ──────── Market Tab — competition + Google Places competitors ──────── */}
               {activeTab === "market" && ma && (
                 <div className="space-y-6">
                   <div className="flex flex-col md:flex-row gap-4 items-stretch">
@@ -1426,7 +1476,7 @@ export default function FeasibilityReport() {
                 />
               )}
 
-              {/* Risks Tab */}
+              {/* ──────── Risks Tab — risk classification + mitigations ──────── */}
               {activeTab === "risks" && (
                 <div className="space-y-4">
                   <h3 className="text-lg font-bold text-[#08312D] font-[Changa]">
@@ -1533,7 +1583,7 @@ export default function FeasibilityReport() {
             </div>
           </motion.div>
 
-          {/* Business Overview footer */}
+          {/* ════════ Business Overview footer — quick recap of project info ════════ */}
           <motion.div
             className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200"
             initial={{ opacity: 0, y: 20 }}

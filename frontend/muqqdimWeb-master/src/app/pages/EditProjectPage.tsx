@@ -1,23 +1,30 @@
-// =====================================================================
-// EditProjectPage.tsx — تعديل مشروع موجود + إعادة توليد الدراسة
-// عند الحفظ: تعيد التوليد بالكامل (تستدعي /api/feasibility/report-pdf)
-// ثم تحدّث المشروع برقم التقرير الجديد
-// =====================================================================
-
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router";
+
+// Lucide icons
 import { FileText, Save, MapPin, Loader2 } from "lucide-react";
+
+// UI primitives + layout pieces
 import { Button } from "../components/ui/button";
 import { motion } from "motion/react";
 import { Header } from "../components/Header";
+
+// i18n + reused lookup tables from the create-page
 import { useLanguage } from "../contexts/LanguageContext";
 import { businessTypes, cities, cityMap, businessTypeMap } from "./FeasibilityStudyPage";
+
+// Map picker modal (reused)
 import { MapPicker } from "../components/MapPicker";
 
+
+// Backend (Python/Flask) API root
 const BACKEND_URL = "http://localhost:5000";
 
-// عكس businessTypeMap: slug → label افتراضي للعرض في القائمة عند التعديل
-// (لو الـ slug يطابق أكثر من نوع، نختار اسم تمثيلي واحد)
+
+// Reverse of `businessTypeMap` (backend slug → readable English label).
+// Used to restore the selected option in the dropdown when editing.
+// When a slug maps to multiple labels (e.g. "restaurant"), we pick a
+// single representative one.
 const reverseBusinessTypeMap: Record<string, string> = {
   "fast_food_restaurant": "Fast Food Restaurant",
   "shawarma_restaurant": "Shawarma Restaurant",
@@ -37,13 +44,16 @@ const inputClass = "w-full bg-gray-50 dark:bg-gray-100 border border-gray-300 da
 const selectClass = "w-full bg-gray-50 dark:bg-gray-100 border border-gray-300 dark:border-gray-400 text-[#08312d] dark:text-gray-900 rounded-lg px-4 py-3 text-base font-medium font-[Changa] focus:ring-2 focus:ring-[#C6A75E] focus:border-[#C6A75E] focus:outline-none appearance-none cursor-pointer";
  
 export default function EditProjectPage() {
+  // ── Routing + i18n ─────────────────────────────────────────────────
   const navigate = useNavigate();
-  const { projectId } = useParams();
+  const { projectId } = useParams();          // :projectId from the URL
   const { language } = useLanguage();
   const isAr = language === "ar";
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [mapOpen, setMapOpen] = useState(false);
+
+  // ── UI state ───────────────────────────────────────────────────────
+  const [loading, setLoading] = useState(false);  // submission in progress
+  const [error, setError] = useState("");          // error message to display
+  const [mapOpen, setMapOpen] = useState(false);   // is the map picker open?
  
   const labelClass = "block text-[#08312d] dark:text-gray-900 font-bold text-base mb-2 font-[Changa]";
   const sectionTitle = "text-[#08312d] dark:text-white font-bold text-lg mb-5 pb-2 border-b border-gray-200 dark:border-white/10 font-[Changa]";
@@ -64,7 +74,7 @@ export default function EditProjectPage() {
     lng: "",
   });
  
-  // عند فتح الصفحة: نجيب بيانات المشروع من الباك اند ونعبّي الفورم
+  // ── Load the existing project on mount and pre-fill the form ──────
   useEffect(() => {
     window.scrollTo(0, 0);
     fetch(`${BACKEND_URL}/api/projects/${projectId}`)
@@ -72,8 +82,11 @@ export default function EditProjectPage() {
       .then(project => {
         if (project.id) {
           const mainProductsArr = Array.isArray(project.main_products) ? project.main_products : [];
-          // المشاريع القديمة كانت تخزّن الـ businessType في project_name_en؛
-          // الجديدة تخزّن اسم المشروع. نتعرّف على القديمة بمطابقة القيمة مع قائمة الأنواع.
+          // Backwards-compatibility detection:
+          // Older project rows used `project_name_en` to store the
+          // BUSINESS TYPE (e.g. "Cafe"). Newer rows store the actual project
+          // name. We detect the legacy case by checking if that value matches
+          // a known business-type label.
           const isLegacyName =
             !!project.project_name_en &&
             businessTypes.some((b) => b.en === project.project_name_en);
@@ -122,15 +135,17 @@ export default function EditProjectPage() {
     (e.target as HTMLInputElement).blur();
   };
 
-  // يمنع كتابة الأرقام السالبة أو الصيغة العلمية في حقول الأرقام
+  // Block negative signs and scientific notation in number fields
   const preventNegativeKeys = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (["-", "+", "e", "E"].includes(e.key)) e.preventDefault();
   };
- 
+
+
+  // ── Save handler — re-generate the report and persist the updates ──
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // تحديد الموقع مطلوب — نتحقق قبل ما نبدأ إعادة التوليد
+    // Map location is required — fail fast with a clear message
     if (!formData.lat || !formData.lng) {
       setError(isAr ? "يجب تحديد موقع المشروع على الخريطة" : "Please select the project location on the map");
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -146,7 +161,7 @@ export default function EditProjectPage() {
       .filter((p) => p.length > 0);
 
     try {
-      // ① إعادة توليد دراسة الجدوى
+      // ① Re-generate the feasibility study (the AI is called again)
       const pdfBody: any = {
         business_type: businessTypeMap[formData.businessType] || "restaurant",
         restaurant_type: formData.restaurantType,
@@ -158,14 +173,16 @@ export default function EditProjectPage() {
         customers_per_day: Number(formData.expectedCustomersPerDay),
         target_customers: formData.targetCustomers,
         main_products: mainProductsList,
-        // اللغة الحالية للموقع — يستخدمها الباك لاختيار برومبت الـ AI وقالب الـ PDF
+        // Current site language — backend uses this to pick the
+        // correct AI prompt and the matching PDF template (Arabic/English)
         language: language,
       };
       if (formData.lat && formData.lng) {
         pdfBody.lat = Number(formData.lat);
         pdfBody.lng = Number(formData.lng);
       }
- 
+
+      // The PDF call returns the new PDF body + the new report_id in headers
       const pdfResponse = await fetch(`${BACKEND_URL}/api/feasibility/report-pdf`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -178,8 +195,9 @@ export default function EditProjectPage() {
       }
  
       const newReportId = pdfResponse.headers.get("X-Report-Id");
- 
-      // ② تحديث بيانات المشروع في قاعدة البيانات
+
+      // ② Persist the project updates (PUT replaces the existing row).
+      // Note: report_id is updated to point at the brand-new report.
       const projectResponse = await fetch(`${BACKEND_URL}/api/projects/${projectId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },

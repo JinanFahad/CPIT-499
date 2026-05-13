@@ -1,16 +1,7 @@
-// =====================================================================
-// MainDashboard.tsx — اللوحة الرئيسية بعد تسجيل الدخول
-// تتكون من:
-//   1) Hero - عنوان ترحيبي
-//   2) بطاقة شخصية - اسم المستخدم + عدد مشاريعه + آخر ٣ مشاريع
-//   3) About - معلومات عن المنصة
-//   4) How It Works - 4 خطوات
-//   5) Services - 5 بطاقات للخدمات
-//   6) FAQ - الأسئلة الشائعة
-// =====================================================================
+import { useState } from "react";          // for tracking which FAQ is open
+import { Link } from "react-router";       // SPA navigation links
 
-import { useState } from "react";
-import { Link } from "react-router";
+// Lucide icons used by the various cards/sections
 import {
   ChevronDown,
   FileText,
@@ -20,18 +11,32 @@ import {
   ArrowLeft,
   HelpCircle,
 } from "lucide-react";
+
+// Footer logo (the rest of the page uses Tailwind backgrounds, no images)
 const logoImage = "/assets/logo-color.png";
+
+// motion = Framer Motion for the fade/slide entrance animations
 import { motion } from "motion/react";
+
+// Top navigation bar + decorative scattered stars
 import { Header } from "../components/Header";
 import { Sparkle } from "../components/Sparkle";
+
+// i18n hook (gives us the current language)
 import { useLanguage } from "../contexts/LanguageContext";
 
+
 export default function MainDashboard() {
+  // Which FAQ row is currently expanded (null = all collapsed)
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
 
+  // Current language + a shorthand boolean for Arabic checks
   const { language } = useLanguage();
   const isAr = language === "ar";
 
+  // ── Services data — rendered as the "Our Services" cards grid ────────
+  // Each entry has a title/description in both languages, an icon,
+  // a link to the corresponding feature page, and brand colors.
   const services = [
     {
       id: 1,
@@ -79,6 +84,7 @@ export default function MainDashboard() {
     },
   ];
 
+  // ── "How It Works" steps — rendered as a 4-step horizontal flow ────
   const steps = [
     {
       number: 1,
@@ -110,6 +116,7 @@ export default function MainDashboard() {
     },
   ];
 
+  // ── FAQ entries — rendered as collapsible accordion items ──────────
   const faqs = [
     {
       q: isAr ? "ما هي دراسة الجدوى؟" : "What is a feasibility study?",
@@ -145,7 +152,7 @@ export default function MainDashboard() {
 
   return (
     <div className="min-h-screen bg-transparent relative" dir={isAr ? "rtl" : "ltr"}>
-      {/* نجوم متناثرة على الأطراف بعيدة عن المربعات */}
+      {/* ── Decorative stars scattered along the page edges ── */}
       <Sparkle className="top-[8%] left-[3%]" size={20} />
       <Sparkle className="top-[15%] right-[4%]" size={14} />
       <Sparkle className="top-[25%] left-[8%]" size={12} />
@@ -159,10 +166,10 @@ export default function MainDashboard() {
       <Sparkle className="top-[18%] left-[10%]" size={10} />
       <Sparkle className="top-[50%] right-[10%]" size={12} />
 
-      {/* Navigation Bar */}
+      {/* Top navigation bar (sticky on every page) */}
       <Header />
 
-      {/* Hero Section */}
+      {/* ════════ Hero — large welcome headline ════════ */}
       <section id="home" className="relative py-20 px-6">
         <motion.div
           className="max-w-5xl mx-auto text-center relative z-10"
@@ -192,12 +199,10 @@ export default function MainDashboard() {
         </motion.div>
       </section>
 
-      {/* About Section */}
+      {/* ════════ About Us — short paragraph in a glass card ════════ */}
       <section id="about" className="py-20 px-6 relative z-10">
         <div className="max-w-6xl mx-auto">
-          {/* Hero Part */}
-
-          {/* About Part */}
+          {/* The glass card with a gold border + subtle gold glow */}
           <motion.div
             className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md rounded-2xl p-12 text-center border border-[#C6A75E]/30 card-glow"
             initial={{ opacity: 0, y: 30 }}
@@ -217,7 +222,9 @@ export default function MainDashboard() {
         </div>
       </section>
 
-      {/* How It Works */}
+      {/* ════════ How It Works — 4-step numbered flow ════════
+           Each step is rendered from the `steps` array defined at the top.
+           A thin gold line connects steps 1→2→3 (hidden on the last step). */}
       <section id="how-it-works" className="py-20 px-6 relative z-10">
         <div className="max-w-6xl mx-auto">
           <motion.div
@@ -247,7 +254,7 @@ export default function MainDashboard() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
               >
-                {/* Connecting line — يتبع اتجاه اللغة */}
+                {/* Connecting line — switches sides based on RTL/LTR */}
                 {index < 3 && (
                   <div className={`hidden md:block absolute top-[22px] w-full h-[1px] bg-[#C6A75E]/30 z-0 ${isAr ? "right-[50%]" : "left-[50%]"}`} />
                 )}
@@ -274,7 +281,9 @@ export default function MainDashboard() {
         </div>
       </section>
 
-      {/* Services Section */}
+      {/* ════════ Services — 2×2 grid of feature cards ════════
+           Built by mapping over the `services` array.
+           Each card links to the corresponding feature page. */}
       <section id="services" className="py-20 px-6 relative z-10">
         <div className="max-w-6xl mx-auto">
           <motion.div
@@ -337,7 +346,9 @@ export default function MainDashboard() {
         </div>
       </section>
 
-      {/* FAQ Section */}
+      {/* ════════ FAQ — collapsible accordion ════════
+           Only one FAQ can be open at a time. Clicking an open FAQ closes it.
+           State lives in `openFAQ` (the index of the open one, or null). */}
       <section className="py-20 px-6 relative z-10">
         <div className="max-w-4xl mx-auto">
           <motion.div
@@ -407,13 +418,15 @@ export default function MainDashboard() {
         </div>
       </section>
 
-      {/* Footer — تذييل رسمي بطابع حكومي */}
+      {/* ════════ Footer ════════
+           Three-column layout (logo+blurb / quick links / contact).
+           A bottom strip carries copyright + project credit. */}
       <footer className="mt-20 relative z-10 bg-[#08312D] text-white border-t border-[#C6A75E]/30">
-        {/* الجزء الرئيسي */}
+        {/* Main upper area with the three columns */}
         <div className="max-w-6xl mx-auto px-6 py-12">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
 
-            {/* العمود الأول — العلامة + النبذة */}
+            {/* Column 1 — brand logo + short description */}
             <div>
               <img src={logoImage} alt="مُقدِّم" className="h-20 w-auto mb-4 brightness-0 invert" />
               <p className="text-white/70 text-sm leading-relaxed">
@@ -423,7 +436,7 @@ export default function MainDashboard() {
               </p>
             </div>
 
-            {/* العمود الثاني — روابط سريعة */}
+            {/* Column 2 — quick navigation links to feature pages */}
             <div>
               <h4 className="text-[#C6A75E] font-bold text-sm mb-4 tracking-wide uppercase">
                 {isAr ? "روابط سريعة" : "Quick Links"}
@@ -436,7 +449,7 @@ export default function MainDashboard() {
               </ul>
             </div>
 
-            {/* العمود الثالث — التواصل */}
+            {/* Column 3 — contact info + X (Twitter) social link */}
             <div>
               <h4 className="text-[#C6A75E] font-bold text-sm mb-4 tracking-wide uppercase">
                 {isAr ? "تواصل معنا" : "Contact Us"}
@@ -464,7 +477,7 @@ export default function MainDashboard() {
           </div>
         </div>
 
-        {/* الجزء السفلي — حقوق النشر */}
+        {/* Bottom strip — copyright + university credit */}
         <div>
           <div className="max-w-6xl mx-auto px-6 py-5 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-white/60">
             <p>

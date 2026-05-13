@@ -1,14 +1,9 @@
-// =====================================================================
-// GovernmentProceduresPage.tsx — شات الإجراءات الحكومية
-// AI متخصص بالتراخيص والإجراءات للمطاعم/الكافيهات في السعودية
-// المستخدم يقدر:
-//   1) يضغط على أزرار جاهزة (السجل التجاري، الرقم الضريبي، إلخ)
-//   2) يكتب سؤال حر في صندوق الكتابة بالأسفل
-// session_id يُحفظ في sessionStorage عشان الـ AI يفهم سياق المحادثة
-// =====================================================================
-
 import { useState, useRef, useEffect, useMemo } from "react";
+
+// Lucide icons used in the chat layout
 import { Building2, Bot, User, Send, Loader2 } from "lucide-react";
+
+// Animations + layout pieces + i18n + reusable UI primitives
 import { motion } from "motion/react";
 import { Header } from "../components/Header";
 import { Sparkle } from "../components/Sparkle";
@@ -18,6 +13,9 @@ import { Button } from "../components/ui/button";
 
 const BACKEND_URL = "http://localhost:5000";
 
+// One chat bubble — either from the user or the bot.
+// `showOptions` (when set on a bot message) tells the UI to render
+// the corresponding button group below the text.
 interface Message {
   id: number;
   text: string;
@@ -52,8 +50,9 @@ export default function GovernmentProceduresPage() {
   const [inputValue, setInputValue] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // session_id يُولّد مرة واحدة لكل مستخدم ويُحفظ في sessionStorage
-  // الباك اند يستخدمه للحفاظ على سياق المحادثة
+  // session_id is generated once per browser tab and persisted in
+  // sessionStorage. The backend uses it as a key to keep conversation
+  // context across messages (so follow-up questions feel natural).
   const [sessionId] = useState(() => {
     const existing = sessionStorage.getItem("gov_session_id");
     if (existing) return existing;
@@ -62,7 +61,7 @@ export default function GovernmentProceduresPage() {
     return newId;
   });
 
-  // ترسل سؤال للباك اند وترجع الرد كنص
+  // ── Send a question to the backend and return the bot's reply text ──
   const fetchBotResponse = async (message: string): Promise<string> => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/government/chat`, {
@@ -72,7 +71,10 @@ export default function GovernmentProceduresPage() {
       });
       if (!res.ok) throw new Error("Server error");
       const data = await res.json();
-      return data.reply || (isAr ? "عذرًا، لم أتمكن من الإجابة" : "Sorry, no response");
+      return (
+        data.reply ||
+        (isAr ? "عذرًا، لم أتمكن من الإجابة" : "Sorry, no response")
+      );
     } catch {
       return isAr
         ? "❌ تعذّر الاتصال بالخادم. تأكدي أن الباك اند شغّال."
@@ -425,7 +427,9 @@ export default function GovernmentProceduresPage() {
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder={isAr ? "اكتبي سؤالك هنا..." : "Type your question here..."}
+                  placeholder={
+                    isAr ? "اكتبي سؤالك هنا..." : "Type your question here..."
+                  }
                   className="flex-1 bg-gray-50 dark:bg-[#062620] border-gray-300 dark:border-white/20 text-[#08312D] dark:text-white placeholder:text-gray-500 dark:placeholder:text-white/40 text-base py-6 font-[Changa]"
                   disabled={isTyping}
                 />

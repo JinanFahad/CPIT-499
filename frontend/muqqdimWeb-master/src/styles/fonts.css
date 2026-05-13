@@ -9,11 +9,57 @@
   --font-display: 'Changa', 'Cairo', sans-serif;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  color-scheme: light dark;
+}
+
 body {
   font-family: var(--font-formal);
   font-feature-settings: 'kern', 'liga';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior-y: none;
+}
+
+/* توحيد ستايل القوائم المنسدلة (select) عبر الأنظمة */
+select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+/* توحيد عرض الـ scrollbar (دقيق وأنيق على ويندوز ومتوافق مع ماك) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(198, 167, 94, 0.4) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: rgba(198, 167, 94, 0.4);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(198, 167, 94, 0.6);
+}
+
+/* منع iOS من التكبير عند التركيز على input (font-size أقل من 16px يخلي iOS يكبّر) */
+input, select, textarea {
+  font-size: 16px;
 }
 
 /* ── تنقيحات بصرية بطابع رسمي ── */

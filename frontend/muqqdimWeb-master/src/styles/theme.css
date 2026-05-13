@@ -88,7 +88,7 @@
   --info-700: #1d4ed8;
   
   /* Base Theme - LIGHT MODE */
-  --background: #F8FAFB;
+  --background: #F0F0F0;
   --background-secondary: #FFFFFF;
   --foreground: var(--gray-900);
   --card: rgba(255, 255, 255, 0.9);
@@ -568,7 +568,7 @@ input:-webkit-autofill:active {
     font-family: 'Changa', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Cairo', 'Tajawal', sans-serif;
     font-size: 16px;
     font-weight: 400;
-    background: #F5FAF9;
+    background: #F0F0F0;
     position: relative;
   }
 

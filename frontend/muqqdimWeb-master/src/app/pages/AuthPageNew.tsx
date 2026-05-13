@@ -1,30 +1,44 @@
-// =====================================================================
-// AuthPageNew.tsx — صفحة تسجيل الدخول وإنشاء حساب
-// تستخدم Firebase Authentication (signInWithEmailAndPassword + createUserWithEmailAndPassword)
-// بعد النجاح: نحفظ بعض البيانات في localStorage كنسخة احتياطية + نوجّه لـ /dashboard
-// =====================================================================
-
+// React + router imports
 import { useState } from "react";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useNavigate } from "react-router";
+
+// Lucide icons used throughout the form (mail, lock, eye toggle, alerts, etc.)
 import { Mail, Lock, User, Eye, EyeOff, Loader2, X, CheckCircle2, AlertCircle, Globe } from "lucide-react";
+
+// motion/react = Framer Motion — used for the modal fade/scale animation
 import { motion, AnimatePresence } from "motion/react";
+
+// Reusable UI primitives + decorative sparkles
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Sparkle } from "../components/Sparkle";
+
+// Firebase auth instance + the auth functions we need
 import { auth } from "../firebase";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail } from "firebase/auth";
 
+// Logo shown on the left "branding" panel
 const logoImage = "/assets/logo-color.png";
 
+
 export default function AuthPageNew() {
-  const navigate = useNavigate();
+  // ── Routing + language ─────────────────────────────────────────────
+  const navigate = useNavigate();              // for redirecting after success
   const { language, toggleLanguage } = useLanguage();
-  const isAr = language === "ar";
+  const isAr = language === "ar";              // shorthand for Arabic check
+
+  // ── UI state ───────────────────────────────────────────────────────
+  // Which tab is active (true = Sign In, false = Sign Up)
   const [isLogin, setIsLogin] = useState(true);
+  // Whether the password is rendered as plaintext (eye icon toggle)
   const [showPassword, setShowPassword] = useState(false);
+  // Last error message to display above the form (empty = no error)
   const [error, setError] = useState("");
 
+  // ── Form data state ────────────────────────────────────────────────
+  // We keep login and register data separate so switching tabs doesn't
+  // accidentally mix the values.
   const [loginData, setLoginData] = useState({
     email: "",
     password: "",
@@ -36,17 +50,20 @@ export default function AuthPageNew() {
     password: "",
   });
 
-  // ── حالة "نسيت كلمة المرور؟" ──
-  const [forgotOpen, setForgotOpen] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState("");
-  const [forgotLoading, setForgotLoading] = useState(false);
+  // ── "Forgot password?" modal state ─────────────────────────────────
+  const [forgotOpen, setForgotOpen] = useState(false);                 // is the modal open?
+  const [forgotEmail, setForgotEmail] = useState("");                  // email being submitted
+  const [forgotLoading, setForgotLoading] = useState(false);           // request in flight?
+  // Result message to show after sending — null = no message yet
   const [forgotStatus, setForgotStatus] = useState<{ type: "success" | "error"; msg: string } | null>(null);
 
+  // ── Submit handler for the "forgot password" modal ─────────────────
+  // Sends a Firebase password-reset email and shows a success or error state.
   const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setForgotStatus(null);
-    if (!forgotEmail.trim()) return;
-    setForgotLoading(true);
+    e.preventDefault();             // prevent the browser's default form submit
+    setForgotStatus(null);           // clear any previous result
+    if (!forgotEmail.trim()) return; // ignore blank input
+    setForgotLoading(true);          // show the spinner
     try {
       await sendPasswordResetEmail(auth, forgotEmail.trim());
       setForgotStatus({
@@ -69,13 +86,17 @@ export default function AuthPageNew() {
     }
   };
 
+  // Close the modal AND reset its state so it opens fresh next time
   const closeForgot = () => {
     setForgotOpen(false);
     setForgotEmail("");
     setForgotStatus(null);
   };
 
-  // تسجيل دخول بحساب موجود — Firebase يتحقق من البريد وكلمة المرور
+
+  // ── Sign in with an existing account ───────────────────────────────
+  // Firebase verifies the email + password against its records.
+  // On success we mirror a couple of values to localStorage and redirect.
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -94,11 +115,15 @@ export default function AuthPageNew() {
     }
   };
 
-  // إنشاء حساب جديد + حفظ الاسم في localStorage (Firebase ما يحفظه تلقائياً عند التسجيل)
+  // ── Create a new account ───────────────────────────────────────────
+  // Firebase creates the user record, then we attach the chosen name
+  // via updateProfile so it shows up in the Header and Profile page
+  // automatically (via user.displayName).
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     try {
+      // Create the account
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         registerData.email,
@@ -106,8 +131,8 @@ export default function AuthPageNew() {
       );
       const user = userCredential.user;
 
-      // نحفظ الاسم على Firebase نفسه (مو في localStorage بس)
-      // كذا يطلع في الهيدر والملف الشخصي تلقائياً عبر displayName
+      // Save the display name on the Firebase user object itself
+      // (so it persists across devices, not just localStorage on this machine).
       if (registerData.name.trim()) {
         await updateProfile(user, { displayName: registerData.name });
       }
@@ -123,10 +148,10 @@ export default function AuthPageNew() {
 
   return (
     <div
-      className="min-h-screen flex relative bg-gradient-to-br from-gray-50 to-gray-100 dark:from-[#062620] dark:via-[#08312D] dark:to-[#0a3d37] overflow-hidden"
+      className="min-h-screen flex relative bg-[#F0F0F0] dark:bg-gradient-to-br dark:from-[#062620] dark:via-[#08312D] dark:to-[#0a3d37] overflow-hidden"
       dir={isAr ? "rtl" : "ltr"}
     >
-      {/* نجوم متناثرة في الخلفية */}
+      {/* ── Decorative scattered stars in the background ── */}
       <Sparkle className="top-[8%] left-[12%]" size={20} />
       <Sparkle className="top-[20%] right-[15%]" size={14} />
       <Sparkle className="top-[45%] left-[8%]" size={22} />
@@ -139,7 +164,7 @@ export default function AuthPageNew() {
       <Sparkle className="bottom-[40%] left-[55%]" size={11} />
       <Sparkle className="top-[55%] right-[55%]" size={15} />
 
-      {/* توهج ذهبي خفيف من الأسفل */}
+      {/* Soft gold glow rising from the bottom of the screen */}
       <div
         className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[80%] h-72 pointer-events-none"
         style={{
@@ -149,7 +174,7 @@ export default function AuthPageNew() {
         }}
       />
 
-      {/* زر تبديل اللغة — يمين فوق بالعربي، يسار فوق بالإنجليزي */}
+      {/* Language toggle — pinned top-right in Arabic, top-left in English */}
       <button
         onClick={toggleLanguage}
         className={`fixed top-4 z-50 flex items-center gap-2 px-4 py-2 rounded-full bg-white/90 backdrop-blur border border-gray-300 shadow-md hover:shadow-lg hover:bg-white transition-all text-[#08312D] text-sm font-semibold ${
@@ -336,12 +361,13 @@ export default function AuthPageNew() {
       <div className="hidden lg:flex flex-1 items-center justify-center relative overflow-hidden">
         <div className="relative z-10 text-center px-12">
           <div className="mb-8">
-            <img src={logoImage} alt="MOQDDIM" className="h-72 w-auto mx-auto drop-shadow-2xl" />
+            <img src="/assets/logo-header-dark.png" alt="MOQDDIM" className="dark:hidden h-72 w-auto mx-auto drop-shadow-2xl" />
+            <img src={logoImage} alt="MOQDDIM" className="hidden dark:block h-72 w-auto mx-auto drop-shadow-2xl" />
           </div>
           <div className="flex items-center justify-center gap-3 mb-6">
             <div className="w-32 h-[1px] bg-gradient-to-r from-transparent via-[#C6A75E]/40 to-[#C6A75E]/40 rounded-full"></div>
           </div>
-          <p className={`text-white/90 text-lg max-w-md mx-auto leading-relaxed ${isAr ? "font-[Changa]" : ""}`}
+          <p className={`text-[#08312D] dark:text-white/90 text-lg max-w-md mx-auto leading-relaxed ${isAr ? "font-[Changa]" : ""}`}
              style={!isAr ? { fontFamily: "'IBM Plex Sans', sans-serif" } : undefined}>
             {isAr ? (
               <>
@@ -360,7 +386,10 @@ export default function AuthPageNew() {
         </div>
       </div>
 
-      {/* ── نافذة "نسيت كلمة المرور؟" ── */}
+      {/* ════════ "Forgot password?" modal ════════
+           AnimatePresence lets the modal fade out smoothly when closed.
+           Clicking the dark backdrop closes it; stopPropagation on the
+           inner card prevents an accidental close when clicking inside. */}
       <AnimatePresence>
         {forgotOpen && (
           <motion.div

@@ -1,12 +1,18 @@
-// =====================================================================
-// PitchDeckPage.tsx — صفحة تنزيل العروض التقديمية للمشاريع
-// تعرض قائمة مشاريع المستخدم، وزر لكل مشروع لتنزيل PowerPoint
-// عند الضغط: يستدعي /api/pitchdeck/generate (الباك اند يولّد بالـ AI)
-// =====================================================================
-
 import { useState, useEffect } from "react";
 import { Link } from "react-router";
-import { PresentationIcon, FolderOpen, FileText, Loader2, Mail, CheckCircle2, AlertCircle } from "lucide-react";
+
+// Lucide icons
+import {
+  PresentationIcon,
+  FolderOpen,
+  FileText,
+  Loader2,
+  Mail,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react";
+
+// Animations + layout pieces + i18n + Firebase auth
 import { motion, AnimatePresence } from "motion/react";
 import { Header } from "../components/Header";
 import { Sparkle } from "../components/Sparkle";
@@ -16,21 +22,32 @@ import { auth } from "../firebase";
 const BACKEND_URL = "http://localhost:5000";
 
 export default function PitchDeckPage() {
+  // ── i18n ───────────────────────────────────────────────────────────
   const { language } = useLanguage();
   const isAr = language === "ar";
-  const [projects, setProjects] = useState<any[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatingProject, setGeneratingProject] = useState<any>(null);
-  const [emailingProject, setEmailingProject] = useState<any>(null);
-  const [notice, setNotice] = useState<{ type: "success" | "error"; title: string; message: string } | null>(null);
 
+  // ── State ──────────────────────────────────────────────────────────
+  const [projects, setProjects] = useState<any[]>([]); // list of projects loaded from API
+  const [isGenerating, setIsGenerating] = useState(false); // PPT generation in progress?
+  const [generatingProject, setGeneratingProject] = useState<any>(null); // which project is currently generating
+  const [emailingProject, setEmailingProject] = useState<any>(null); // which project is currently emailing
+  // Floating success/error banner (null = no banner shown)
+  const [notice, setNotice] = useState<{
+    type: "success" | "error";
+    title: string;
+    message: string;
+  } | null>(null);
+
+  // Tiny helpers to show toasts in one line at call sites
   const showSuccess = (title: string, message: string) =>
     setNotice({ type: "success", title, message });
   const showError = (title: string, message: string) =>
     setNotice({ type: "error", title, message });
 
+  // ── Load the user's projects on mount ──────────────────────────────
   useEffect(() => {
-    const userId = auth.currentUser?.uid || localStorage.getItem("userId") || "";
+    const userId =
+      auth.currentUser?.uid || localStorage.getItem("userId") || "";
     if (!userId) return;
 
     fetch(`${BACKEND_URL}/api/projects?user_id=${userId}`)
@@ -39,6 +56,9 @@ export default function PitchDeckPage() {
       .catch(() => setProjects([]));
   }, []);
 
+  // ── Generate + download a pitch deck for the chosen project ────────
+  // Backend generates the PPTX file and returns it as a blob.
+  // We then trigger a browser download via a temporary <a> element.
   const handleExportPitchDeck = async (project: any) => {
     setIsGenerating(true);
     setGeneratingProject(project);
@@ -48,7 +68,7 @@ export default function PitchDeckPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          project_id: project.id,                  // عشان السيرفر يعلّم المشروع كأن البتش دك تولّد
+          project_id: project.id, // backend uses this to mark the project as "pitch deck generated"
           project_name: project.project_name,
           business_type: project.project_type,
           restaurant_type: project.restaurant_type || "",
@@ -75,7 +95,9 @@ export default function PitchDeckPage() {
     } catch {
       showError(
         isAr ? "تعذّر تحميل العرض الاستثماري" : "Unable to Download Pitch Deck",
-        isAr ? "نأسف، لم نتمكن من إتمام تحميل العرض الاستثماري. نرجو إعادة المحاولة لاحقاً." : "We were unable to download the pitch deck. Please try again later."
+        isAr
+          ? "نأسف، لم نتمكن من إتمام تحميل العرض الاستثماري. نرجو إعادة المحاولة لاحقاً."
+          : "We were unable to download the pitch deck. Please try again later.",
       );
     } finally {
       setIsGenerating(false);
@@ -83,12 +105,15 @@ export default function PitchDeckPage() {
     }
   };
 
+  // ── Generate + email the pitch deck to the user ────────────────────
   const handleEmailPitchDeck = async (project: any) => {
     const userEmail = auth.currentUser?.email;
     if (!userEmail) {
       showError(
         isAr ? "يلزم تسجيل الدخول" : "Authentication Required",
-        isAr ? "يرجى تسجيل الدخول لإتمام إرسال العرض الاستثماري إلى بريدكم الإلكتروني." : "Please sign in to send the pitch deck to your email address."
+        isAr
+          ? "يرجى تسجيل الدخول لإتمام إرسال العرض الاستثماري إلى بريدكم الإلكتروني."
+          : "Please sign in to send the pitch deck to your email address.",
       );
       return;
     }
@@ -116,17 +141,19 @@ export default function PitchDeckPage() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Failed");
       showSuccess(
-        isAr ? "تم إرسال العرض الاستثماري بنجاح" : "Pitch Deck Sent Successfully",
+        isAr
+          ? "تم إرسال العرض الاستثماري بنجاح"
+          : "Pitch Deck Sent Successfully",
         isAr
           ? `تم تسليم العرض الاستثماري الخاص بمشروعكم إلى بريدكم الإلكتروني ${userEmail}. نشكركم لاستخدامكم منصة مُقدِّم.`
-          : `Your project's pitch deck has been delivered to ${userEmail}. Thank you for using Muqaddim.`
+          : `Your project's pitch deck has been delivered to ${userEmail}. Thank you for using Muqaddim.`,
       );
     } catch (err: any) {
       showError(
         isAr ? "تعذّر إرسال البريد الإلكتروني" : "Email Delivery Failed",
         isAr
           ? `نأسف، تعذّر إتمام إرسال البريد الإلكتروني. السبب: ${err.message}`
-          : `We were unable to deliver the email. Reason: ${err.message}`
+          : `We were unable to deliver the email. Reason: ${err.message}`,
       );
     } finally {
       setEmailingProject(null);
@@ -136,7 +163,10 @@ export default function PitchDeckPage() {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-transparent p-6 lg:p-8 relative" dir={isAr ? "rtl" : "ltr"}>
+      <div
+        className="min-h-screen bg-transparent p-6 lg:p-8 relative"
+        dir={isAr ? "rtl" : "ltr"}
+      >
         <Sparkle className="top-[5%] left-[5%]" size={18} />
         <Sparkle className="top-[15%] right-[8%]" size={12} />
         <Sparkle className="top-[40%] left-[3%]" size={22} />
@@ -144,7 +174,6 @@ export default function PitchDeckPage() {
         <Sparkle className="bottom-[20%] left-[7%]" size={16} />
         <Sparkle className="bottom-[10%] right-[15%]" size={20} />
         <div className="max-w-5xl mx-auto space-y-6">
-
           {/* Header */}
           <motion.div
             className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md rounded-2xl p-8 border border-[#C6A75E]/30 card-glow"
@@ -160,7 +189,11 @@ export default function PitchDeckPage() {
                 <h1 className="text-4xl font-bold text-[#08312d] dark:text-white">
                   {isAr ? "إعداد العرض الاستثماري" : "Pitch Deck"}
                 </h1>
-                <p className="text-gray-600 dark:text-white/70 text-lg font-medium font-[Changa] mt-2">                  {isAr ? "قم بتصدير عرض تقديمي احترافي (Pitch Deck) لمشروعك" : "Export a professional Pitch Deck for your project"}
+                <p className="text-gray-600 dark:text-white/70 text-lg font-medium font-[Changa] mt-2">
+                  {" "}
+                  {isAr
+                    ? "قم بتصدير عرض تقديمي احترافي (Pitch Deck) لمشروعك"
+                    : "Export a professional Pitch Deck for your project"}
                 </p>
               </div>
             </div>
@@ -184,19 +217,48 @@ export default function PitchDeckPage() {
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
               {[
-                { title: isAr ? "المشكلة والحل" : "Problem & Solution", desc: isAr ? "المشكلة التي يحلها مشروعك والحل المقترح" : "The problem your project solves and the proposed solution" },
-                { title: isAr ? "السوق المستهدف" : "Target Market", desc: isAr ? "حجم السوق والفئة المستهدفة" : "Market size and target audience" },
-                { title: isAr ? "نموذج العمل" : "Business Model", desc: isAr ? "كيف سيحقق مشروعك الإيرادات" : "How your project will generate revenue" },
-                { title: isAr ? "التوقعات المالية" : "Financial Projections", desc: isAr ? "الإيرادات والتكاليف المتوقعة" : "Expected revenues and costs" },
+                {
+                  title: isAr ? "المشكلة والحل" : "Problem & Solution",
+                  desc: isAr
+                    ? "المشكلة التي يحلها مشروعك والحل المقترح"
+                    : "The problem your project solves and the proposed solution",
+                },
+                {
+                  title: isAr ? "السوق المستهدف" : "Target Market",
+                  desc: isAr
+                    ? "حجم السوق والفئة المستهدفة"
+                    : "Market size and target audience",
+                },
+                {
+                  title: isAr ? "نموذج العمل" : "Business Model",
+                  desc: isAr
+                    ? "كيف سيحقق مشروعك الإيرادات"
+                    : "How your project will generate revenue",
+                },
+                {
+                  title: isAr ? "التوقعات المالية" : "Financial Projections",
+                  desc: isAr
+                    ? "الإيرادات والتكاليف المتوقعة"
+                    : "Expected revenues and costs",
+                },
               ].map((item, index) => (
-                <div key={index} className="bg-gray-50 dark:bg-[#062620] border border-transparent dark:border-white/10 rounded-lg p-4">
+                <div
+                  key={index}
+                  className="bg-gray-50 dark:bg-[#062620] border border-transparent dark:border-white/10 rounded-lg p-4"
+                >
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-7 h-7 rounded-lg bg-[#C6A75E] flex items-center justify-center flex-shrink-0">
-                      <span className="text-white font-bold text-xs">{index + 1}</span>
+                      <span className="text-white font-bold text-xs">
+                        {index + 1}
+                      </span>
                     </div>
-                    <h4 className="text-[#08312D] dark:text-white font-bold text-sm">{item.title}</h4>
+                    <h4 className="text-[#08312D] dark:text-white font-bold text-sm">
+                      {item.title}
+                    </h4>
                   </div>
-                  <p className="text-[#08312D]/60 dark:text-white/60 text-xs mr-9 font-[Changa]">{item.desc}</p>
+                  <p className="text-[#08312D]/60 dark:text-white/60 text-xs mr-9 font-[Changa]">
+                    {item.desc}
+                  </p>
                 </div>
               ))}
             </div>
@@ -212,7 +274,9 @@ export default function PitchDeckPage() {
                 {isAr ? "لا توجد مشاريع بعد" : "No projects yet"}
               </h3>
               <p className="text-gray-600 dark:text-white/70 mb-6 max-w-md mx-auto font-[Changa]">
-                {isAr ? "أنشئ مشروعك الأول لتتمكن من تصدير عرض تقديمي احترافي له" : "Create your first project to export a professional pitch deck"}
+                {isAr
+                  ? "أنشئ مشروعك الأول لتتمكن من تصدير عرض تقديمي احترافي له"
+                  : "Create your first project to export a professional pitch deck"}
               </p>
               <Link
                 to="/dashboard/feasibility-study"
@@ -225,7 +289,9 @@ export default function PitchDeckPage() {
           ) : (
             <div>
               <h2 className="text-xl font-bold text-[#08312D] dark:text-white mb-4">
-                {isAr ? "اختر مشروعاً لتصدير Pitch Deck" : "Select a project to export Pitch Deck"}
+                {isAr
+                  ? "اختر مشروعاً لتصدير Pitch Deck"
+                  : "Select a project to export Pitch Deck"}
               </h2>
               <div className="grid grid-cols-1 gap-4">
                 {projects.map((project) => (
@@ -240,17 +306,27 @@ export default function PitchDeckPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="text-[#08312D] dark:text-white font-bold text-lg mb-2">
-                            {isAr ? project.project_name : (project.project_name_en || project.project_name)}
+                            {isAr
+                              ? project.project_name
+                              : project.project_name_en || project.project_name}
                           </h3>
                           <div className="flex flex-wrap items-center gap-3 text-xs">
                             <span className="text-[#08312D]/70 dark:text-white/70 font-[Changa]">
-                              {isAr ? "المدينة" : "City"}: {isAr ? project.city : (project.city_en || project.city)}
+                              {isAr ? "المدينة" : "City"}:{" "}
+                              {isAr
+                                ? project.city
+                                : project.city_en || project.city}
                             </span>
                             <span className="text-[#08312D]/70 dark:text-white/70 font-[Changa]">
-                              {isAr ? "رأس المال" : "Capital"}: {project.capital ? project.capital.toLocaleString() : "—"} {isAr ? "ر.س" : "SAR"}
+                              {isAr ? "رأس المال" : "Capital"}:{" "}
+                              {project.capital
+                                ? project.capital.toLocaleString()
+                                : "—"}{" "}
+                              {isAr ? "ر.س" : "SAR"}
                             </span>
                             <span className="inline-block bg-[#C6A75E]/15 text-[#C6A75E] font-semibold font-[Changa] px-3 py-1 rounded-full">
-                              🍽 {isAr ? "مطاعم وكافيهات" : "Restaurants & Cafes"}
+                              🍽{" "}
+                              {isAr ? "مطاعم وكافيهات" : "Restaurants & Cafes"}
                             </span>
                           </div>
                         </div>
@@ -259,10 +335,13 @@ export default function PitchDeckPage() {
                       <div className="flex gap-2 flex-shrink-0">
                         <button
                           onClick={() => handleExportPitchDeck(project)}
-                          disabled={isGenerating || emailingProject?.id === project.id}
+                          disabled={
+                            isGenerating || emailingProject?.id === project.id
+                          }
                           className="bg-[#FFF9F0] dark:bg-[#C6A75E]/15 border-2 border-[#C6A75E] hover:bg-[#C6A75E] hover:text-white text-[#C6A75E] flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold shadow-sm transition-all font-[Changa] disabled:opacity-60"
                         >
-                          {isGenerating && generatingProject?.id === project.id ? (
+                          {isGenerating &&
+                          generatingProject?.id === project.id ? (
                             <Loader2 className="w-5 h-5 animate-spin" />
                           ) : (
                             <>
@@ -273,7 +352,9 @@ export default function PitchDeckPage() {
                         </button>
                         <button
                           onClick={() => handleEmailPitchDeck(project)}
-                          disabled={emailingProject?.id === project.id || isGenerating}
+                          disabled={
+                            emailingProject?.id === project.id || isGenerating
+                          }
                           title={isAr ? "إرسال إلى إيميلي" : "Send to my email"}
                           className="bg-white dark:bg-[#062620] border-2 border-[#08312D] dark:border-white/30 hover:bg-[#08312D] hover:text-white text-[#08312D] dark:text-white flex items-center justify-center px-4 py-3 rounded-xl font-semibold shadow-sm transition-all disabled:opacity-60"
                         >
@@ -290,7 +371,6 @@ export default function PitchDeckPage() {
               </div>
             </div>
           )}
-
         </div>
       </div>
 
@@ -315,7 +395,9 @@ export default function PitchDeckPage() {
                 {isAr ? "جاري التحضير" : "Preparing..."}
               </h3>
               <p className="text-gray-600 dark:text-gray-700 text-lg leading-relaxed mb-2 font-[Changa]">
-                {isAr ? "جاري إنشاء عرضك التقديمي وتحميله" : "Generating and downloading your pitch deck"}
+                {isAr
+                  ? "جاري إنشاء عرضك التقديمي وتحميله"
+                  : "Generating and downloading your pitch deck"}
               </p>
               <p className="text-[#C6A75E] font-bold text-lg font-[Changa]">
                 {isAr ? "الرجاء الانتظار..." : "Please wait..."}
@@ -353,7 +435,9 @@ export default function PitchDeckPage() {
             >
               <div
                 className="absolute inset-x-0 top-0 h-1.5"
-                style={{ background: notice.type === "success" ? "#C6A75E" : "#dc2626" }}
+                style={{
+                  background: notice.type === "success" ? "#C6A75E" : "#dc2626",
+                }}
               />
               <div className="flex flex-col items-center text-center">
                 <div

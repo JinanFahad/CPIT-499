@@ -1,16 +1,10 @@
-// =====================================================================
-// ConsultantChatPage.tsx — شات المستشار الذكي على دراسة جدوى محددة
-// عند الفتح:
-//   1) يجيب المشروع من الباك اند للحصول على report_id
-//   2) يعرض رسالة ترحيب مع نظرة عامة على المشروع
-// عند إرسال سؤال:
-//   - يرسل لـ /api/advisor/chat مع report_id + كل تاريخ المحادثة
-//   - الـ AI يرد بناءً على دراسة الجدوى الكاملة للمشروع
-// =====================================================================
-
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router";
+
+// Lucide icons
 import { Send, Loader2, Bot, User, Lightbulb } from "lucide-react";
+
+// Reusable UI primitives + layout pieces + i18n
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { motion } from "motion/react";
@@ -20,6 +14,7 @@ import { useLanguage } from "../contexts/LanguageContext";
 
 const BACKEND_URL = "http://localhost:5000";
 
+// One chat message — either from the user or the assistant
 interface Message {
   id: string;
   role: "user" | "assistant";
@@ -27,27 +22,34 @@ interface Message {
   timestamp: Date;
 }
 
-// تحوّل **نص** إلى <strong>نص</strong> ويحافظ على فواصل الأسطر
+// Tiny markdown helper: convert **bold** → <strong>bold</strong>
+// while preserving line breaks. Used for the assistant's responses.
 function renderFormatted(text: string) {
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
   return parts.map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={i} className="font-bold">{part.slice(2, -2)}</strong>;
+      return (
+        <strong key={i} className="font-bold">
+          {part.slice(2, -2)}
+        </strong>
+      );
     }
     return <span key={i}>{part}</span>;
   });
 }
 
 export default function ConsultantChatPage() {
-  const { projectId } = useParams();
-  const [project, setProject] = useState<any>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [inputValue, setInputValue] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  // ── Routing + state ────────────────────────────────────────────────
+  const { projectId } = useParams(); // :projectId from URL
+  const [project, setProject] = useState<any>(null); // project data
+  const [messages, setMessages] = useState<Message[]>([]); // chat history
+  const [inputValue, setInputValue] = useState(""); // current input box value
+  const [isTyping, setIsTyping] = useState(false); // is the AI replying?
+  const messagesEndRef = useRef<HTMLDivElement>(null); // for auto-scrolling to the latest message
   const { language } = useLanguage();
   const isAr = language === "ar";
 
+  // ── On mount: load the project + show a welcome message ────────────
   useEffect(() => {
     if (!projectId) return;
 
@@ -57,8 +59,10 @@ export default function ConsultantChatPage() {
         if (!data || !data.id) return;
         setProject(data);
 
-        const projectName = isAr ? data.project_name : (data.project_name_en || data.project_name);
-        const city = isAr ? data.city : (data.city_en || data.city);
+        const projectName = isAr
+          ? data.project_name
+          : data.project_name_en || data.project_name;
+        const city = isAr ? data.city : data.city_en || data.city;
         const capital = data.capital ? data.capital.toLocaleString() : "—";
         const customers = data.customers_per_day || "—";
 
@@ -76,18 +80,23 @@ export default function ConsultantChatPage() {
       .catch(() => setProject(null));
   }, [projectId, isAr]);
 
+  // Smoothly scroll the bottom of the chat into view
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Auto-scroll on every new message so the user always sees the latest reply
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  // إرسال رسالة جديدة للمستشار:
-  // - تتأكد من وجود تقرير مرتبط بالمشروع
-  // - ترسل سؤال + كل المحادثة السابقة (history) للـ AI
-  // - تظهر "يكتب..." أثناء الانتظار
+  // ── Send a new question to the AI ──────────────────────────────────
+  // Steps:
+  //   1) Validate (ignore empty input or while AI is still typing)
+  //   2) Make sure the project has a linked report — otherwise show a hint
+  //   3) Append the user's message immediately for instant feedback
+  //   4) POST to /api/advisor/chat with the full conversation history
+  //   5) Append the AI's reply when it arrives
   const handleSend = async () => {
     if (!inputValue.trim() || isTyping || !project) return;
 
@@ -145,7 +154,9 @@ export default function ConsultantChatPage() {
         {
           id: (Date.now() + 1).toString(),
           role: "assistant",
-          content: data.reply || (isAr ? "عذرًا، لم أتمكن من الرد" : "Sorry, no response"),
+          content:
+            data.reply ||
+            (isAr ? "عذرًا، لم أتمكن من الرد" : "Sorry, no response"),
           timestamp: new Date(),
         },
       ]);
@@ -318,7 +329,9 @@ export default function ConsultantChatPage() {
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder={isAr ? "اكتب سؤالك هنا..." : "Type your message here..."}
+                  placeholder={
+                    isAr ? "اكتب سؤالك هنا..." : "Type your message here..."
+                  }
                   className="flex-1 bg-gray-50 dark:bg-[#062620] border-gray-300 dark:border-white/20 text-[#08312D] dark:text-white placeholder:text-gray-500 dark:placeholder:text-white/40 text-base py-6 font-[Changa]"
                   disabled={isTyping}
                 />

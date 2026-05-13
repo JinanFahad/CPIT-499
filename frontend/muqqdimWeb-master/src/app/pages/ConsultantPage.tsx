@@ -1,8 +1,3 @@
-// =====================================================================
-// ConsultantPage.tsx — قائمة المشاريع لاختيار واحد للنقاش مع المستشار الذكي
-// المستخدم يضغط على مشروع → يروح لـ ConsultantChatPage مع projectId
-// =====================================================================
-
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router";
 import { ArrowLeft, MessageSquare, FolderOpen } from "lucide-react";
@@ -15,13 +10,18 @@ import { auth } from "../firebase";
 const BACKEND_URL = "http://localhost:5000";
 
 export default function ConsultantPage() {
+  // List of projects loaded from the backend
   const [projects, setProjects] = useState<any[]>([]);
+
   const navigate = useNavigate();
   const { language } = useLanguage();
   const isAr = language === "ar";
 
+  // Load the current user's projects on mount
   useEffect(() => {
-    const userId = auth.currentUser?.uid || localStorage.getItem("userId") || "";
+    // Firebase first; localStorage as fallback while Firebase hydrates
+    const userId =
+      auth.currentUser?.uid || localStorage.getItem("userId") || "";
     if (!userId) return;
 
     fetch(`${BACKEND_URL}/api/projects?user_id=${userId}`)
@@ -30,6 +30,7 @@ export default function ConsultantPage() {
       .catch(() => setProjects([]));
   }, []);
 
+  // Navigate to the chat screen with the chosen project's ID in the URL
   const handleSelectProject = (projectId: number) => {
     navigate(`/dashboard/consultant/chat/${projectId}`);
   };
@@ -37,7 +38,10 @@ export default function ConsultantPage() {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-transparent p-6 lg:p-8 relative" dir={isAr ? "rtl" : "ltr"}>
+      <div
+        className="min-h-screen bg-transparent p-6 lg:p-8 relative"
+        dir={isAr ? "rtl" : "ltr"}
+      >
         <Sparkle className="top-[5%] left-[5%]" size={18} />
         <Sparkle className="top-[15%] right-[8%]" size={12} />
         <Sparkle className="top-[40%] left-[3%]" size={22} />
@@ -45,7 +49,6 @@ export default function ConsultantPage() {
         <Sparkle className="bottom-[20%] left-[7%]" size={16} />
         <Sparkle className="bottom-[10%] right-[15%]" size={20} />
         <div className="max-w-5xl mx-auto space-y-6">
-
           {/* Header */}
           <motion.div
             className="bg-white dark:bg-gray-200 rounded-xl p-8 border border-gray-200 dark:border-gray-300 shadow-sm"
@@ -64,7 +67,9 @@ export default function ConsultantPage() {
                   </h1>
                 </div>
                 <p className="text-gray-600 dark:text-gray-700 text-lg font-medium mr-[68px] font-[Changa]">
-                  {isAr ? "ناقش وحلل مشاريعك مع مساعد ذكي متخصص" : "Discuss and analyze your projects with a specialized AI assistant"}
+                  {isAr
+                    ? "ناقش وحلل مشاريعك مع مساعد ذكي متخصص"
+                    : "Discuss and analyze your projects with a specialized AI assistant"}
                 </p>
               </div>
             </div>
@@ -81,14 +86,23 @@ export default function ConsultantPage() {
             <h2 className="text-xl font-bold text-[#08312D] dark:text-gray-900 mb-3">
               {isAr ? "كيف يعمل المساعد؟" : "How does the assistant work?"}
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4" dir={isAr ? "rtl" : "ltr"}>
+            <div
+              className="grid grid-cols-1 md:grid-cols-3 gap-4"
+              dir={isAr ? "rtl" : "ltr"}
+            >
               <div className="flex items-start gap-3">
                 <div className="w-8 h-8 rounded-lg bg-[#C6A75E] flex items-center justify-center flex-shrink-0 shadow-sm">
                   <span className="text-white font-bold">1</span>
                 </div>
                 <div>
-                  <h4 className="font-medium mb-1 text-[#08312D] dark:text-gray-900">{isAr ? "اختر مشروعك" : "Select your project"}</h4>
-                  <p className="text-gray-600 dark:text-gray-700 text-sm font-[Changa]">{isAr ? "حدد المشروع الذي تريد مناقشته" : "Choose the project you want to discuss"}</p>
+                  <h4 className="font-medium mb-1 text-[#08312D] dark:text-gray-900">
+                    {isAr ? "اختر مشروعك" : "Select your project"}
+                  </h4>
+                  <p className="text-gray-600 dark:text-gray-700 text-sm font-[Changa]">
+                    {isAr
+                      ? "حدد المشروع الذي تريد مناقشته"
+                      : "Choose the project you want to discuss"}
+                  </p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
@@ -96,8 +110,14 @@ export default function ConsultantPage() {
                   <span className="text-white font-bold">2</span>
                 </div>
                 <div>
-                  <h4 className="font-medium mb-1 text-[#08312D] dark:text-gray-900">{isAr ? "ابدأ المحادثة" : "Start the conversation"}</h4>
-                  <p className="text-gray-600 dark:text-gray-700 text-sm font-[Changa]">{isAr ? "اطرح أسئلتك واحصل على إجابات فورية" : "Ask your questions and get instant answers"}</p>
+                  <h4 className="font-medium mb-1 text-[#08312D] dark:text-gray-900">
+                    {isAr ? "ابدأ المحادثة" : "Start the conversation"}
+                  </h4>
+                  <p className="text-gray-600 dark:text-gray-700 text-sm font-[Changa]">
+                    {isAr
+                      ? "اطرح أسئلتك واحصل على إجابات فورية"
+                      : "Ask your questions and get instant answers"}
+                  </p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
@@ -105,8 +125,14 @@ export default function ConsultantPage() {
                   <span className="text-white font-bold">3</span>
                 </div>
                 <div>
-                  <h4 className="font-medium mb-1 text-[#08312D] dark:text-gray-900">{isAr ? "احصل على رؤى" : "Get insights"}</h4>
-                  <p className="text-gray-600 dark:text-gray-700 text-sm font-[Changa]">{isAr ? "تحليلات ونصائح لتحسين مشروعك" : "Analytics and tips to improve your project"}</p>
+                  <h4 className="font-medium mb-1 text-[#08312D] dark:text-gray-900">
+                    {isAr ? "احصل على رؤى" : "Get insights"}
+                  </h4>
+                  <p className="text-gray-600 dark:text-gray-700 text-sm font-[Changa]">
+                    {isAr
+                      ? "تحليلات ونصائح لتحسين مشروعك"
+                      : "Analytics and tips to improve your project"}
+                  </p>
                 </div>
               </div>
             </div>
@@ -128,7 +154,9 @@ export default function ConsultantPage() {
                 {isAr ? "لا توجد مشاريع بعد" : "No projects yet"}
               </h3>
               <p className="text-gray-700 dark:text-gray-800 mb-6 max-w-md mx-auto font-[Changa]">
-                {isAr ? "أنشئ مشروعك الأول لتتمكن من استخدام المساعد المستشار" : "Create your first project to use the AI consultant"}
+                {isAr
+                  ? "أنشئ مشروعك الأول لتتمكن من استخدام المساعد المستشار"
+                  : "Create your first project to use the AI consultant"}
               </p>
               <Link
                 to="/dashboard/feasibility-study"
@@ -164,15 +192,28 @@ export default function ConsultantPage() {
                         <FolderOpen className="w-6 h-6 text-white" />
                       </div>
 
-                      <div className={`flex-1 min-w-0 ${isAr ? "text-right" : "text-left"}`}>                        <h3 className="text-[#08312D] dark:text-gray-900 font-bold text-lg mb-2 truncate">
-                        {isAr ? project.project_name : (project.project_name_en || project.project_name)}
-                      </h3>
+                      <div
+                        className={`flex-1 min-w-0 ${isAr ? "text-right" : "text-left"}`}
+                      >
+                        {" "}
+                        <h3 className="text-[#08312D] dark:text-gray-900 font-bold text-lg mb-2 truncate">
+                          {isAr
+                            ? project.project_name
+                            : project.project_name_en || project.project_name}
+                        </h3>
                         <div className="flex flex-wrap items-center gap-3 text-xs">
                           <span className="text-gray-600 dark:text-gray-700 font-[Changa]">
-                            {isAr ? "المدينة" : "City"}: {isAr ? project.city : (project.city_en || project.city)}
+                            {isAr ? "المدينة" : "City"}:{" "}
+                            {isAr
+                              ? project.city
+                              : project.city_en || project.city}
                           </span>
                           <span className="text-gray-600 dark:text-gray-700 font-[Changa]">
-                            {isAr ? "رأس المال" : "Capital"}: {project.capital ? project.capital.toLocaleString() : "—"} {isAr ? "ر.س" : "SAR"}
+                            {isAr ? "رأس المال" : "Capital"}:{" "}
+                            {project.capital
+                              ? project.capital.toLocaleString()
+                              : "—"}{" "}
+                            {isAr ? "ر.س" : "SAR"}
                           </span>
                           <span className="inline-block bg-[#C6A75E]/15 text-[#C6A75E] font-semibold font-[Changa] px-3 py-1 rounded-full">
                             🍽 {isAr ? "مطاعم وكافيهات" : "Restaurants & Cafes"}
@@ -180,14 +221,15 @@ export default function ConsultantPage() {
                         </div>
                       </div>
 
-                      <ArrowLeft className={`w-5 h-5 text-gray-500 group-hover:text-[#C6A75E] transition-all flex-shrink-0 ${isAr ? "rotate-0" : "rotate-180"}`} />
+                      <ArrowLeft
+                        className={`w-5 h-5 text-gray-500 group-hover:text-[#C6A75E] transition-all flex-shrink-0 ${isAr ? "rotate-0" : "rotate-180"}`}
+                      />
                     </div>
                   </motion.button>
                 ))}
               </div>
             </motion.div>
           )}
-
         </div>
       </div>
     </>

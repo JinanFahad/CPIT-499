@@ -1,30 +1,30 @@
-// =====================================================================
-// FeasibilityStudyPage.tsx — صفحة إنشاء دراسة جدوى جديدة
-// تتكون من ٥ أقسام: معلومات + تفاصيل + استثمار + تشغيل + موقع
-// عند الضغط على "توليد":
-//   1) ترسل البيانات لـ /api/feasibility/report-pdf لتوليد التقرير
-//   2) تستخرج report_id من الهيدر
-//   3) ترسل لـ /api/projects لحفظ المشروع مع ربطه بالتقرير
-//   4) توجّه المستخدم لصفحة "مشاريعي"
-// =====================================================================
-
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router";
+
+// Lucide icons used on the page header and submit button
 import { FileText, Sparkles, CheckCircle, MapPin } from "lucide-react";
+
+// Reusable UI primitives + layout pieces
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { motion } from "motion/react";
 import { Header } from "../components/Header";
 import { Sparkle } from "../components/Sparkle";
+
+// i18n + Firebase auth (for the user ID) + map picker modal
 import { useLanguage } from "../contexts/LanguageContext";
 import { auth } from "../firebase";
 import { MapPicker } from "../components/MapPicker";
 
+
+// Backend (Python/Flask) API root
 const BACKEND_URL = "http://localhost:5000";
 
-// خريطة تحويل أسماء الواجهة الإنجليزية إلى المفاتيح اللي يفهمها الباك اند
-// متطابقة 1:1 مع BUSINESS_TYPES في business_types.py
-// مُصدَّرة عشان EditProjectPage و MarketAnalysisPage يستخدمونها بدون تكرار
+
+// ── Maps that translate UI labels into backend keys ────────────────────
+// `businessTypeMap` is exported so EditProjectPage and MarketAnalysisPage
+// can reuse the same English-label → backend-key conversion (no duplication).
+// Stays 1:1 in sync with BUSINESS_TYPES in business_types.py on the backend.
 export const businessTypeMap: Record<string, string> = {
   "Pizza Restaurant":               "pizza_restaurant",
   "Fast Food Restaurant":           "fast_food_restaurant",
@@ -37,19 +37,28 @@ export const businessTypeMap: Record<string, string> = {
   "General Restaurant":             "restaurant",
 };
 
+// Custom chevron icon used in the <select> arrow position.
+// We render our own instead of relying on the browser default
+// because native arrows look different on each OS/browser.
 const ChevronDown = () => (
   <svg className="w-4 h-4 text-[#C6A75E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
   </svg>
 );
 
+
+// ── Reusable Tailwind class strings ────────────────────────────────────
+// Defined once so every input/label/select on this page looks identical.
 const inputClass = "w-full bg-gray-50 dark:bg-[#062620] border-gray-300 dark:border-white/20 text-[#08312d] dark:text-white placeholder:text-gray-400 dark:placeholder:text-white/40 rounded-lg px-4 py-3 text-base font-medium font-[Changa] focus:ring-2 focus:ring-[#C6A75E] focus:border-[#C6A75E]";
 const labelClass = "block text-[#08312d] dark:text-white font-bold text-base mb-2 font-[Changa]";
 const selectClass = "w-full bg-gray-50 dark:bg-[#062620] border border-gray-300 dark:border-white/20 text-[#08312d] dark:text-white rounded-lg px-4 py-3 text-base font-medium font-[Changa] focus:ring-2 focus:ring-[#C6A75E] focus:border-[#C6A75E] focus:outline-none appearance-none cursor-pointer";
 const sectionTitle = "text-[#08312d] dark:text-white font-bold text-lg mb-5 pb-2 border-b border-gray-200 dark:border-[#C6A75E]/30 font-[Changa]";
 
-// قوائم الأنواع والمدن (نصدّرها للاستخدام في صفحات أخرى مثل EditProjectPage)
-// متطابقة 1:1 مع BUSINESS_TYPES في الباك اند (business_types.py)
+
+// ── Business types and cities — exported for reuse ─────────────────────
+// Both lists are exported so other pages (EditProjectPage, MarketAnalysisPage)
+// can use them without redefining their own copies.
+// Stays 1:1 in sync with the backend (business_types.py).
 export const businessTypes = [
   { ar: "مطعم بيتزا",        en: "Pizza Restaurant" },
   { ar: "وجبات سريعة",       en: "Fast Food Restaurant" },
@@ -93,14 +102,18 @@ export const businessMap: Record<string, string> = {
 };
 
 export default function FeasibilityStudyPage() {
+  // ── Routing + i18n ─────────────────────────────────────────────────
   const navigate = useNavigate();
   const { t, language } = useLanguage();
   const isAr = language === "ar";
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [locationLoading, setLocationLoading] = useState(false);
-  const [mapOpen, setMapOpen] = useState(false);
 
+  // ── UI state ───────────────────────────────────────────────────────
+  const [loading, setLoading] = useState(false);              // submission in progress
+  const [error, setError] = useState("");                      // validation/network error message
+  const [locationLoading, setLocationLoading] = useState(false); // GPS request in progress
+  const [mapOpen, setMapOpen] = useState(false);               // is the map picker open?
+
+  // ── Form data — one object that mirrors every field in the form ────
   const [formData, setFormData] = useState({
     projectName: "",
     businessType: "",
@@ -117,25 +130,30 @@ export default function FeasibilityStudyPage() {
     lng: "",
   });
 
+  // Scroll to the top whenever the page first loads
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
+  // Generic onChange handler — works for any input/select/textarea
+  // because we keyed every field by its `name` attribute.
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // يمنع عجلة الماوس من تغيير قيمة حقول الأرقام (سلوك افتراضي مزعج في المتصفحات)
+  // Stop the mouse wheel from changing values inside <input type="number">.
+  // Browsers do this by default and it confuses users when they scroll past.
   const preventWheelChange = (e: React.WheelEvent<HTMLInputElement>) => {
     (e.target as HTMLInputElement).blur();
   };
 
-  // يمنع كتابة الأرقام السالبة أو الصيغة العلمية في حقول الأرقام
+  // Block negative signs and scientific notation in number fields.
   const preventNegativeKeys = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (["-", "+", "e", "E"].includes(e.key)) e.preventDefault();
   };
 
-  // callback لما المستخدم يختار موقع من نافذة الخريطة (MapPicker)
+  // Callback fired when the user picks a point inside the MapPicker modal.
+  // We round to 6 decimals (about 11cm precision) — more than enough.
   const handleLocationSelect = (lat: number, lng: number) => {
     setFormData((prev) => ({
       ...prev,
@@ -144,6 +162,8 @@ export default function FeasibilityStudyPage() {
     }));
   };
 
+  // Browser geolocation API — asks the OS for the current device location.
+  // The user is shown a system permission prompt the first time.
   const handleGetLocation = () => {
     if (!navigator.geolocation) return;
     setLocationLoading(true);
@@ -160,12 +180,16 @@ export default function FeasibilityStudyPage() {
     );
   };
 
-  // الدالة الأساسية: عند ضغط زر "توليد الدراسة"
-  // تنفّذ خطوتين بالتسلسل: توليد التقرير → حفظ المشروع
+
+  // ── Main submission handler ────────────────────────────────────────
+  // Runs two API calls in sequence:
+  //   1) /api/feasibility/report-pdf  → AI generates the report (returns PDF + report_id)
+  //   2) /api/projects                → save the project linked to the report_id
+  // On success, navigate to the projects list page.
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // تحديد الموقع مطلوب — نتحقق قبل ما نبدأ التوليد
+    // Map location is required — fail fast with a clear message
     if (!formData.lat || !formData.lng) {
       setError(isAr ? "يجب تحديد موقع المشروع على الخريطة" : "Please select the project location on the map");
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -175,13 +199,15 @@ export default function FeasibilityStudyPage() {
     setLoading(true);
     setError("");
 
-    // تحويل قائمة المنتجات من نص متعدد الأسطر إلى مصفوفة
+    // Convert the textarea (one product per line) into a clean string array
     const mainProductsList = formData.mainProducts
       .split("\n")
       .map((p) => p.trim())
       .filter((p) => p.length > 0);
 
     try {
+      // Build the request body using the backend's expected field names.
+      // We translate the human-readable English labels into backend keys.
       const body: any = {
         business_type: businessTypeMap[formData.businessType] || "restaurant",
         restaurant_type: formData.restaurantType,
@@ -193,7 +219,8 @@ export default function FeasibilityStudyPage() {
         customers_per_day: Number(formData.expectedCustomersPerDay),
         target_customers: formData.targetCustomers,
         main_products: mainProductsList,
-        // اللغة الحالية للموقع — يستخدمها الباك لاختيار برومبت الـ AI وقالب الـ PDF
+        // Current site language — backend uses this to pick the
+        // correct AI prompt and the matching PDF template (Arabic/English)
         language: language,
       };
 
@@ -202,7 +229,8 @@ export default function FeasibilityStudyPage() {
         body.lng = Number(formData.lng);
       }
 
-      // ① طلب توليد PDF (يستغرق ٢٠-٤٠ ثانية بسبب الـ AI)
+      // ① Ask the backend to generate the PDF report.
+      // This call takes 20-40 seconds because it waits for the OpenAI response.
       const response = await fetch(`${BACKEND_URL}/api/feasibility/report-pdf`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -214,15 +242,17 @@ export default function FeasibilityStudyPage() {
         throw new Error(errData.error || "حدث خطأ في توليد الدراسة");
       }
 
-      // الباك اند يرجع رقم التقرير في هيدر مخصص (X-Report-Id) مع الـ PDF
+      // The backend sets a custom X-Report-Id header alongside the PDF body
+      // so we know which report row in the database to link to the project.
       const reportId = response.headers.get("X-Report-Id");
 
-      // جلب userId من Firebase أولاً، ثم localStorage كاحتياط
+      // Get the Firebase user ID first; fall back to localStorage in case
+      // Firebase hasn't hydrated yet on this page load.
       const userId = auth.currentUser?.uid || localStorage.getItem("userId") || "";
 
       if (!userId) throw new Error("يجب تسجيل الدخول أولاً");
 
-      // ② حفظ المشروع في قاعدة البيانات وربطه بالتقرير
+      // ② Save the project in the database, linked to the report we just made.
       const projectResponse = await fetch(`${BACKEND_URL}/api/projects`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -249,11 +279,14 @@ export default function FeasibilityStudyPage() {
 
       if (!projectResponse.ok) throw new Error("حدث خطأ في حفظ المشروع");
 
+      // All done — take the user to their projects list to see the new entry
       navigate("/dashboard/my-projects");
 
     } catch (err: any) {
       setError(err.message || "حدث خطأ غير متوقع، تأكد من تشغيل الباك اند");
     } finally {
+      // Always clear the loading flag (success OR failure) so the button
+      // becomes clickable again.
       setLoading(false);
     }
   };
