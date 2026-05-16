@@ -67,7 +67,7 @@ export default function GovernmentProceduresPage() {
       const res = await fetch(`${BACKEND_URL}/api/government/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_id: sessionId, message }),
+        body: JSON.stringify({ session_id: sessionId, message, language }),
       });
       if (!res.ok) throw new Error("Server error");
       const data = await res.json();

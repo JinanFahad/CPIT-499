@@ -1,75 +1,128 @@
-# =====================================================================
-# financial_engine.py — حسابات الجدوى المالية
+# financial_engine.py
+# Core financial calculation engine for the platform.
 #
-# المنطق الأساسي:
-#   - المستخدم يدخل "العملاء المتوقعين يومياً" كهدف بعد استقرار المشروع.
-#   - نطبّق منحنى تدرّج (Ramp-up) لـ 6 أشهر:
-#       شهر 1: 50% من الهدف، شهر 2: 60%، ... شهر 6+: 100%
-#   - المؤشرات الرئيسية (هامش الربح، فترة الاسترداد، ...) تُحسب على
-#     أرقام التشغيل المستقر (شهر 6+) — لأن تقييم المشروع ما يصير من شهر 1.
-#   - فترة الاسترداد تُحسب على التدفق التراكمي الواقعي (مع التدرّج).
-#   - نُرجع توقع 12 شهر شهر-بشهر للعرض في الجدول/الرسم.
-# =====================================================================
+# How it works:
+#   - The user inputs an expected daily customer count as the steady-state
+#     target after the project stabilizes.
+#   - A 6-month ramp-up curve is applied: month 1 starts at 50% of target,
+#     reaches 100% at month 6 and beyond.
+#   - All headline metrics (margin, payback, etc.) are computed from the
+#     steady-state numbers, not from month 1 — a new project is not judged
+#     by its first month.
+#   - Payback period is computed from the actual cumulative cash flow
+#     including the ramp-up losses.
+#   - A month-by-month 12-month projection is returned for charts and tables.
 
 from saudi_assumptions import (
-    DEFAULT_COGS,                # نسبة تكلفة المواد لكل نوع نشاط
-    UTILITIES_RATE,              # نسبة المرافق من الإيراد
-    OVERHEAD_RATE,               # نسبة التشغيل العام من الإيراد
-    MARKETING_RATE,              # نسبة التسويق من الإيراد
-    YEARLY_REVENUE_GROWTH,       # نمو سنوي للإيراد (السنة 2 و 3)
-    YEARLY_COST_INFLATION,       # تضخم سنوي للرواتب والإيجار
-    calculate_staff_salaries,    # توزيع الموظفين على الأدوار وحساب إجمالي الرواتب
-    calculate_capital_allocation,  # توزيع رأس المال على بنود التأسيس
+    DEFAULT_COGS,
+    UTILITIES_RATE,
+    OVERHEAD_RATE,
+    MARKETING_RATE,
+    YEARLY_REVENUE_GROWTH,
+    YEARLY_COST_INFLATION,
+    calculate_staff_salaries,
+    calculate_capital_allocation,
 )
 from success_predictor import predict_project_outcome
 
-# منحنى التدرّج: شهر 1 = 50%، شهر 6+ = 100% (زيادة 10% شهرياً)
+# Ramp-up curve constants: month 1 = 50%, month 6+ = 100% (10% step per month).
 RAMP_UP_MONTHS = 6
 RAMP_UP_START = 0.5
 
-# نتوقع تدفقات تصل لـ 10 سنوات لحساب فترة الاسترداد لو طالت
+# Upper bound when searching for payback period (10 years).
 PAYBACK_MAX_MONTHS = 120
 
-# عدد سنوات التوقع المعروضة للمستخدم
+# Number of years projected in the multi-year summary returned to the UI.
 PROJECTION_YEARS = 3
 
 
 def _ramp_factor(month: int) -> float:
-    """نسبة الإيراد المتوقعة في شهر معيّن قياساً على هدف الاستقرار.
-    شهر 1 → 0.5، شهر 6+ → 1.0"""
+    """Return the revenue ramp factor for a given month (1.0 = steady-state)."""
     if month >= RAMP_UP_MONTHS:
         return 1.0
     return RAMP_UP_START + (1.0 - RAMP_UP_START) * (month - 1) / (RAMP_UP_MONTHS - 1)
 
 
 def calculate_financials(data, language: str = "ar"):
-    """يحسب كل المؤشرات المالية للمشروع ويرجع dict جاهز للحفظ"""
-    # ── المدخلات الأساسية ──
-    business_type = data.get("business_type", "restaurant")
-    capital = float(data["capital"])
-    rent = float(data.get("rent") or 0)
-    employees = int(data.get("employees") or 0)
-    avg_price = float(data.get("avg_price") or 0)
-    customers_per_day = float(data.get("customers_per_day") or 0)
+    """Compute every financial metric for a project and return them as a dict.
 
-    # ── نسبة تكلفة المواد (COGS) ──
-    if data.get("cogs_known") and data.get("cogs_percent"):
-        cogs_rate = float(data["cogs_percent"]) / 100
+    Raises:
+        ValueError: when an input is missing, non-numeric, or out of range.
+    """
+    # Top-level input shape check.
+    if not isinstance(data, dict):
+        raise ValueError("data must be a dict")
+
+    business_type = data.get("business_type", "restaurant")
+    if not isinstance(business_type, str) or not business_type:
+        raise ValueError("business_type must be a non-empty string")
+
+    # Safe number-coercion helpers. They raise ValueError with the offending
+    # field name so the caller can return a clean 400 with a useful message.
+    def _to_float(value, field_name, allow_none=False, default=0.0, min_value=None):
+        if value is None or value == "":
+            if allow_none:
+                return default
+            raise ValueError(f"{field_name} is required")
+        try:
+            result = float(value)
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"{field_name} must be a number, got: {value!r}") from e
+        if min_value is not None and result < min_value:
+            raise ValueError(f"{field_name} must be >= {min_value}, got {result}")
+        return result
+
+    def _to_int(value, field_name, allow_none=False, default=0, min_value=None):
+        if value is None or value == "":
+            if allow_none:
+                return default
+            raise ValueError(f"{field_name} is required")
+        try:
+            result = int(float(value))
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"{field_name} must be an integer, got: {value!r}") from e
+        if min_value is not None and result < min_value:
+            raise ValueError(f"{field_name} must be >= {min_value}, got {result}")
+        return result
+
+    # Capital is mandatory and must be strictly positive.
+    if "capital" not in data:
+        raise ValueError("capital is required")
+    capital = _to_float(data["capital"], "capital", min_value=1)
+    rent = _to_float(data.get("rent"), "rent", allow_none=True, min_value=0)
+    employees = _to_int(data.get("employees"), "employees", allow_none=True, min_value=0)
+    avg_price = _to_float(data.get("avg_price"), "avg_price", allow_none=True, min_value=0)
+    customers_per_day = _to_float(data.get("customers_per_day"), "customers_per_day",
+                                  allow_none=True, min_value=0)
+
+    # Sanity check: zero revenue makes the rest of the math meaningless, so log
+    # a warning. The flow still runs because the user may be exploring inputs.
+    if avg_price * customers_per_day == 0:
+        import logging
+        logging.getLogger(__name__).warning(
+            "calculate_financials: avg_price (%s) x customers_per_day (%s) = 0",
+            avg_price, customers_per_day,
+        )
+
+    # Cost of goods sold (COGS). Either user-provided or a sector default.
+    if data.get("cogs_known") and data.get("cogs_percent") not in (None, ""):
+        cogs_rate = _to_float(data["cogs_percent"], "cogs_percent", min_value=0) / 100
+        if cogs_rate >= 1:
+            raise ValueError(f"cogs_percent must be < 100 (got {cogs_rate * 100})")
     else:
         cogs_rate = DEFAULT_COGS.get(business_type, 0.40)
 
-    # ── الإيراد المستهدف بعد الاستقرار (شهر 6+) ──
-    # نحسب الشهر بـ 28 يوم (احتياطي للإجازات وأيام انخفاض الإقبال)
+    # Steady-state revenue. 28-day months account for holidays / slow days.
     steady_daily_revenue = avg_price * customers_per_day
     steady_monthly_revenue = steady_daily_revenue * 28
 
-    # ── التكاليف الثابتة (لا تتأثر بتدرّج الإيراد) ──
+    # Fixed costs do not change with ramp-up. Variable costs are a percentage
+    # of revenue, so they scale automatically with the ramp.
     staff = calculate_staff_salaries(employees)
     salaries = staff["total"]
     salary_breakdown = staff["breakdown"]
-    fixed_monthly_costs = rent + salaries  # رواتب + إيجار = ثابتة من اليوم الأول
+    fixed_monthly_costs = rent + salaries
 
-    # ── النسبة الإجمالية للتكاليف المتغيرة (% من الإيراد) ──
     variable_cost_rate = (
         cogs_rate +
         UTILITIES_RATE +
@@ -78,27 +131,25 @@ def calculate_financials(data, language: str = "ar"):
     )
 
     def project_month(month_num: int) -> dict:
-        """يحسب أرقام شهر معيّن مع منحنى التدرّج (سنة 1) أو نمو سنوي (سنة 2+).
+        """Compute one month's revenue, expenses, and profit.
 
-        - سنة 1 (شهر 1-12): يطبّق منحنى التدرّج، بدون تضخم.
-        - سنة 2 (شهر 13-24): إيراد +10%، تكاليف ثابتة +5%.
-        - سنة 3 (شهر 25-36): إيراد ×1.21 من الأساس، تكاليف ×1.10 من الأساس.
+        Year 1 (months 1-12) applies the ramp-up curve with no inflation.
+        Year 2 (months 13-24) scales revenue by +growth% and fixed costs by
+        +inflation%. Year 3 compounds the same factors a second time.
         """
-        year_index = (month_num - 1) // 12  # 0 لسنة 1، 1 لسنة 2، 2 لسنة 3...
+        year_index = (month_num - 1) // 12
 
         if year_index == 0:
-            # سنة 1: تطبيق منحنى التدرّج
             ramp = _ramp_factor(month_num)
             revenue = steady_monthly_revenue * ramp
             inflated_fixed = fixed_monthly_costs
             display_pct = round(ramp * 100)
         else:
-            # سنة 2+: إيراد ينمو + تكاليف ثابتة تتضخم سنوياً
             growth   = (1 + YEARLY_REVENUE_GROWTH) ** year_index
             inflate  = (1 + YEARLY_COST_INFLATION) ** year_index
             revenue  = steady_monthly_revenue * growth
             inflated_fixed = fixed_monthly_costs * inflate
-            display_pct = round(growth * 100)  # 110 / 121 / ...
+            display_pct = round(growth * 100)
 
         variable_costs = revenue * variable_cost_rate
         expenses = inflated_fixed + variable_costs
@@ -107,32 +158,32 @@ def calculate_financials(data, language: str = "ar"):
         return {
             "month":         month_num,
             "year":          year_index + 1,
-            "ramp_percent":  display_pct,  # 50-100% في سنة 1، 110%/121% في 2/3
+            "ramp_percent":  display_pct,
             "revenue":       round(revenue, 2),
             "expenses":      round(expenses, 2),
             "net_profit":    round(profit, 2),
         }
 
-    # ── توقّع شهر-بشهر لـ 36 شهر (3 سنوات) ──
+    # Build the full 3-year, month-by-month projection up front.
     full_projection = [project_month(m) for m in range(1, PROJECTION_YEARS * 12 + 1)]
-    monthly_projection = full_projection[:12]  # سنة 1 فقط (للرسم القصير الموجود)
+    monthly_projection = full_projection[:12]
 
-    # ── أرقام التشغيل المستقر (شهر 6+) — هذه هي اللي نقيّم بها المشروع ──
+    # The headline metrics use the steady-state month, not month 1.
     steady = project_month(RAMP_UP_MONTHS)
     monthly_revenue   = steady["revenue"]
     monthly_expenses  = steady["expenses"]
     net_profit        = steady["net_profit"]
     profit_margin     = (net_profit / monthly_revenue) if monthly_revenue > 0 else 0
 
-    # ── شهر 1 (للعرض كمقارنة في الواجهة) ──
     month_1 = monthly_projection[0]
 
-    # ── إجماليات السنة الأولى (مع التدرّج) ──
     year_1_total_revenue  = sum(m["revenue"] for m in monthly_projection)
     year_1_total_expenses = sum(m["expenses"] for m in monthly_projection)
     year_1_total_profit   = sum(m["net_profit"] for m in monthly_projection)
 
-    # ── إجماليات السنوات 2 و 3 + الربح التراكمي ──
+    # Per-year totals and a running cumulative profit. cumulative_roi_pct
+    # measures how much of the initial capital has been recovered (100% =
+    # fully recouped).
     yearly_summary = []
     cumulative_so_far = 0.0
     for y in range(1, PROJECTION_YEARS + 1):
@@ -147,11 +198,11 @@ def calculate_financials(data, language: str = "ar"):
             "expenses":           round(y_expenses, 2),
             "net_profit":         round(y_profit, 2),
             "cumulative_profit":  round(cumulative_so_far, 2),
-            # ROI تراكمي: نسبة استرداد رأس المال (100% = استرداد كامل)
             "cumulative_roi_pct": round(cumulative_so_far / capital * 100, 2) if capital > 0 else 0,
         })
 
-    # منحنى الربح التراكمي شهر-بشهر (للرسم البياني — فترة الاسترداد ظاهرة بصرياً)
+    # Month-by-month cumulative-profit curve used by the chart that visualizes
+    # the payback point graphically.
     cumulative_profit_curve = []
     running = 0.0
     for m in full_projection:
@@ -163,26 +214,27 @@ def calculate_financials(data, language: str = "ar"):
             "remaining_to_recoup": round(max(capital - running, 0), 2),
         })
 
-    # ROI بعد 3 سنوات (ربح صافي / رأس المال)
     total_3_year_profit = yearly_summary[-1]["cumulative_profit"]
     roi_3_year_percent = round(total_3_year_profit / capital * 100, 2) if capital > 0 else 0
 
-    # ── نقطة التعادل ──
+    # Break-even revenue: minimum monthly revenue at which fixed costs are
+    # exactly covered, accounting for the variable-cost percentage.
     break_even_revenue = (
         fixed_monthly_costs / (1 - variable_cost_rate)
         if variable_cost_rate < 1 else 0
     )
 
-    # أول شهر يصل فيه الإيراد المتوقع لنقطة التعادل
+    # First month where projected revenue meets or exceeds break-even.
     break_even_month = None
     for m in monthly_projection:
         if m["revenue"] >= break_even_revenue:
             break_even_month = m["month"]
             break
 
-    # ── فترة الاسترداد الواقعية (بناءً على التدفق التراكمي) ──
-    # نتتبّع التراكم من شهر 1 (مع الخسائر المتوقعة في البداية) لحد ما يتجاوز
-    # رأس المال. لو ما تجاوزه خلال 10 سنوات، نرجع None.
+    # Realistic payback period: walk forward month by month, adding each
+    # month's net profit (which is negative during the ramp-up) until the
+    # running total covers the initial capital. Returns None if payback
+    # does not occur within the 10-year search window.
     payback_months = None
     cumulative = 0.0
     for month in range(1, PAYBACK_MAX_MONTHS + 1):
@@ -192,12 +244,13 @@ def calculate_financials(data, language: str = "ar"):
             payback_months = month
             break
 
-    # ── توزيع رأس المال على بنود التأسيس ──
-    # نوزّعه بناءً على نوع المشروع (الكافيه ≠ الفاست فود في الاحتياجات)
+    # Allocate the initial capital across the standard setup categories.
+    # The allocation is sector-specific (a cafe and a fast-food setup spend
+    # differently on equipment, fit-out, and inventory).
     capital_breakdown = calculate_capital_allocation(business_type, capital)
 
-    # ── التنبؤ بنجاح/فشل المشروع ──
-    # نمرّر النتائج المالية + الاحتياطي + درجة السوق (لو متوفّرة) لمحرك التنبؤ
+    # Five-factor success prediction. Combines the financials, the operating
+    # cushion, and (optionally) the market score from market_ai.
     market_score = data.get("market_opportunity_score")
     success_prediction = predict_project_outcome(
         financials={
@@ -211,14 +264,14 @@ def calculate_financials(data, language: str = "ar"):
         language=language,
     )
 
-    # ── تفاصيل التكلفة (على أرقام التشغيل المستقر للعرض في الجداول) ──
+    # Detailed steady-state cost breakdown for the report tables.
     cogs_steady      = monthly_revenue * cogs_rate
     utilities_steady = monthly_revenue * UTILITIES_RATE
     overhead_steady  = monthly_revenue * OVERHEAD_RATE
     marketing_steady = monthly_revenue * MARKETING_RATE
 
     return {
-        # ── المؤشرات الرئيسية (تشغيل مستقر، شهر 6+) ──
+        # Headline metrics (steady-state, month 6+).
         "monthly_revenue":         round(monthly_revenue, 2),
         "monthly_expenses":        round(monthly_expenses, 2),
         "monthly_net_profit":      round(net_profit, 2),
@@ -226,7 +279,7 @@ def calculate_financials(data, language: str = "ar"):
         "break_even_revenue":      round(break_even_revenue, 2),
         "payback_period_months":   payback_months,
 
-        # ── مؤشرات التدرّج (جديد) ──
+        # Ramp-up metrics for the year-1 journey view.
         "month_1_revenue":         month_1["revenue"],
         "month_1_net_profit":      month_1["net_profit"],
         "break_even_month":        break_even_month,
@@ -236,7 +289,7 @@ def calculate_financials(data, language: str = "ar"):
         "year_1_total_profit":     round(year_1_total_profit, 2),
         "ramp_up_months":          RAMP_UP_MONTHS,
 
-        # ── تفصيل التكلفة ──
+        # Cost breakdown (steady-state).
         "salaries_total":          round(salaries, 2),
         "salary_breakdown":        salary_breakdown,
         "utilities_cost":          round(utilities_steady, 2),
@@ -244,7 +297,7 @@ def calculate_financials(data, language: str = "ar"):
         "marketing_cost":          round(marketing_steady, 2),
         "cogs_cost":               round(cogs_steady, 2),
 
-        # ── توقّع ٣ سنوات (تفصيلي) ──
+        # Three-year projection.
         "yearly_summary":          yearly_summary,
         "cumulative_profit_curve": cumulative_profit_curve,
         "total_3_year_profit":     round(total_3_year_profit, 2),
@@ -252,20 +305,21 @@ def calculate_financials(data, language: str = "ar"):
         "yearly_revenue_growth":   YEARLY_REVENUE_GROWTH,
         "yearly_cost_inflation":   YEARLY_COST_INFLATION,
 
-        # توافق مع الكود القديم: year_1/2/3_revenue (مكرّرة من yearly_summary)
+        # Per-year revenue copies kept for backward compatibility with the
+        # pitch deck builder and older parts of the UI.
         "year_1_revenue":          yearly_summary[0]["revenue"],
         "year_2_revenue":          yearly_summary[1]["revenue"],
         "year_3_revenue":          yearly_summary[2]["revenue"],
 
         "funding_needed":          round(capital, 2),
 
-        # ── ميزات جديدة: توزيع رأس المال + التنبؤ ──
+        # Capital allocation + outcome prediction.
         "capital_allocation":      capital_breakdown["allocation"],
         "operating_cushion":       capital_breakdown["cushion_amount"],
         "success_prediction":      success_prediction,
 
-        # ── ملخص المدخلات: عشان المستخدم يشوف بياناته في التقرير ──
-        # هذي القيم اللي دخلها بنفسه (رأس المال، الموظفين، السعر، إلخ)
+        # Echo of the user-provided inputs so they can be shown back in the
+        # report for transparency and reproducibility.
         "inputs_summary": {
             "capital":           round(capital, 2),
             "rent":              round(rent, 2),

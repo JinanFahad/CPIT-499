@@ -511,7 +511,7 @@ export default function MyProjectsPageNew() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 10 }}
-              className="bg-white dark:bg-gray-200 rounded-2xl p-8 max-w-md w-full shadow-2xl border border-gray-200 overflow-hidden"
+              className="bg-white dark:bg-[#0E4A43] rounded-2xl p-8 max-w-md w-full shadow-2xl border border-gray-200 dark:border-[#C6A75E]/30 overflow-hidden relative"
               onClick={(e) => e.stopPropagation()}
             >
               {/* شريط ملوّن في الأعلى */}
@@ -525,28 +525,28 @@ export default function MyProjectsPageNew() {
                 <div
                   className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${
                     notice.type === "success"
-                      ? "bg-[#FFF9F0] border-2 border-[#C6A75E]"
-                      : "bg-red-50 border-2 border-red-300"
+                      ? "bg-[#FFF9F0] dark:bg-[#C6A75E]/15 border-2 border-[#C6A75E]"
+                      : "bg-red-50 dark:bg-red-500/15 border-2 border-red-300 dark:border-red-400/50"
                   }`}
                 >
                   {notice.type === "success" ? (
                     <CheckCircle2 className="w-11 h-11 text-[#C6A75E]" />
                   ) : (
-                    <AlertCircle className="w-11 h-11 text-red-500" />
+                    <AlertCircle className="w-11 h-11 text-red-500 dark:text-red-300" />
                   )}
                 </div>
-                <h3 className="text-2xl font-bold text-[#08312D] mb-3 font-[Changa]">
+                <h3 className="text-2xl font-bold text-[#08312D] dark:text-white mb-3 font-[Changa]">
                   {notice.title}
                 </h3>
-                <p className="text-gray-600 text-base leading-relaxed mb-6 font-[Changa]">
+                <p className="text-gray-600 dark:text-white/80 text-base leading-relaxed mb-6 font-[Changa]">
                   {notice.message}
                 </p>
                 <button
                   onClick={() => setNotice(null)}
                   className={`w-full font-bold py-4 rounded-xl transition-all font-[Changa] text-white ${
                     notice.type === "success"
-                      ? "bg-[#08312D] hover:bg-[#0E4A43]"
-                      : "bg-gray-700 hover:bg-gray-800"
+                      ? "bg-[#08312D] hover:bg-[#0E4A43] dark:bg-[#C6A75E] dark:hover:bg-[#a88f4e] dark:text-[#08312D]"
+                      : "bg-gray-700 hover:bg-gray-800 dark:bg-red-500/30 dark:hover:bg-red-500/40 dark:text-white"
                   }`}
                 >
                   {isAr ? "تمام" : "OK"}

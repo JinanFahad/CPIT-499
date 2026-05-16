@@ -1,104 +1,132 @@
-# =====================================================================
-# app.py — السيرفر الرئيسي لمنصة "مُقدِّم"
-# هذا الملف يربط كل أجزاء النظام:
-#   - يستقبل الطلبات من الفرونت اند (React)
-#   - ينادي محركات الذكاء الاصطناعي والحسابات المالية
-#   - يولّد ملفات PDF و PowerPoint
-#   - يحفظ ويسترجع البيانات من قاعدة البيانات
-# =====================================================================
+# app.py
+# Main Flask API server for the Muqaddim platform. Wires every backend
+# component together: receives requests from the React frontend, invokes the
+# AI and finance engines, generates PDF and PowerPoint outputs, and persists
+# results to SQLite.
 
-from flask import Flask, request, jsonify, render_template, make_response, send_file, after_this_request
+# =====================================================================
+# Standard library imports.
+# =====================================================================
 import os
 import uuid
 import json
+import tempfile
+import traceback
+
+# =====================================================================
+# Third-party imports.
+# =====================================================================
 import requests
+from flask import Flask, request, jsonify, make_response, send_file, after_this_request
+from flask_cors import CORS
 from dotenv import load_dotenv
 from openai import OpenAI
 
-# نحمّل متغيرات البيئة من .env قبل أي استيراد يحتاجها (OpenAI, SMTP, ...)
-# override=True يضمن إن القيم في .env تطغى على أي قيم قديمة في ذاكرة النظام
+# Load .env BEFORE any import that may read OPENAI_API_KEY / SMTP_* etc.
+# override=True ensures that values in .env take precedence over anything
+# already present in the process environment.
 load_dotenv(override=True)
 
-# ── محركات توليد التقارير والعروض ──
-from pdf_generator import build_feasibility_pdf          # يحوّل التقرير إلى ملف PDF احترافي
-from ai_pitch_engine import generate_pitch_deck_json      # يولّد محتوى العرض التقديمي بالـ AI
-from ppt_builder import build_pptx                        # يحوّل JSON إلى ملف PowerPoint
-from email_sender import send_file_via_email              # إرسال الملفات للمستخدم على إيميله
+# =====================================================================
+# Internal imports — file generators (PDF / PowerPoint / Email).
+# =====================================================================
+from pdf_generator import build_feasibility_pdf
+from ppt_builder import build_pptx
+from email_sender import send_file_via_email
 
-# ── محركات الحساب والقرار ──
-from financial_engine import calculate_financials         # حسابات الإيراد، المصاريف، هامش الربح
-from decision_engine import classify_project              # يصنّف المشروع: مناسب / متوسط / مخاطرة عالية
+# =====================================================================
+# Internal imports — calculation and decision engines.
+# =====================================================================
+from financial_engine import calculate_financials
+from decision_engine import classify_project
 
-# ── محركات الذكاء الاصطناعي ──
-from ai_report_engine import generate_feasibility_report, enrich_project_data
+# =====================================================================
+# Internal imports — AI engines and their custom exceptions.
+# =====================================================================
+from ai_report_engine import (
+    generate_feasibility_report,
+    enrich_project_data,
+    AIServiceUnavailable,
+    AIResponseInvalid,
+)
+from ai_pitch_engine import (
+    generate_pitch_deck_json,
+    PitchGenerationError,
+    PitchServiceUnavailable,
+    PitchResponseInvalid,
+)
+from ai_advisor import (
+    chat_with_advisor,
+    AdvisorServiceUnavailable,
+    AdvisorResponseInvalid,
+)
 from market_ai import build_competitor_summary, generate_market_analysis_ar
 from gov_consultant import gov_chat, clear_gov_session, get_gov_suggestions
+from report_translator import get_or_create_translation
 
-# ── إعدادات وثوابت ──
+# =====================================================================
+# Internal imports — domain config, validators, database.
+# =====================================================================
 from business_types import BUSINESS_TYPES, get_google_type, get_label_ar, get_label, is_valid_type
 from saudi_assumptions import DEFAULT_SALARY
 from validators import validate_feasibility_input
-
-# ── قاعدة البيانات (SQLite) ──
 from database import (
-    init_db, save_report, get_all_reports, get_report_by_id, delete_report, update_report,
+    init_db,
+    save_report, get_all_reports, get_report_by_id, delete_report, update_report,
     save_project, get_projects_by_user, get_project_by_id, update_project, delete_project,
+    mark_pitch_deck_generated,
 )
 
+# =====================================================================
+# App initialization, CORS, global clients, DB bootstrap.
+# =====================================================================
 app = Flask(__name__)
 
-# تفعيل CORS عشان الفرونت اند (بورت 5173) يقدر يتواصل مع الباك اند (بورت 5000)
-# expose_headers ضروري عشان المتصفح يسمح للفرونت يقرأ هيدر X-Report-Id
-from flask_cors import CORS
+# CORS lets the frontend (running on its own dev port) talk to this server.
+# expose_headers is required so the browser allows the frontend code to read
+# the X-Report-Id header we send back with PDF responses.
 CORS(app, expose_headers=["X-Report-Id"])
 
-# مفتاح Google API (للخرائط وقوقل بلايسز)
+# Google Maps / Places API key. Used for the nearby-competitors lookup.
 GOOGLE_API_KEY = "AIzaSyCMVLHJiz-3hOnp-oOPPE2r72fjKwf6xcQ"
 
-# عميل OpenAI (يقرأ المفتاح تلقائياً من متغير البيئة OPENAI_API_KEY)
+# OpenAI client. The SDK picks up OPENAI_API_KEY automatically.
 client = OpenAI()
 
-# إنشاء جداول قاعدة البيانات لو ما كانت موجودة
+# Create tables on startup if they don't exist yet.
 init_db()
 
 
 # =====================================================================
-# نقطة فحص بسيطة — للتأكد إن السيرفر شغّال
+# Health check.
 # =====================================================================
 @app.get("/")
 def home():
     return "Muqaddim Backend Running"
 
 
-@app.get("/advisor")
-def advisor_page():
-    return render_template("advisor.html")
-
-
 # =====================================================================
-# توليد تقرير دراسة الجدوى (PDF)
-# هذا أهم endpoint في النظام — يستقبل بيانات المشروع ويولّد PDF كامل
-# الخطوات:
-#   1) يتحقق من نوع المشروع
-#   2) يستخرج بيانات إضافية بالـ AI (target_customers, value_proposition)
-#   3) يحسب الأرقام المالية
-#   4) يصنّف المشروع (قابل للاستثمار أو لا)
-#   5) إذا فيه إحداثيات → يستدعي قوقل بلايسز للمنافسين الحقيقيين
-#   6) يولّد التقرير الكامل بالـ AI
-#   7) يحفظ التقرير في قاعدة البيانات
-#   8) يحوّل التقرير إلى ملف PDF ويرجعه
+# Feasibility report — generation and email delivery.
+# Main pipeline of the platform:
+#   1. Validate the request body.
+#   2. Use AI to produce a target_customers and value_proposition pair.
+#   3. Run financial calculations.
+#   4. Classify the project (suitable / moderate / high risk).
+#   5. If lat/lng provided, query Google Places for nearby competitors.
+#   6. Have the AI generate the full report JSON.
+#   7. Persist the report and return the PDF bytes.
 # =====================================================================
 @app.post("/api/feasibility/report-pdf")
 def report_pdf():
     data = request.get_json() or {}
 
-    # ── فاليديشن المدخلات (Defense in Depth) ──
-    # نتحقق حتى لو الفرونت يفلتر، عشان نحمي من Postman/scripts خارجية
+    # Defense in depth: validate again on the server even though the frontend
+    # also validates. Direct callers (Postman, scripts) can bypass the UI.
     is_valid, error_msg = validate_feasibility_input(data)
     if not is_valid:
         return jsonify({"error": error_msg}), 400
 
-    # ── البيانات الأساسية اللي يدخلها المستخدم ──
+    # Core user inputs.
     business_type     = data.get("business_type", "restaurant")
     city              = data.get("city", "غير محدد")
     capital           = data.get("capital", 100000)
@@ -109,155 +137,174 @@ def report_pdf():
     lat               = data.get("lat")
     lng               = data.get("lng")
 
-    # لغة التقرير: "ar" (افتراضي) أو "en" — تأتي من الفرونت بناءً على اختيار المستخدم
+    # Report language: 'ar' (default) or 'en'. Sent by the frontend based on
+    # the user's current UI selection.
     language = (data.get("language") or "ar").lower()
     if language not in ("ar", "en"):
         language = "ar"
 
-    # التحقق من إن نوع المشروع مدعوم
     if not is_valid_type(business_type):
         return jsonify({
             "error": "نوع المشروع غير مدعوم",
             "supported_types": list(BUSINESS_TYPES.keys())
         }), 400
 
-    # AI يولّد بيانات إضافية تلقائياً (العملاء المستهدفون + عرض القيمة)
-    enriched = enrich_project_data(business_type, city, language=language)
+    # Heavy work starts here (AI calls, calculations, PDF rendering). The
+    # whole block is wrapped in try/except so we can map domain errors to
+    # specific HTTP codes instead of returning a generic 500.
+    is_en = language == "en"
+    try:
+        # AI generates the target_customers and value_proposition fields.
+        enriched = enrich_project_data(business_type, city, language=language)
 
-    # تخصص المطعم (اختياري) — مثل: "كافيه قهوة مختصة"، "مطعم برجر فاخر"
-    restaurant_type = (data.get("restaurant_type") or "").strip()
-    project_type_for_market = restaurant_type or get_label(business_type, language)
+        # Optional restaurant specialty entered by the user (e.g. "specialty
+        # coffee cafe", "premium burger restaurant").
+        restaurant_type = (data.get("restaurant_type") or "").strip()
+        project_type_for_market = restaurant_type or get_label(business_type, language)
 
-    # المستخدم يقدر يكتب جمهوره المستهدف بنفسه (يطغى على الـ AI)
-    user_target_customers = (data.get("target_customers") or "").strip()
-    main_products = data.get("main_products") or []
+        # The user can override the AI-generated target customers description.
+        user_target_customers = (data.get("target_customers") or "").strip()
+        main_products = data.get("main_products") or []
 
-    full_data = {
-        "business_type": business_type,
-        "restaurant_type": restaurant_type,
-        "city": city,
-        "capital": capital,
-        "rent": rent,
-        "employees": employees,
-        "avg_price": avg_price,
-        "customers_per_day": customers_per_day,
-        "avg_salary": DEFAULT_SALARY,
-        "cogs_known": False,
-        "target_customers": user_target_customers or enriched["target_customers"],
-        "value_proposition": enriched["value_proposition"],
-        "main_products": main_products,
-        "competitors": [],
-        "market_notes": "",
-        "pricing_notes": "",
-    }
-
-    financials = calculate_financials(full_data, language=language)
-
-    decision = classify_project(
-        profit_margin_percent=financials["profit_margin_percent"],
-        payback_months=financials["payback_period_months"],
-        success_prediction=financials.get("success_prediction"),  # تصنيف موحّد مع تنبؤ النجاح
-        language=language,
-    )
-
-    market_data = {
-        "business_type": get_label(business_type, language),
-        "restaurant_type": restaurant_type,
-        "city": city,
-        "target_customers": full_data["target_customers"],
-        "value_proposition": full_data["value_proposition"],
-        "main_products": main_products,
-        "competitors": [],
-        "market_notes": "",
-        "pricing_notes": "",
-    }
-
-    report = generate_feasibility_report(financials, decision, market_data, language=language)
-
-
-    # ── تحليل السوق عبر قوقل بلايسز (اختياري — فقط لو المستخدم حدد موقع) ──
-    market_analysis   = None  # تحليل ذكاء اصطناعي للمنافسين
-    competitor_places = []    # قائمة المطاعم المجاورة الحقيقية
-
-    if lat and lng:
-        try:
-            # جلب المطاعم المجاورة من قوقل بلايسز في نطاق ١٥٠٠ متر
-            places_res = requests.post(
-                "https://places.googleapis.com/v1/places:searchNearby",
-                headers={
-                    "Content-Type": "application/json",
-                    "X-Goog-Api-Key": GOOGLE_API_KEY,
-                    "X-Goog-FieldMask": (
-                        "places.id,places.displayName,places.rating,"
-                        "places.userRatingCount,places.formattedAddress,"
-                        "places.types,places.primaryType,places.primaryTypeDisplayName"
-                    ),
-                },
-                json={
-                    "includedTypes": [get_google_type(business_type)],
-                    "maxResultCount": 20,
-                    "locationRestriction": {
-                        "circle": {
-                            "center": {"latitude": float(lat), "longitude": float(lng)},
-                            "radius": 1500,
-                        }
-                    },
-                },
-            ).json()
-
-            places = places_res.get("places", [])
-            if places:
-                summary           = build_competitor_summary(places)
-                market_analysis = generate_market_analysis_ar(
-    project_type_for_market,
-    city,
-    1500,
-    summary,
-    language=language,
-)
-                competitor_places = summary["all_competitors"]
-
-        except Exception as e:
-            print(f"[market analysis skipped] {e}")
-
-    # ── دمج بيانات قوقل بلايسز الحقيقية مع التقرير قبل الحفظ ──
-    # عشان عارض التقرير الداخلي (داخل التطبيق) يقدر يعرض المنافسين الحقيقيين.
-    # بدون هذا الدمج، التقرير المحفوظ ما يحتوي إلا على تحليل AI نظري بدون أرقام واقعية.
-    if market_analysis:
-        existing_ma = report.get("market_analysis", {}) or {}
-        report["market_analysis"] = {
-            **existing_ma,
-            **market_analysis,
+        full_data = {
+            "business_type": business_type,
+            "restaurant_type": restaurant_type,
+            "city": city,
+            "capital": capital,
+            "rent": rent,
+            "employees": employees,
+            "avg_price": avg_price,
+            "customers_per_day": customers_per_day,
+            "avg_salary": DEFAULT_SALARY,
+            "cogs_known": False,
+            "target_customers": user_target_customers or enriched["target_customers"],
+            "value_proposition": enriched["value_proposition"],
+            "main_products": main_products,
+            "competitors": [],
+            "market_notes": "",
+            "pricing_notes": "",
         }
-    if competitor_places:
-        report["competitor_places"] = competitor_places
 
-    report_id = save_report(report)
+        financials = calculate_financials(full_data, language=language)
 
-    pdf_bytes = build_feasibility_pdf(
-        report=report,
-        market_analysis=market_analysis,
-        competitor_places=competitor_places,
-        language=language,
-    )
+        decision = classify_project(
+            profit_margin_percent=financials["profit_margin_percent"],
+            payback_months=financials["payback_period_months"],
+            success_prediction=financials.get("success_prediction"),  # تصنيف موحّد مع تنبؤ النجاح
+            language=language,
+        )
 
-    # رجّع الـ PDF كاستجابة + رقم التقرير في الهيدر (الفرونت يربطه بالمشروع)
-    resp = make_response(pdf_bytes)
-    resp.headers["Content-Type"] = "application/pdf"
-    resp.headers["Content-Disposition"] = 'attachment; filename="feasibility_report.pdf"'
-    resp.headers["X-Report-Id"] = str(report_id)
-    return resp
+        market_data = {
+            "business_type": get_label(business_type, language),
+            "restaurant_type": restaurant_type,
+            "city": city,
+            "target_customers": full_data["target_customers"],
+            "value_proposition": full_data["value_proposition"],
+            "main_products": main_products,
+            "competitors": [],
+            "market_notes": "",
+            "pricing_notes": "",
+        }
+
+        report = generate_feasibility_report(financials, decision, market_data, language=language)
+
+        # Market analysis via Google Places (only if the user pinned a
+        # location). Wrapped in its own try/except so a market lookup failure
+        # does not block the whole report.
+        market_analysis   = None
+        competitor_places = []
+
+        if lat and lng:
+            try:
+                places_res = requests.post(
+                    "https://places.googleapis.com/v1/places:searchNearby",
+                    headers={
+                        "Content-Type": "application/json",
+                        "X-Goog-Api-Key": GOOGLE_API_KEY,
+                        "X-Goog-FieldMask": (
+                            "places.id,places.displayName,places.rating,"
+                            "places.userRatingCount,places.formattedAddress,"
+                            "places.types,places.primaryType,places.primaryTypeDisplayName"
+                        ),
+                    },
+                    json={
+                        "includedTypes": [get_google_type(business_type)],
+                        "maxResultCount": 20,
+                        "locationRestriction": {
+                            "circle": {
+                                "center": {"latitude": float(lat), "longitude": float(lng)},
+                                "radius": 1500,
+                            }
+                        },
+                    },
+                    timeout=15,
+                ).json()
+
+                places = places_res.get("places", [])
+                if places:
+                    summary = build_competitor_summary(places)
+                    market_analysis = generate_market_analysis_ar(
+                        project_type_for_market,
+                        city,
+                        1500,
+                        summary,
+                        language=language,
+                    )
+                    competitor_places = summary["all_competitors"]
+            except requests.RequestException as e:
+                print(f"[market analysis skipped — network error] {e}")
+            except Exception as e:
+                print(f"[market analysis skipped] {e}")
+
+        # Merge the real Google Places data into the AI-generated report
+        # before saving, so the internal viewer can show actual competitors.
+        if market_analysis:
+            existing_ma = report.get("market_analysis", {}) or {}
+            report["market_analysis"] = {
+                **existing_ma,
+                **market_analysis,
+            }
+        if competitor_places:
+            report["competitor_places"] = competitor_places
+
+        report_id = save_report(report)
+
+        pdf_bytes = build_feasibility_pdf(
+            report=report,
+            market_analysis=market_analysis,
+            competitor_places=competitor_places,
+            language=language,
+        )
+
+        # Return the PDF with the report id in a custom header so the
+        # frontend can link the project to the newly saved report.
+        resp = make_response(pdf_bytes)
+        resp.headers["Content-Type"] = "application/pdf"
+        resp.headers["Content-Disposition"] = 'attachment; filename="feasibility_report.pdf"'
+        resp.headers["X-Report-Id"] = str(report_id)
+        return resp
+
+    except ValueError as e:
+        # Validation error: invalid user input (negative number, wrong type).
+        return jsonify({"error": str(e)}), 400
+    except AIServiceUnavailable as e:
+        # OpenAI request failed.
+        msg = "AI service is temporarily unavailable. Please try again later." if is_en else "خدمة الذكاء الاصطناعي غير متاحة حالياً. حاولي مرة أخرى."
+        return jsonify({"error": msg, "detail": str(e)}), 503
+    except AIResponseInvalid as e:
+        # AI response could not be parsed.
+        msg = "AI returned an invalid response. Please try again." if is_en else "الذكاء الاصطناعي رد بشكل غير متوقّع. حاولي مرة أخرى."
+        return jsonify({"error": msg, "detail": str(e)}), 502
+    except Exception as e:
+        traceback.print_exc()
+        msg = "An unexpected error occurred while generating the report." if is_en else "حدث خطأ غير متوقّع أثناء توليد التقرير."
+        return jsonify({"error": msg, "detail": str(e)}), 500
 
 
-# =====================================================================
-# إرسال دراسة الجدوى للمستخدم على الإيميل
-# يأخذ report_id لتقرير محفوظ، يبني الـ PDF، ويرسله مرفقاً بالإيميل
-# =====================================================================
+# Email a saved feasibility report to the user. Takes report_id, rebuilds
+# the PDF in the requested language, and sends it as an attachment.
 @app.post("/api/feasibility/email")
 def feasibility_email():
-    import tempfile
-    from report_translator import get_or_create_translation
-
     data       = request.get_json(silent=True) or {}
     report_id  = data.get("report_id")
     email      = (data.get("email") or "").strip()
@@ -265,7 +312,7 @@ def feasibility_email():
     if language not in ("ar", "en"):
         language = "ar"
     is_en      = language == "en"
-    # اسم المشروع الافتراضي على حسب اللغة (لو ما جاي من الفرونت)
+    # Default project name (used only when the frontend did not pass one).
     project_nm = data.get("project_name") or ("Your Project" if is_en else "مشروعك")
 
     if not report_id:
@@ -277,11 +324,12 @@ def feasibility_email():
     if not report:
         return jsonify({"error": "Report not found" if is_en else "الدراسة غير موجودة"}), 404
 
-    # لو المستخدم يبغى الإيميل بالإنجليزي، نأخذ النسخة المترجمة من التقرير
+    # If the user requested English, fetch (or create) the translated copy
+    # of the report from the cache before rendering the PDF.
     if is_en:
         report, _ = get_or_create_translation(report, "en")
 
-    # نبني الـ PDF بنفس لغة المستخدم
+    # Render the PDF in the requested language.
     pdf_bytes = build_feasibility_pdf(
         report=report,
         market_analysis=report.get("market_analysis"),
@@ -289,7 +337,7 @@ def feasibility_email():
         language=language,
     )
 
-    # نحفظ الـ PDF كملف مؤقت ثم نرسله ونحذفه
+    # Write the PDF to a temp file, attach it, and delete it after sending.
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
     try:
         tmp.write(pdf_bytes)
@@ -317,7 +365,7 @@ def feasibility_email():
         msg = f"SMTP configuration missing: {e}" if is_en else f"إعداد SMTP ناقص: {e}"
         return jsonify({"error": msg}), 500
     except Exception as e:
-        import traceback; traceback.print_exc()
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
     finally:
         try:
@@ -327,17 +375,17 @@ def feasibility_email():
 
 
 # =====================================================================
-# إدارة دراسات الجدوى المحفوظة (تقارير)
+# Saved-report management — list, fetch, translate, delete.
 # =====================================================================
 @app.get("/api/reports")
 def list_reports():
-    """قائمة بكل التقارير (للوحة الإدارة مثلاً)"""
+    """Return all stored reports (used by admin/dashboard listings)."""
     return jsonify(get_all_reports())
 
 
 @app.get("/api/reports/<int:report_id>")
 def get_report(report_id):
-    """تقرير محدد بالكامل (يستخدمه عارض التقرير الداخلي + المستشار)"""
+    """Return a single report (used by the in-app viewer and the advisor)."""
     report = get_report_by_id(report_id)
     if not report:
         return jsonify({"error": "الدراسة غير موجودة"}), 404
@@ -346,13 +394,12 @@ def get_report(report_id):
 
 @app.post("/api/reports/<int:report_id>/translate")
 def translate_report_endpoint(report_id):
-    """يترجم محتوى التقرير الحرّ إلى اللغة المطلوبة (ar/en) ويخزّن النتيجة في الكاش.
+    """Translate the free-text fields of a report to the requested language
+    and cache the result inside the report itself.
 
-    Body: {"to": "en"} أو {"to": "ar"}
-    Response: التقرير بنسخته المترجمة (جاهز للعرض).
+    Body: {"to": "en"} or {"to": "ar"}.
+    Response: the translated report ready for display.
     """
-    from report_translator import get_or_create_translation
-
     data = request.get_json(silent=True) or {}
     target = (data.get("to") or "").lower()
     if target not in ("ar", "en"):
@@ -364,16 +411,16 @@ def translate_report_endpoint(report_id):
 
     translated, was_newly_translated = get_or_create_translation(report, target)
 
-    # إذا تمت ترجمة جديدة، نحدّث الـ DB بحيث الكاش يبقى محفوظاً
+    # Persist the updated _translations cache so the next request is free.
     if was_newly_translated:
-        update_report(report_id, report)  # report.get("_translations") تم تحديثه داخل الدالة
+        update_report(report_id, report)
 
     return jsonify(translated)
 
 
 @app.delete("/api/reports/<int:report_id>")
 def remove_report(report_id):
-    """حذف تقرير"""
+    """Delete a stored report."""
     deleted = delete_report(report_id)
     if not deleted:
         return jsonify({"error": "الدراسة غير موجودة"}), 404
@@ -381,92 +428,46 @@ def remove_report(report_id):
 
 
 # =====================================================================
-# المستشار الذكي — شات يجاوب على دراسة جدوى محددة
-# الـ AI يستلم التقرير كامل + سؤال المستخدم + سجل المحادثة، ويجاوب بناءً عليهم
+# AI Advisor — chat scoped to one project's feasibility report.
+# The model receives the full saved report as system context along with the
+# user's question and prior conversation history, then produces an answer.
 # =====================================================================
 @app.post("/api/advisor/chat")
 def advisor_chat():
     data      = request.get_json() or {}
-    report_id = data.get("report_id")          # رقم الدراسة اللي يبغى يسأل عنها
-    message   = data.get("message", "").strip()  # سؤال المستخدم
-    history   = data.get("history", [])          # المحادثات السابقة عشان الـ AI يفهم السياق
+    report_id = data.get("report_id")
+    message   = data.get("message", "").strip()
+    history   = data.get("history", [])
+    language  = (data.get("language") or "ar").lower()
+    if language not in ("ar", "en"):
+        language = "ar"
+    is_en = language == "en"
 
     if not message:
-        return jsonify({"error": "message مطلوب"}), 400
+        return jsonify({"error": "message required" if is_en else "message مطلوب"}), 400
     if not report_id:
-        return jsonify({"error": "report_id مطلوب"}), 400
+        return jsonify({"error": "report_id required" if is_en else "report_id مطلوب"}), 400
 
-    # نجيب الدراسة من قاعدة البيانات ونرسلها كاملة للـ AI كـ system prompt
+    # The full report is fed into the system prompt so the model can ground
+    # every answer in the actual numbers.
     report = get_report_by_id(int(report_id))
     if not report:
-        return jsonify({"error": "الدراسة غير موجودة"}), 404
+        return jsonify({"error": "Report not found" if is_en else "الدراسة غير موجودة"}), 404
 
-    # برومبت يحدد شخصية المستشار وقواعده
-    system_prompt = f"""
-أنت "المستشار الذكي" — مستشار تجاري متخصص حصرًا في تحليل دراسات الجدوى للمشاريع الصغيرة والمتوسطة في السعودية.
+    try:
+        reply = chat_with_advisor(report, message, history, language=language)
+    except AdvisorServiceUnavailable as e:
+        traceback.print_exc()
+        msg = "AI service is temporarily unavailable. Please try again." if is_en else "خدمة الذكاء الاصطناعي غير متاحة حالياً. حاولي مرة ثانية."
+        return jsonify({"error": msg, "detail": str(e)}), 503
+    except AdvisorResponseInvalid as e:
+        return jsonify({"error": "Malformed AI response", "detail": str(e)}), 502
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
-════════════════════════════════════════
-🎯 نطاق عملك الحصري:
-════════════════════════════════════════
-تساعد صاحب المشروع يفهم دراسة الجدوى المرفقة ويتخذ قرارات بناءً عليها فقط.
-يشمل ذلك:
-• شرح أرقام الدراسة (الإيراد، المصاريف، هامش الربح، فترة الاسترداد)
-• تحليل المخاطر والفرص المذكورة في الدراسة
-• مقارنة سيناريوهات تشغيلية (تخفيض تكاليف، رفع أسعار، تعديل عدد موظفين)
-• توضيح خطوات التحسين المقترحة في الدراسة
-• الإجابة عن استفسارات عامة في إدارة المشاريع الصغيرة (تسويق، تسعير، عمليات) إذا كانت ذات صلة مباشرة بمشروع صاحبك
-
-دراسة الجدوى الخاصة بمشروع صاحبك:
-{json.dumps(report, ensure_ascii=False, indent=2)}
-
-════════════════════════════════════════
-📝 قواعد الرد:
-════════════════════════════════════════
-• اشرح بلغة بسيطة وواضحة
-• استند على أرقام دراسة الجدوى دائماً
-• ركّز على الفائدة العملية لصاحب المشروع
-• لا تكرر نفس المعلومات في كل رد
-• اللغة: لو السؤال بالعربي → رد بالعربي. لو السؤال بالإنجليزي → رد بالإنجليزي.
-
-════════════════════════════════════════
-⛔ متى ترفض وكيف (مهم جداً):
-════════════════════════════════════════
-
-الحالة الأولى — سؤال عن الإجراءات الحكومية أو التراخيص أو السجلات
-(مثل: السجل التجاري، رخص البلدية، رخص الصحة، التأمينات الاجتماعية، ZATCA، نطاقات، GOSI، أي تعامل حكومي):
-→ رد بالضبط (إذا السؤال بالعربي):
-"هذا السؤال خارج نطاقي. يرجى استخدام مساعد الإجراءات الحكومية من الصفحة الرئيسية."
-
-→ رد بالضبط (إذا السؤال بالإنجليزي):
-"This question is outside my scope. Please use the Government Procedures Assistant from the home page."
-
-الحالة الثانية — سؤال لا علاقة له بدراسة الجدوى أو إدارة المشاريع نهائيًا
-(مثل: أسئلة علمية، طبية، تاريخية، ترفيهية، حيوانات، طقس، شخصية، رياضية، أو أي موضوع عشوائي):
-→ رد بالضبط (إذا السؤال بالعربي):
-"هذا السؤال خارج نطاق منصة مُقدِّم. تخصصي في تحليل دراسة جدوى مشروعك فقط."
-
-→ رد بالضبط (إذا السؤال بالإنجليزي):
-"This question is outside Muqaddim's scope. I'm specialized in analyzing your project's feasibility study only."
-
-⚠️ لا تجاوب على السؤال في الحالتين السابقتين أبداً، حتى لو كنت تعرف الإجابة.
-"""
-
-    # نبني سلسلة الرسائل: system prompt + المحادثات السابقة + السؤال الجديد
-    messages = [{"role": "system", "content": system_prompt}]
-    for h in history:
-        messages.append({"role": h["role"], "content": h["content"]})
-    messages.append({"role": "user", "content": message})
-
-    # نرسل للـ AI ونطلب رد (نموذج gpt-4o-mini أرخص ومناسب للشات)
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=messages,
-        max_tokens=800,
-    )
-
-    reply = response.choices[0].message.content
-
-    # نرجع الرد + المحادثة الكاملة المحدّثة (الفرونت يحتفظ فيها للسؤال الجاي)
+    # Return the reply along with the updated history so the frontend can
+    # send it back on the next message.
     return jsonify({
         "reply": reply,
         "history": history + [
@@ -477,8 +478,9 @@ def advisor_chat():
 
 
 # =====================================================================
-# توليد العرض التقديمي (Pitch Deck) كملف PowerPoint
-# نفس فكرة دراسة الجدوى لكن المخرج .pptx بدل .pdf
+# Pitch deck — generation and email delivery.
+# Same overall pipeline as the feasibility report, but the output format
+# is .pptx instead of .pdf.
 # =====================================================================
 @app.post("/api/pitchdeck/generate")
 def pitchdeck_generate():
@@ -518,9 +520,6 @@ def pitchdeck_generate():
             "pricing_notes":     data.get("pricing_notes", ""),
         }
 
-        # report = generate_feasibility_report(financials, decision, market_data)
-        # deck   = generate_pitch_deck_json(report, extra=market_data)
-        
         report = generate_feasibility_report(financials, decision, market_data)
         deck = generate_pitch_deck_json(
             {**report, **financials},
@@ -541,24 +540,25 @@ def pitchdeck_generate():
         if "slides" not in deck:
             return jsonify({"error": "Deck JSON missing 'slides'"}), 500
 
-        # نحفظ الملف المولّد في مجلد generated/ باسم عشوائي (UUID) عشان كل مستخدم يحصل ملفه الخاص
+        # Save the file under generated/ with a UUID name so concurrent
+        # users do not overwrite each other.
         os.makedirs("generated", exist_ok=True)
         filename = f"pitch_{uuid.uuid4().hex}.pptx"
         out_path = os.path.join("generated", filename)
         build_pptx(deck, out_path)
 
-        # لو الطلب فيه project_id من صفحة Pitch Deck → نعلّم المشروع كأن البتش دك تولّد فيه.
-        # هذا يفعّل أزرار التحميل/الإرسال في صفحة "مشاريعي" — الأزرار تظل معطّلة لين المستخدم
-        # يدخل صفحة Pitch Deck ويولّد على الأقل مرة واحدة.
+        # If project_id was sent (i.e. the request came from the Pitch Deck
+        # page), mark the project as having had a deck generated. This is
+        # what enables the download/send buttons in the My Projects page.
         project_id = data.get("project_id")
         if project_id:
             try:
-                from database import mark_pitch_deck_generated
                 mark_pitch_deck_generated(int(project_id))
             except (ValueError, TypeError):
-                pass  # project_id غير صالح — نتجاهل بدون فشل التحميل
+                pass
 
-        # نحذف الملف بعد إرساله عشان مجلد generated/ ما يتراكم
+        # Delete the file after the response is sent so generated/ never
+        # accumulates orphaned files.
         @after_this_request
         def _cleanup(response):
             try:
@@ -574,19 +574,42 @@ def pitchdeck_generate():
             mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation",
         )
 
+    except ValueError as e:
+        # Validation error from financial_engine or ai_pitch_engine.
+        return jsonify({"error": str(e)}), 400
+    except PitchServiceUnavailable as e:
+        # OpenAI service is down (network, quota, auth).
+        return jsonify({
+            "error": "Pitch deck service is temporarily unavailable. Please try again.",
+            "detail": str(e),
+        }), 503
+    except PitchResponseInvalid as e:
+        # AI returned malformed JSON or response missing required fields.
+        return jsonify({
+            "error": "AI returned an invalid pitch deck response. Please try again.",
+            "detail": str(e),
+        }), 502
+    except PitchGenerationError as e:
+        # Generic catch-all for any other pitch generation issue.
+        return jsonify({
+            "error": "Pitch deck generation failed.",
+            "detail": str(e),
+        }), 503
+    except (AIServiceUnavailable, AIResponseInvalid) as e:
+        # The underlying feasibility report generation failed.
+        return jsonify({
+            "error": "AI service is temporarily unavailable.",
+            "detail": str(e),
+        }), 503
     except Exception as e:
-        import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 
-# =====================================================================
-# إرسال العرض التقديمي للمستخدم على الإيميل
-# نفس بيانات /api/pitchdeck/generate لكن بدلاً من تنزيل، يُرسل بالإيميل
-# =====================================================================
+# Email a generated pitch deck. Same body as /api/pitchdeck/generate, but
+# the file is mailed instead of returned as a download.
 @app.post("/api/pitchdeck/email")
 def pitchdeck_email():
-    import tempfile
     try:
         data     = request.get_json(silent=True) or {}
         email    = (data.get("email") or "").strip()
@@ -675,39 +698,58 @@ def pitchdeck_email():
             except OSError:
                 pass
 
+    except ValueError as e:
+        # Validation error from financial_engine or ai_pitch_engine.
+        return jsonify({"error": str(e)}), 400
+    except (PitchServiceUnavailable, AIServiceUnavailable) as e:
+        # OpenAI service is down (network, quota, auth).
+        msg = "AI service is temporarily unavailable. Please try again." if is_en else "خدمة الذكاء الاصطناعي غير متاحة حالياً. حاولي مرة ثانية."
+        return jsonify({"error": msg, "detail": str(e)}), 503
+    except (PitchResponseInvalid, AIResponseInvalid) as e:
+        # AI returned malformed output.
+        msg = "AI returned an invalid response. Please try again." if is_en else "الذكاء الاصطناعي رد بشكل غير متوقع. حاولي مرة ثانية."
+        return jsonify({"error": msg, "detail": str(e)}), 502
+    except PitchGenerationError as e:
+        # Generic catch-all for any other pitch generation issue.
+        msg = "Pitch deck generation failed. Please try again." if is_en else "فشل توليد العرض التقديمي. حاولي مرة ثانية."
+        return jsonify({"error": msg, "detail": str(e)}), 503
     except EnvironmentError as e:
         msg = f"SMTP configuration missing: {e}" if is_en else f"إعداد SMTP ناقص: {e}"
         return jsonify({"error": msg}), 500
     except Exception as e:
-        import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 
 # =====================================================================
-# اختيار الموقع على الخريطة
+# Location picker — validates that coordinates are within the valid
+# geographical range.
 # =====================================================================
 @app.post("/api/location/pick")
 def location_pick():
-    """نقطة وسيطة بسيطة للتحقق من الإحداثيات"""
+    """Simple endpoint that validates a pair of coordinates."""
     data = request.get_json(silent=True) or {}
     lat  = data.get("lat")
     lng  = data.get("lng")
     if lat is None or lng is None:
         return jsonify({"error": "lat/lng required"}), 400
-    return jsonify({"ok": True, "latitude": float(lat), "longitude": float(lng)})
-
-
-@app.get("/pick-location")
-def pick_location_page():
-    """يعرض صفحة الخريطة (templates/map.html) — قديمة، الفرونت اند الجديد يستخدم MapPicker"""
-    return render_template("map.html")
+    # Coordinates must be numeric and within valid global ranges.
+    try:
+        lat_f = float(lat)
+        lng_f = float(lng)
+    except (ValueError, TypeError):
+        return jsonify({"error": "lat/lng must be numeric"}), 400
+    if not (-90 <= lat_f <= 90):
+        return jsonify({"error": "lat must be between -90 and 90"}), 400
+    if not (-180 <= lng_f <= 180):
+        return jsonify({"error": "lng must be between -180 and 180"}), 400
+    return jsonify({"ok": True, "latitude": lat_f, "longitude": lng_f})
 
 
 # =====================================================================
-# تحليل السوق المستقل (بدون حفظ مشروع)
-# يستخدمه فيتشر "تحليل السوق" في الفرونت اند
-# يستدعي قوقل بلايسز + يحلل المنافسين بالذكاء الاصطناعي
+# Standalone market analysis (does not save a project). Used by the
+# Market Analysis page in the frontend. Pulls competitors from Google
+# Places and runs the AI competitor analysis on them.
 # =====================================================================
 @app.get("/analyze")
 def analyze():
@@ -730,7 +772,7 @@ def analyze():
     except ValueError:
         return jsonify({"error": "lat/lng/radius must be numbers"}), 400
 
-    # نطلب من قوقل بلايسز قائمة المطاعم في النطاق المحدد
+    # Ask Google Places for nearby restaurants within the requested radius.
     res = requests.post(
         "https://places.googleapis.com/v1/places:searchNearby",
         headers={
@@ -757,7 +799,8 @@ def analyze():
     if "error" in res:
         return jsonify(res), 400
 
-    # نلخص المنافسين (تقييم متوسط، أقوى منافس، إلخ) ثم نمرّرهم للـ AI للتحليل العميق
+    # Summarize the competitors (avg rating, strongest, etc.) and pass them
+    # to the AI for deeper analysis.
     places      = res.get("places", [])
     summary     = build_competitor_summary(places)
     restaurant_type = (request.args.get("restaurant_type") or "").strip()
@@ -784,44 +827,52 @@ def analyze():
 
 
 # =====================================================================
-# شات الإجراءات الحكومية
-# AI متخصص في التراخيص والإجراءات للمطاعم/الكافيهات في السعودية
-# يحفظ سياق المحادثة في الذاكرة (session_id يميّز كل مستخدم)
+# Government procedures chat. A specialized AI focused on Saudi licensing
+# and permit procedures for restaurants and cafes. Conversation history is
+# kept per session_id in memory (see gov_consultant.py).
 # =====================================================================
-@app.get("/government")
-def government_page():
-    """صفحة قديمة (الفرونت اند الجديد يستخدم GovernmentProceduresPage)"""
-    return render_template("government.html")
-
-
 @app.post("/api/government/chat")
 def government_chat():
-    """يستلم سؤال + session_id ويرد عبر الـ AI المتخصص"""
+    """Receive a user message plus its session_id and return the AI reply."""
     data = request.get_json(silent=True) or {}
     session_id = data.get("session_id")
-    message = data.get("message", "").strip()
-    if not session_id:
-        return jsonify({"error": "session_id مطلوب"}), 400
+    message = (data.get("message") or "").strip()
+    language = (data.get("language") or "ar").lower()
+    if language not in ("ar", "en"):
+        language = "ar"
+    is_en = language == "en"
+
+    # Validate inputs before delegating to gov_chat.
+    if not session_id or not isinstance(session_id, str):
+        return jsonify({"error": "session_id required" if is_en else "session_id مطلوب"}), 400
     if not message:
-        return jsonify({"error": "الرسالة فارغة"}), 400
+        return jsonify({"error": "Empty message" if is_en else "الرسالة فارغة"}), 400
+    if len(message) > 2000:
+        return jsonify({"error": "Message too long (max 2000 chars)" if is_en else "الرسالة طويلة جداً (الحد الأقصى 2000 حرف)"}), 400
+
     try:
-        reply = gov_chat(session_id, message)
+        reply = gov_chat(session_id, message, language=language)
         return jsonify({"reply": reply})
+    except ValueError as e:
+        # Validation error raised inside gov_chat that slipped past the
+        # checks above.
+        return jsonify({"error": str(e)}), 400
     except Exception as e:
-        import traceback
+        # GovChatError or anything else: treat as service unavailable.
         traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        msg = "Service temporarily unavailable. Please try again." if is_en else "الخدمة غير متاحة حالياً. حاولي مرة ثانية."
+        return jsonify({"error": msg, "detail": str(e)}), 503
 
 
 @app.get("/api/government/suggestions")
 def government_suggestions():
-    """قائمة بالأسئلة المقترحة المعروضة للمستخدم"""
+    """Return the list of suggested starter questions shown in the chat UI."""
     return jsonify({"suggestions": get_gov_suggestions()})
 
 
 @app.post("/api/government/clear")
 def government_clear():
-    """مسح المحادثة (يستخدم عند تسجيل الخروج مثلاً)"""
+    """Clear a chat session (called on logout)."""
     data = request.get_json(silent=True) or {}
     session_id = data.get("session_id")
     if session_id:
@@ -831,33 +882,53 @@ def government_clear():
 
 
 # =====================================================================
-# إدارة مشاريع المستخدم (CRUD)
-# user_id يجي من Firebase (UID) — كل مستخدم يشوف مشاريعه فقط
+# User-project CRUD endpoints. user_id comes from Firebase Auth in the
+# frontend, so each user sees only their own projects.
 # =====================================================================
 @app.post("/api/projects")
 def create_project():
-    """إنشاء مشروع جديد بعد توليد دراسة الجدوى"""
+    """Create a project record after the feasibility report has been generated."""
     data = request.get_json() or {}
     user_id = data.get("user_id", "")
-    if not user_id:
+    project_name = (data.get("project_name") or "").strip()
+
+    # Validate the required fields.
+    if not user_id or not isinstance(user_id, str):
         return jsonify({"error": "user_id مطلوب"}), 400
-    project_id = save_project(data)
+    if not project_name:
+        return jsonify({"error": "project_name مطلوب"}), 400
+    if len(project_name) > 200:
+        return jsonify({"error": "اسم المشروع طويل جداً (الحد 200 حرف)"}), 400
+
+    try:
+        project_id = save_project(data)
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": f"فشل حفظ المشروع: {e}"}), 500
     return jsonify({"id": project_id, "ok": True})
 
 
 @app.get("/api/projects")
 def list_projects():
-    """قائمة مشاريع مستخدم محدد (للـ dashboard وصفحة مشاريعي)"""
+    """List a user's projects (used by the dashboard and My Projects page)."""
     user_id = request.args.get("user_id", "")
     if not user_id:
         return jsonify({"error": "user_id مطلوب"}), 400
-    return jsonify(get_projects_by_user(user_id))
+    try:
+        return jsonify(get_projects_by_user(user_id))
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": "Failed to load projects", "detail": str(e)}), 500
 
 
 @app.get("/api/projects/<int:project_id>")
 def get_project(project_id):
-    """مشروع واحد بالتفصيل (يستخدمه EditProjectPage و ConsultantChatPage)"""
-    project = get_project_by_id(project_id)
+    """Return one project by id (used by EditProjectPage and ConsultantChatPage)."""
+    try:
+        project = get_project_by_id(project_id)
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": "Failed to load project", "detail": str(e)}), 500
     if not project:
         return jsonify({"error": "المشروع غير موجود"}), 404
     return jsonify(project)
@@ -865,9 +936,15 @@ def get_project(project_id):
 
 @app.put("/api/projects/<int:project_id>")
 def edit_project(project_id):
-    """تحديث بيانات مشروع + ربطه بدراسة جديدة بعد إعادة التوليد"""
+    """Update project fields and re-link it to a freshly generated report."""
     data = request.get_json() or {}
-    updated = update_project(project_id, data)
+    if not isinstance(data, dict) or not data:
+        return jsonify({"error": "Request body is required"}), 400
+    try:
+        updated = update_project(project_id, data)
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": "Failed to update project", "detail": str(e)}), 500
     if not updated:
         return jsonify({"error": "المشروع غير موجود"}), 404
     return jsonify({"ok": True})
@@ -875,15 +952,19 @@ def edit_project(project_id):
 
 @app.delete("/api/projects/<int:project_id>")
 def remove_project_route(project_id):
-    """حذف مشروع"""
-    deleted = delete_project(project_id)
+    """Delete a project record."""
+    try:
+        deleted = delete_project(project_id)
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": "Failed to delete project", "detail": str(e)}), 500
     if not deleted:
         return jsonify({"error": "المشروع غير موجود"}), 404
     return jsonify({"ok": True, "deleted_id": project_id})
 
 
 # =====================================================================
-# نقطة بدء التشغيل (development server فقط، للـ production استخدمي gunicorn)
+# Development entry point. Use gunicorn or another WSGI server in production.
 # =====================================================================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

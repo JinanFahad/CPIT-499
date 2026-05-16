@@ -1,16 +1,15 @@
-# =====================================================================
-# success_predictor.py — محرك التنبؤ بنجاح/فشل المشروع
+# success_predictor.py
+# Multi-factor scoring engine that predicts the project outcome (high success,
+# probable success, moderate risk, high risk, or high failure probability).
 #
-# يأخذ النتائج المالية + معلومات السوق + رأس المال
-# ويرجع درجة نجاح من 100، تصنيف نهائي، ورسالة توصية
+# The weighted score (out of 100) is computed from five factors:
+#   - Stable profit margin           25 points
+#   - Return on investment (3 years) 30 points
+#   - Payback period                 20 points
+#   - Operating cushion adequacy     15 points
+#   - Market opportunity             10 points
 #
-# المنطق متعدد العوامل (Multi-factor scoring) مع أوزان مختلفة:
-#   - هامش الربح المستقر:    25 نقطة
-#   - العائد على الاستثمار:  30 نقطة
-#   - فترة الاسترداد:        20 نقطة
-#   - الاحتياطي التشغيلي:    15 نقطة (هل يكفي لتغطية خسائر السنة 1؟)
-#   - فرصة السوق:            10 نقطة
-# =====================================================================
+# All thresholds are calibrated to the Saudi restaurant / cafe sector.
 
 
 def predict_project_outcome(
@@ -19,24 +18,19 @@ def predict_project_outcome(
     market_score: int = None,
     language: str = "ar",
 ) -> dict:
-    """يتنبأ بنتيجة المشروع بناءً على عدة عوامل وزنية.
+    """Score the project on the five factors above and return a structured
+    result with: score, max_score, score_percent, outcome label, color code,
+    emoji, advisory message, and the per-factor breakdown.
 
-    Args:
-        financials: ناتج calculate_financials (مع monthly_projection و yearly_summary)
-        capital_breakdown: ناتج calculate_capital_allocation (للمقارنة بالاحتياطي)
-        market_score: درجة فرصة السوق من 10 (اختياري — لو غير متوفر نتجاهل العامل)
-        language: "ar" (افتراضي) أو "en" — يحدد لغة جميع النصوص الناتجة.
-
-    Returns:
-        dict فيه: score, max_score, outcome, outcome_color, outcome_emoji, message, factors
+    The language parameter only affects the strings in the returned dict.
+    Arabic is the source-of-truth; English values are produced by a small
+    dictionary lookup at the end.
     """
     score = 0
     max_score = 0
     factors = []
 
-    # ── عامل 1: هامش الربح المستقر (25 نقطة) ──────────────────────────
-    # العتبات معايرة لقطاع المطاعم السعودي:
-    # متوسط القطاع 5-15%، 15%+ يعتبر قوي، 7-10% طبيعي
+    # Factor 1: stable profit margin. Sector average is 5-15%, 15%+ is strong.
     margin = financials.get("profit_margin_percent", 0)
     max_score += 25
     if margin >= 15:
@@ -62,8 +56,7 @@ def predict_project_outcome(
         "weight": 25,
     })
 
-    # ── عامل 2: العائد على الاستثمار 3 سنوات (30 نقطة) ────────────────
-    # المطاعم نادراً ما تحقق ROI 100%+ في 3 سنوات. المعدل الواقعي 30-80%
+    # Factor 2: 3-year ROI. Sector reality is 30-80%; reaching 100% is rare.
     roi = financials.get("roi_3_year_percent", 0)
     max_score += 30
     if roi >= 100:
@@ -89,8 +82,7 @@ def predict_project_outcome(
         "weight": 30,
     })
 
-    # ── عامل 3: فترة الاسترداد (20 نقطة) ───────────────────────────
-    # متوسط القطاع 36-60 شهر (3-5 سنوات). 24- شهر استثنائي، 72+ شهر طويل
+    # Factor 3: payback period. Sector average is 36-60 months.
     payback = financials.get("payback_period_months")
     max_score += 20
     if payback is None:
@@ -118,9 +110,9 @@ def predict_project_outcome(
         "weight": 20,
     })
 
-    # ── عامل 4: كفاية الاحتياطي التشغيلي (15 نقطة) ────────────────
-    # نقارن الاحتياطي التشغيلي مع خسائر السنة الأولى المتوقعة (مع التدرّج)
-    # لو الاحتياطي يغطي الخسائر → ممتاز. لو لا → المشروع راح يتعثّر
+    # Factor 4: operating cushion. Compares the reserved buffer against the
+    # expected Year-1 losses (during the ramp-up curve). If the project is
+    # profitable in Year 1 the cushion is not required.
     max_score += 15
     year_1_profit = financials.get("year_1_total_profit", 0)
     cushion = (capital_breakdown or {}).get("cushion_amount", 0)
@@ -151,7 +143,7 @@ def predict_project_outcome(
         "weight": 15,
     })
 
-    # ── عامل 5: فرصة السوق (10 نقاط) ──────────────────────────────
+    # Factor 5: market opportunity score (0-10 from the market analysis).
     max_score += 10
     if market_score is None:
         f_score, rating, value = 5, "غير محدّد (افتراضي)", "—"
@@ -172,7 +164,7 @@ def predict_project_outcome(
         "weight": 10,
     })
 
-    # ── التصنيف النهائي + رسالة التوصية ────────────────────────────
+    # Final outcome label and advisory message based on the total score.
     if score >= 75:
         outcome       = "نجاح مرتفع"
         outcome_color = "green"
@@ -225,26 +217,22 @@ def predict_project_outcome(
         "factors":       factors,
     }
 
-    # نترجم كل النصوص للإنجليزية لو المستخدم يبغى التقرير بالإنجليزي
     if language == "en":
         result = _translate_result_to_english(result)
 
     return result
 
 
-# =====================================================================
-# قاموس الترجمة من العربي إلى الإنجليزي لكل النصوص اللي ينتجها هذا المحرك.
-# نستخدمه فقط لما language=="en" — ما يمس النسخة العربية الأصلية.
-# =====================================================================
+# Arabic-to-English lookup for the strings produced above. The Arabic copies
+# are the source of truth, so any new label added in this file must also be
+# added here for English output to work.
 _AR_TO_EN = {
-    # ── أسماء العوامل ──
     "هامش الربح المستقر":                "Stable Profit Margin",
     "العائد على الاستثمار (3 سنوات)":     "Return on Investment (3 Years)",
     "فترة الاسترداد":                     "Payback Period",
     "كفاية الاحتياطي التشغيلي":           "Operating Cushion Adequacy",
     "فرصة السوق":                         "Market Opportunity",
 
-    # ── التقييمات (ratings) ──
     "ممتاز":                              "Excellent",
     "جيد جداً":                            "Very Good",
     "جيد (المعدل الطبيعي للقطاع)":         "Good (Sector Average)",
@@ -272,36 +260,34 @@ _AR_TO_EN = {
     "ضعيف (سوق مشبع/ضعيف الطلب)":          "Weak (Saturated / Low Demand)",
     "غير محدّد (افتراضي)":                  "Undefined (Default)",
 
-    # ── النتائج النهائية ──
     "نجاح مرتفع":            "High Success",
     "نجاح محتمل":            "Probable Success",
     "مخاطرة متوسطة":         "Moderate Risk",
     "مخاطرة عالية":          "High Risk",
     "احتمال فشل عالي":       "High Failure Probability",
 
-    # ── قيم خاصة (value labels) ──
     "غير مطلوب":            "Not Required",
     "—":                    "—",
 }
 
 
 def _translate_value_string(s: str) -> str:
-    """يترجم قيمة قد تحتوي على نص عربي + رقم (مثل '18 شهر' أو 'احتياطي 30,000 مقابل ...').
-    يستبدل الكلمات العربية المعروفة فقط؛ الأرقام تبقى كما هي.
+    """Translate a value string that mixes Arabic words with numbers
+    (for example: 18 شهر, or احتياطي 30,000 مقابل خسارة 12,000).
 
-    الترتيب مهم: نبدأ بالعبارات الكاملة قبل الكلمات المنفردة عشان نتجنب
-    استبدال جزئي يكسر النص."""
+    Replaces only known Arabic tokens; the digits remain intact. Order
+    matters: full phrases are replaced before single words to avoid
+    breaking longer matches.
+    """
     if not isinstance(s, str):
         return s
     out = s
-    # عبارات كاملة أولاً (الأطول قبل الأقصر)
     phrases = [
         ("غير مطلوب",  "Not Required"),
         ("غير محسوب",  "Not Calculated"),
     ]
     for ar, en in phrases:
         out = out.replace(ar, en)
-    # ثم كلمات سياقية منفردة
     contextual = {
         "شهر":      "months",
         "احتياطي":   "Cushion",
@@ -314,10 +300,9 @@ def _translate_value_string(s: str) -> str:
 
 
 def _translate_result_to_english(result: dict) -> dict:
-    """يترجم القيم النصية في نتيجة predict_project_outcome من العربي للإنجليزي."""
+    """Translate every Arabic string inside the predictor result to English."""
     result["outcome"] = _AR_TO_EN.get(result["outcome"], result["outcome"])
 
-    # رسالة التوصية: نترجمها بالكامل من الرسائل المعروفة
     outcome_messages_en = {
         "High Success": (
             "All indicators support project success. Disciplined execution of the financial "
@@ -342,7 +327,6 @@ def _translate_result_to_english(result: dict) -> dict:
     }
     result["message"] = outcome_messages_en.get(result["outcome"], result["message"])
 
-    # العوامل: نترجم الاسم والـ rating وأي نص عربي في القيمة
     for factor in result.get("factors", []):
         factor["name"]   = _AR_TO_EN.get(factor["name"],   factor["name"])
         factor["rating"] = _AR_TO_EN.get(factor["rating"], factor["rating"])

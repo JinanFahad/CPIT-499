@@ -1,25 +1,43 @@
-# =====================================================================
-# ai_pitch_engine.py — محرك توليد العرض التقديمي (Pitch Deck) بالـ AI
-# يأخذ دراسة الجدوى ويولّد عرض احترافي للمستثمرين بصيغة JSON منظمة
-# المحتوى بالإنجليزي (الـ pitch decks للمستثمرين عادة بالإنجليزي)
-# =====================================================================
+# ai_pitch_engine.py
+# Generates a structured pitch deck (8 slides) from a feasibility report
+# using OpenAI. The deck content is always in English because investor-facing
+# pitch decks are conventionally English even when the underlying report is
+# Arabic.
 
-from openai import OpenAI
+from openai import OpenAI, OpenAIError
 import json
+import logging
 from pitch_schema import PITCH_SCHEMA
+
+logger = logging.getLogger(__name__)
 
 client = OpenAI()
 
 
+class PitchGenerationError(Exception):
+    """Base exception for pitch deck generation failures."""
+    pass
+
+
+class PitchServiceUnavailable(PitchGenerationError):
+    """The OpenAI request failed (network, auth, quota, or HTTP error)."""
+    pass
+
+
+class PitchResponseInvalid(PitchGenerationError):
+    """The AI response could not be parsed as JSON or violated the schema."""
+    pass
+
+
 def generate_pitch_deck_json(feasibility_report: dict, extra: dict | None = None):
-    """
-    يولّد ٨ شرائح عرض تقديمي:
-    Cover, Problem, Solution, Concept, Market, Financials, Competitive Advantage, Investment Ask
-    extra = بيانات إضافية (اسم المشروع، رأس المال، إلخ) لو ما كانت في feasibility_report
+    """Build an 8-slide deck JSON: Cover, Problem, Solution, Concept,
+    Market, Financials, Competitive Advantage, Investment Ask.
+
+    Pulls every field from feasibility_report first, falling back to the
+    optional extra dict for anything the report does not contain.
     """
     extra = extra or {}
 
-    # ── استخراج بيانات المشروع (نحاول من report، ولو ناقص نأخذ من extra) ──
     project_name      = feasibility_report.get("project_name")      or extra.get("project_name")      or ""
     idea_description  = feasibility_report.get("idea_description")  or extra.get("idea_description")  or ""
     restaurant_type   = feasibility_report.get("restaurant_type")   or extra.get("restaurant_type")   or ""
@@ -28,13 +46,11 @@ def generate_pitch_deck_json(feasibility_report: dict, extra: dict | None = None
     main_products     = feasibility_report.get("main_products")     or extra.get("main_products")     or []
     business_type     = feasibility_report.get("business_type")     or extra.get("business_type")     or "restaurant"
 
-    # ── بيانات تشغيلية (للشرائح العملية) ──
     capital           = feasibility_report.get("capital")           or extra.get("capital")           or ""
     avg_price         = feasibility_report.get("avg_price")         or extra.get("avg_price")         or ""
     customers_per_day = feasibility_report.get("customers_per_day") or extra.get("customers_per_day") or ""
     employees         = feasibility_report.get("employees")         or extra.get("employees")         or ""
 
-    # ── المؤشرات المالية (تظهر في شريحة Financial Highlights) ──
     year_1_revenue = feasibility_report.get("year_1_revenue") or ""
     year_2_revenue = feasibility_report.get("year_2_revenue") or ""
     year_3_revenue = feasibility_report.get("year_3_revenue") or ""
@@ -45,7 +61,8 @@ def generate_pitch_deck_json(feasibility_report: dict, extra: dict | None = None
 
     products_text = ", ".join(main_products) if isinstance(main_products, list) else str(main_products)
 
-    # ── حساب توزيع التمويل (40/30/30) في بايثون عشان نضمن دقة الأرقام ──
+    # Funding allocation is precomputed here in Python (40/30/30 split) so
+    # the AI cannot drift on the totals. The third bucket absorbs rounding.
     def _to_int(v):
         try:
             return int(float(str(v).replace(",", "").replace("SAR", "").strip()))
@@ -56,7 +73,6 @@ def generate_pitch_deck_json(feasibility_report: dict, extra: dict | None = None
     if funding_int > 0:
         equipment_amount  = round(funding_int * 0.40)
         fitout_amount     = round(funding_int * 0.30)
-        # نخلي البند الثالث يكمّل المجموع بالضبط (يتفادى أخطاء التقريب)
         working_amount    = funding_int - equipment_amount - fitout_amount
         allocation_text = (
             f"- Equipment & Kitchen Setup: {equipment_amount:,} SAR\n"
@@ -146,22 +162,41 @@ Slide Structure (mandatory order):
      * value = the numeric amount only (e.g. "200000"), no commas, no "SAR" suffix
 """
 
-    # نرسل البرومبت للـ AI ونلزمه بالـ schema (8 شرائح بالضبط)
-    response = client.responses.create(
-        model="gpt-4o",
-        input=prompt,
-        text={
-            "format": {
-                "type": "json_schema",
-                "name": "pitch_deck",
-                "schema": PITCH_SCHEMA,
-                "strict": True
+    # Call OpenAI with strict JSON schema enforcement so the response is
+    # guaranteed to have the required slide structure.
+    try:
+        response = client.responses.create(
+            model="gpt-4o",
+            input=prompt,
+            text={
+                "format": {
+                    "type": "json_schema",
+                    "name": "pitch_deck",
+                    "schema": PITCH_SCHEMA,
+                    "strict": True
+                }
             }
-        }
-    )
+        )
+    except OpenAIError as e:
+        logger.exception("ai_pitch_engine: OpenAI call failed")
+        raise PitchServiceUnavailable(f"AI service unavailable: {e}") from e
+    except Exception as e:
+        logger.exception("ai_pitch_engine: unexpected error")
+        raise PitchServiceUnavailable(f"Unexpected error: {e}") from e
 
-    deck = json.loads(response.output_text)
-    # نضيف funding_needed خارج الـ schema عشان ppt_builder يستخدمه في TOTAL_AMOUNT
+    try:
+        deck = json.loads(response.output_text)
+    except (json.JSONDecodeError, AttributeError, TypeError) as e:
+        logger.exception("ai_pitch_engine: invalid JSON from AI")
+        raise PitchResponseInvalid(f"AI returned invalid JSON: {e}") from e
+
+    if not isinstance(deck, dict):
+        raise PitchResponseInvalid("AI returned a non-object JSON value")
+    if "slides" not in deck:
+        raise PitchResponseInvalid("AI response missing required 'slides' field")
+
+    # Attach funding_needed outside the schema so ppt_builder can use it for
+    # the TOTAL_AMOUNT placeholder on the Investment Ask slide.
     if funding_int > 0:
         deck["funding_needed"] = funding_int
     return deck

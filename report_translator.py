@@ -1,34 +1,18 @@
-# =====================================================================
-# report_translator.py — مترجم تقارير الجدوى بين العربي والإنجليزي.
-#
-# يستخدم OpenAI لترجمة النصوص الحرّة (verdict, narrative, recommendations …)
-# مع الحفاظ على الأرقام والقيم المنظّمة كما هي.
-#
-# الكاش: لكل تقرير نخزّن النسخة الإنجليزية والعربية معاً داخل
-# report["_translations"] = { "ar": {...}, "en": {...} } حتى لا نعيد
-# الترجمة في كل طلب — مرة واحدة فقط لكل لغة.
-# =====================================================================
-
 import json
 import copy
 from openai import OpenAI
 
 client = OpenAI()
 
-# هذي مفاتيح القاموس اللي تترجم تلقائياً عبر success_predictor (موجود مسبقاً)
-# والـ AI ما يفترض يلمسها. نعتمد على ai_report_engine لإعادة توليدها لو لزم.
-# هنا نركّز فقط على النصوص الحرّة المولّدة من الـ AI.
-
-
 def get_or_create_translation(report: dict, target_lang: str) -> dict:
-    """يُرجع نسخة من التقرير بـ target_lang (ar أو en).
+    """يرجع نسخة من التقرير بـ target_lang (ar أو en).
 
-    - إذا التقرير أصلاً بنفس اللغة → نُرجعه كما هو.
-    - إذا فيه ترجمة مخزّنة (cache) → نُرجعها فوراً.
-    - وإلا → نطلب من OpenAI ترجمة النصوص الحرّة، نخزّنها داخل
-      report["_translations"][target_lang]، ونُرجعها.
+    - إذا التقرير أصلاً بنفس اللغة → نرجعه كما هو.
+    - إذا فيه ترجمة مخزنة (cache) → نرجعها فوراً.
+    - وإلا → نطلب من OpenAI ترجمة النصوص  نخزّنها داخل
+      report["_translations"][target_lang]، ونرجعها.
 
-    يُرجع: (translated_report, was_newly_translated: bool)
+    يرجع: (translated_report, was_newly_translated: bool)
     """
     target_lang = target_lang.lower()
     if target_lang not in ("ar", "en"):
@@ -73,35 +57,31 @@ def _detect_report_language(report: dict) -> str:
 
 
 def _strip_translations_cache(report: dict) -> dict:
-    """ينظّف نسخة التقرير من حقل _translations قبل تخزينها في الكاش."""
     cleaned = copy.deepcopy(report)
     cleaned.pop("_translations", None)
     return cleaned
 
 
-# الحقول النصية الحرّة اللي نحتاج نترجمها (نتجاهل الأرقام والقيم المنظّمة)
 _FREE_TEXT_PATHS = [
     ["title"],
     ["executive_summary", "verdict"],
-    ["executive_summary", "highlights"],         # list[str]
+    ["executive_summary", "highlights"],         
     ["executive_summary", "key_concern"],
     ["executive_summary", "key_opportunity"],
     ["business_overview", "target_customers"],
     ["business_overview", "value_proposition"],
-    ["business_overview", "main_products"],      # list[str]
+    ["business_overview", "main_products"],      
     ["market_analysis", "narrative"],
-    ["market_analysis", "bullets"],              # list[str]
-    ["market_analysis", "recommendations"],      # list[str]
+    ["market_analysis", "bullets"],              
+    ["market_analysis", "recommendations"],      
     ["market_analysis", "direct_competitor_summary", "weakest_gap"],
-    ["next_steps"],                               # list[str]
+    ["next_steps"],                               
 ]
 
 
 def _translate_with_ai(report: dict, target_lang: str) -> dict:
-    """يبني نسخة جديدة من التقرير مع النصوص الحرّة مترجمة عبر OpenAI."""
     translated = _strip_translations_cache(report)
 
-    # نجمع كل النصوص الحرّة في dict مع مسارات
     payload = {}
     for path in _FREE_TEXT_PATHS:
         value = _get_path(translated, path)
@@ -110,7 +90,7 @@ def _translate_with_ai(report: dict, target_lang: str) -> dict:
         key = ".".join(path)
         payload[key] = value
 
-    # نترجم المخاطر وخططها كذلك (list of dicts)
+
     risks = translated.get("risks_and_mitigations") or []
     for i, r in enumerate(risks):
         if isinstance(r, dict):
@@ -119,7 +99,6 @@ def _translate_with_ai(report: dict, target_lang: str) -> dict:
             if r.get("mitigation"):
                 payload[f"risks_and_mitigations.{i}.mitigation"] = r["mitigation"]
 
-    # نترجم decision.invest_conditions و reject_conditions
     dec = translated.get("decision") or {}
     for cond_key in ("invest_conditions", "reject_conditions"):
         items = dec.get(cond_key) or []
@@ -151,17 +130,16 @@ Input:
     )
     translated_payload = json.loads(response.output_text)
 
-    # نطبّق الترجمات على نسخة التقرير
     for key, value in translated_payload.items():
         parts = key.split(".")
-        # حالة خاصة: risks_and_mitigations.<i>.<field>
+
         if parts[0] == "risks_and_mitigations" and len(parts) == 3:
             idx = int(parts[1])
             field = parts[2]
             risks = translated.get("risks_and_mitigations") or []
             if 0 <= idx < len(risks) and isinstance(risks[idx], dict):
                 risks[idx][field] = value
-        # حالة خاصة: decision.invest_conditions.<i> أو reject_conditions
+                
         elif parts[0] == "decision" and len(parts) == 3 and parts[1] in ("invest_conditions", "reject_conditions"):
             idx = int(parts[2])
             dec = translated.setdefault("decision", {})

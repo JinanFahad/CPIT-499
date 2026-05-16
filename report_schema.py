@@ -1,15 +1,10 @@
-# =====================================================================
-# report_schema.py — هيكل JSON المتوقع من الـ AI لدراسة الجدوى
-# نستخدم JSON Schema عشان نلزم الـ AI ينتج بنية ثابتة ومتسقة
-# تتكون من: executive_summary, business_overview, market_analysis,
-#         financial_summary, decision, risks_and_mitigations, next_steps
-# =====================================================================
 
 REPORT_SCHEMA = {
   "name": "feasibility_report",
   "schema": {
     "type": "object",
     "additionalProperties": False,
+    
     "properties": {
 
       "title": {"type": "string"},

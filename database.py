@@ -1,74 +1,72 @@
-# =====================================================================
-# database.py — قاعدة البيانات (SQLite)
-# جدولين رئيسيين:
-#   1) reports  — يحفظ دراسات الجدوى الكاملة كـ JSON
-#   2) projects — يحفظ مشاريع المستخدمين، ويربط كل مشروع بدراسة جدوى
-# نستخدم SQLite لأنه خفيف وما يحتاج إعداد سيرفر
-# =====================================================================
+# database.py
+# SQLite layer for the platform. Two tables:
+#   - reports:  stores the full feasibility report as a JSON blob
+#   - projects: stores user projects and links each one to a report
+# SQLite was chosen because it is file-based and needs no separate server.
 
 import sqlite3
 import json
 
-DB_PATH = "muqaddim.db"  # الملف نفسه يحتوي قاعدة البيانات (بدون سيرفر)
+DB_PATH = "muqaddim.db"
 
 
 def init_db():
-    """إنشاء الجداول لو ما كانت موجودة (يُنادى عند بدء تشغيل السيرفر)"""
+    """Create the tables if they do not exist yet. Called once on server start."""
     conn = sqlite3.connect(DB_PATH)
 
-    # جدول التقارير: نخزن الدراسة كاملة كـ JSON عشان نقدر نضيف حقول مستقبلاً بدون migration
     conn.execute("""
         CREATE TABLE IF NOT EXISTS reports (
             id            INTEGER PRIMARY KEY AUTOINCREMENT,
             title         TEXT,
             city          TEXT,
             business_type TEXT,
-            report_json   TEXT,                                        -- التقرير كاملاً كـ JSON
+            report_json   TEXT,
             created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
-    # جدول المشاريع: كل مستخدم له مشاريع، وكل مشروع مربوط بتقرير دراسة جدوى
     conn.execute("""
         CREATE TABLE IF NOT EXISTS projects (
             id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id             TEXT,                  -- معرّف المستخدم من Firebase
-            project_name        TEXT,                  -- اسم المشروع بالعربي
-            project_name_en     TEXT,                  -- اسم المشروع بالإنجليزي
-            project_type        TEXT,                  -- نوع المشروع (cafe, restaurant, ...)
-            restaurant_type     TEXT,                  -- التخصص (مثلاً: قهوة مختصة)
+            user_id             TEXT,
+            project_name        TEXT,
+            project_name_en     TEXT,
+            project_type        TEXT,
+            restaurant_type     TEXT,
             city                TEXT,
             city_en             TEXT,
-            capital             REAL,                  -- رأس المال
-            rent                REAL,                  -- الإيجار الشهري
+            capital             REAL,
+            rent                REAL,
             employees           INTEGER,
-            avg_price           REAL,                  -- متوسط سعر المنتج
+            avg_price           REAL,
             customers_per_day   REAL,
-            target_customers    TEXT,                  -- وصف العملاء المستهدفين
-            main_products       TEXT,                  -- المنتجات الرئيسية كـ JSON array
-            lat                 REAL,                  -- إحداثيات الموقع
+            target_customers    TEXT,
+            main_products       TEXT,
+            lat                 REAL,
             lng                 REAL,
-            report_id           INTEGER,               -- ربط مع جدول reports
-            pitch_deck_generated INTEGER DEFAULT 0,   -- 1 لو المستخدم ولّد البتش دك من صفحته (يفعّل أزرار صفحة المشاريع)
+            report_id           INTEGER,
+            pitch_deck_generated INTEGER DEFAULT 0,
             created_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at          DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    # هجرة آمنة للقاعدة القديمة: نضيف العمود لو ما كان موجود (SQLite ما يدعم IF NOT EXISTS على ADD COLUMN)
+
+    # SQLite does not support "ADD COLUMN IF NOT EXISTS", so the migration
+    # for pitch_deck_generated is wrapped in a try/except. The OperationalError
+    # is raised when the column already exists, which is the expected case
+    # on every run after the first.
     try:
         conn.execute("ALTER TABLE projects ADD COLUMN pitch_deck_generated INTEGER DEFAULT 0")
     except sqlite3.OperationalError:
-        pass  # العمود موجود مسبقاً
+        pass
     conn.commit()
     conn.close()
 
 
-# =====================================================================
-# دوال الـ Reports — حفظ، استرجاع، حذف دراسات الجدوى
-# =====================================================================
+# Reports CRUD
 
 def save_report(report: dict) -> int:
-    """يحفظ التقرير كـ JSON ويرجع رقمه عشان نربطه بالمشروع"""
+    """Insert a new report and return its auto-generated id."""
     conn = sqlite3.connect(DB_PATH)
     cur = conn.execute(
         "INSERT INTO reports (title, city, business_type, report_json) VALUES (?,?,?,?)",
@@ -76,7 +74,7 @@ def save_report(report: dict) -> int:
             report.get("title", "دراسة جدوى"),
             report.get("business_overview", {}).get("city", ""),
             report.get("business_overview", {}).get("business_type", ""),
-            json.dumps(report, ensure_ascii=False),  # ensure_ascii=False يحفظ العربي بشكل صحيح
+            json.dumps(report, ensure_ascii=False),
         )
     )
     conn.commit()
@@ -86,7 +84,7 @@ def save_report(report: dict) -> int:
 
 
 def get_all_reports() -> list:
-    """قائمة بكل الدراسات (للوحة الإدارة) — بدون تفاصيل JSON"""
+    """Return a lightweight list of reports for admin/dashboard listings."""
     conn = sqlite3.connect(DB_PATH)
     rows = conn.execute(
         "SELECT id, title, city, business_type, created_at FROM reports ORDER BY created_at DESC"
@@ -105,7 +103,7 @@ def get_all_reports() -> list:
 
 
 def get_report_by_id(report_id: int) -> dict | None:
-    """جلب دراسة كاملة بالـ JSON (يستخدمها المستشار وعارض التقرير)"""
+    """Return the full parsed report JSON, or None if no such id."""
     conn = sqlite3.connect(DB_PATH)
     row = conn.execute(
         "SELECT report_json FROM reports WHERE id = ?", (report_id,)
@@ -115,7 +113,7 @@ def get_report_by_id(report_id: int) -> dict | None:
 
 
 def delete_report(report_id: int) -> bool:
-    """يرجع True لو فعلاً انحذف، False لو الدراسة مو موجودة"""
+    """Return True if a row was deleted, False if the id did not exist."""
     conn = sqlite3.connect(DB_PATH)
     cur = conn.execute("DELETE FROM reports WHERE id = ?", (report_id,))
     conn.commit()
@@ -125,9 +123,8 @@ def delete_report(report_id: int) -> bool:
 
 
 def update_report(report_id: int, report: dict) -> bool:
-    """يستبدل بيانات تقرير موجود بنسخة مُعدّلة (مثلاً بعد الترجمة المُخزَّنة).
-    يرجع True لو نجح التحديث، False لو الـ id غير موجود.
-    """
+    """Replace the JSON body of an existing report (used by the translator
+    cache, for example, after generating an English copy)."""
     conn = sqlite3.connect(DB_PATH)
     cur = conn.execute(
         "UPDATE reports SET report_json = ? WHERE id = ?",
@@ -139,14 +136,12 @@ def update_report(report_id: int, report: dict) -> bool:
     return updated
 
 
-# =====================================================================
-# دوال الـ Projects — حفظ، استرجاع، تحديث، حذف مشاريع المستخدمين
-# =====================================================================
+# Projects CRUD
 
 def save_project(project: dict) -> int:
-    """يحفظ مشروع جديد بعد إنشاء دراسة الجدوى"""
+    """Insert a new project row and return its id. The main_products field is
+    serialized to JSON because SQLite has no native array column."""
     conn = sqlite3.connect(DB_PATH)
-    # main_products قائمة، نخزنها كـ JSON string في عمود نصي واحد
     main_products = project.get("main_products") or []
     if isinstance(main_products, list):
         main_products = json.dumps(main_products, ensure_ascii=False)
@@ -183,7 +178,7 @@ def save_project(project: dict) -> int:
 
 
 def get_projects_by_user(user_id: str) -> list:
-    """قائمة مشاريع مستخدم محدد، الأحدث أولاً"""
+    """Return all projects belonging to a user, most recent first."""
     conn = sqlite3.connect(DB_PATH)
     rows = conn.execute(
         "SELECT * FROM projects WHERE user_id = ? ORDER BY created_at DESC",
@@ -194,7 +189,7 @@ def get_projects_by_user(user_id: str) -> list:
 
 
 def get_project_by_id(project_id: int) -> dict | None:
-    """جلب مشروع واحد بكل تفاصيله (للتعديل أو الشات)"""
+    """Return one project by id (used by the edit and chat pages)."""
     conn = sqlite3.connect(DB_PATH)
     row = conn.execute(
         "SELECT * FROM projects WHERE id = ?", (project_id,)
@@ -204,7 +199,7 @@ def get_project_by_id(project_id: int) -> dict | None:
 
 
 def update_project(project_id: int, project: dict) -> bool:
-    """تحديث بيانات مشروع — يستخدم بعد إعادة توليد الدراسة"""
+    """Replace the row of an existing project."""
     conn = sqlite3.connect(DB_PATH)
     main_products = project.get("main_products") or []
     if isinstance(main_products, list):
@@ -243,7 +238,7 @@ def update_project(project_id: int, project: dict) -> bool:
 
 
 def delete_project(project_id: int) -> bool:
-    """حذف مشروع (ملاحظة: التقرير المرتبط ما يُحذف تلقائياً)"""
+    """Delete a project. The linked report is NOT auto-deleted."""
     conn = sqlite3.connect(DB_PATH)
     cur = conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
     conn.commit()
@@ -253,22 +248,23 @@ def delete_project(project_id: int) -> bool:
 
 
 def _row_to_project(r) -> dict:
-    """يحوّل صف من قاعدة البيانات (tuple) إلى قاموس بأسماء الحقول
-    main_products يُفك من JSON string ليرجع قائمة"""
+    """Convert a database row tuple into a dict with named fields. The
+    main_products column is parsed from its JSON string. The
+    pitch_deck_generated column was added later via ALTER TABLE, so older
+    rows may not have it — handled defensively."""
     main_products_raw = r[14] or "[]"
     try:
         main_products = json.loads(main_products_raw) if main_products_raw else []
     except (ValueError, TypeError):
-        main_products = []  # لو الـ JSON تالف، نرجع قائمة فاضية بدل ما نطيح
-    # العمود "pitch_deck_generated" تمت إضافته متأخراً عبر ALTER TABLE،
-    # فيكون في الموضع 18 (بعد report_id). نتحمّل الصفوف القديمة قبل ما العمود يتضاف بأمان.
+        main_products = []
+
     pitch_generated = 0
     if len(r) > 18 and r[18] is not None:
         try:
             pitch_generated = int(r[18])
         except (ValueError, TypeError):
             pitch_generated = 0
-    # created_at/updated_at تتزحزح موضعهم بسبب العمود الجديد
+
     created_at = r[19] if len(r) > 19 else None
     updated_at = r[20] if len(r) > 20 else None
     return {
@@ -297,8 +293,9 @@ def _row_to_project(r) -> dict:
 
 
 def mark_pitch_deck_generated(project_id: int) -> bool:
-    """يعلّم أن المستخدم ولّد بتش دك لهذا المشروع من صفحة Pitch Deck.
-    يفعّل أزرار التحميل والإرسال في صفحة "مشاريعي"."""
+    """Set pitch_deck_generated=1 for the given project. Called after the user
+    successfully generates a pitch deck from the Pitch Deck page; this is what
+    enables the download/email buttons on the Projects page."""
     conn = sqlite3.connect(DB_PATH)
     cur = conn.execute(
         "UPDATE projects SET pitch_deck_generated = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?",

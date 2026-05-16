@@ -1,7 +1,7 @@
-# =====================================================================
-# email_sender.py — إرسال الملفات (PDF / PPTX) للمستخدم على إيميله
-# يستخدم SMTP عادي (Gmail بشكل افتراضي)، البيانات تجي من .env
-# =====================================================================
+# email_sender.py
+# Sends a feasibility report (PDF) or pitch deck (PPTX) to the user as an
+# email attachment. The body is a branded HTML template (Arabic or English)
+# with the Muqaddim logo embedded inline. SMTP credentials are read from .env.
 
 import os
 import smtplib
@@ -13,7 +13,7 @@ LOGO_PATH = os.path.join(BASE_DIR, "assets", "logo-dark.png")
 
 
 def _get_config():
-    """يقرأ بيانات SMTP من متغيرات البيئة"""
+    """Load SMTP host, port, user, password, and from-address from env."""
     return {
         "host": os.environ.get("SMTP_HOST", "smtp.gmail.com"),
         "port": int(os.environ.get("SMTP_PORT", "587")),
@@ -24,7 +24,9 @@ def _get_config():
 
 
 def _build_html_en(file_kind_en: str, project_name: str) -> str:
-    """English version of the email body — same Muqaddim branding, LTR layout."""
+    """Return the English HTML body. Same branding and layout as the Arabic
+    template but LTR. The logo is referenced by cid:logo which is attached
+    inline by send_file_via_email."""
     return f"""<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html dir="ltr" lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -57,14 +59,12 @@ def _build_html_en(file_kind_en: str, project_name: str) -> str:
       <tr><td align="center">
         <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="max-width:600px;background-color:#ffffff !important;border-radius:14px;overflow:hidden">
 
-          <!-- Header -->
           <tr><td class="header-bg" bgcolor="#FFF9F0" style="background-color:#FFF9F0 !important;padding:40px 24px 32px;text-align:center;border-bottom:3px solid #C6A75E">
             <img src="cid:logo" alt="Muqaddim" width="80" style="display:block;margin:0 auto 14px;border:0;outline:none;text-decoration:none">
             <h1 class="text-dark" style="color:#08312D !important;font-size:24px;margin:0;font-weight:700">Muqaddim Platform</h1>
             <p class="text-gold" style="color:#C6A75E !important;font-size:14px;margin:6px 0 0;font-weight:600">Smart Feasibility Studies for Your Projects</p>
           </td></tr>
 
-          <!-- Body -->
           <tr><td class="body-bg" bgcolor="#ffffff" style="background-color:#ffffff !important;padding:36px 32px">
             <h2 class="text-dark" style="font-size:20px;margin:0 0 16px;color:#08312D !important">Hello 👋</h2>
             <p class="text-gray" style="font-size:15px;line-height:1.9;margin:0 0 18px;color:#374151 !important">
@@ -80,7 +80,6 @@ def _build_html_en(file_kind_en: str, project_name: str) -> str:
             </p>
           </td></tr>
 
-          <!-- Footer -->
           <tr><td class="footer-bg" bgcolor="#f9fafb" style="background-color:#f9fafb !important;padding:22px 32px;border-top:1px solid #e5e7eb;text-align:center">
             <p class="text-light" style="font-size:12px;color:#6b7280 !important;margin:0 0 6px">
               This email was sent automatically by Muqaddim Platform
@@ -99,7 +98,7 @@ def _build_html_en(file_kind_en: str, project_name: str) -> str:
 
 
 def _build_html(file_kind_ar: str, project_name: str) -> str:
-    """يبني نص HTML مزخرف بهوية مُقدِّم — يستخدم cid:logo للشعار المضمّن"""
+    """Return the Arabic HTML body with RTL layout and the Muqaddim brand."""
     return f"""<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html dir="rtl" lang="ar" xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -110,7 +109,6 @@ def _build_html(file_kind_ar: str, project_name: str) -> str:
   <style type="text/css">
     :root {{ color-scheme: light only !important; supported-color-schemes: light only !important; }}
     body, table, td {{ color-scheme: light only !important; }}
-    /* iOS Dark Mode override */
     @media (prefers-color-scheme: dark) {{
       .email-bg {{ background-color: #f4f6f5 !important; }}
       .header-bg {{ background-color: #FFF9F0 !important; }}
@@ -133,14 +131,12 @@ def _build_html(file_kind_ar: str, project_name: str) -> str:
       <tr><td align="center">
         <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="max-width:600px;background-color:#ffffff !important;border-radius:14px;overflow:hidden">
 
-          <!-- Header -->
           <tr><td class="header-bg" bgcolor="#FFF9F0" style="background-color:#FFF9F0 !important;padding:40px 24px 32px;text-align:center;border-bottom:3px solid #C6A75E">
             <img src="cid:logo" alt="مُقدِّم" width="80" style="display:block;margin:0 auto 14px;border:0;outline:none;text-decoration:none">
             <h1 class="text-dark" style="color:#08312D !important;font-size:24px;margin:0;font-weight:700">منصة مُقدِّم</h1>
             <p class="text-gold" style="color:#C6A75E !important;font-size:14px;margin:6px 0 0;font-weight:600">دراسة الجدوى الذكية لمشاريعك</p>
           </td></tr>
 
-          <!-- Body -->
           <tr><td class="body-bg" bgcolor="#ffffff" style="background-color:#ffffff !important;padding:36px 32px">
             <h2 class="text-dark" style="font-size:20px;margin:0 0 16px;color:#08312D !important">مرحباً 👋</h2>
             <p class="text-gray" style="font-size:15px;line-height:1.9;margin:0 0 18px;color:#374151 !important">
@@ -156,7 +152,6 @@ def _build_html(file_kind_ar: str, project_name: str) -> str:
             </p>
           </td></tr>
 
-          <!-- Footer -->
           <tr><td class="footer-bg" bgcolor="#f9fafb" style="background-color:#f9fafb !important;padding:22px 32px;border-top:1px solid #e5e7eb;text-align:center">
             <p class="text-light" style="font-size:12px;color:#6b7280 !important;margin:0 0 6px">
               هذا الإيميل أُرسل تلقائياً من منصة مُقدِّم
@@ -177,12 +172,17 @@ def _build_html(file_kind_ar: str, project_name: str) -> str:
 def send_file_via_email(to_email: str, subject: str, body: str, file_path: str, attachment_name: str,
                          project_name: str = "", file_kind_ar: str = "الملف",
                          file_kind_en: str = "File", language: str = "ar"):
-    """
-    يرسل ملف كمرفق على الإيميل بقالب HTML مزخرف فيه شعار مُقدِّم.
-    body: نص بديل (للعملاء اللي ما يدعمون HTML)
-    project_name: اسم المشروع، يظهر في القالب
-    file_kind_ar / file_kind_en: نوع الملف (مثل "دراسة الجدوى" / "Feasibility Report")
-    language: "ar" أو "en" — يحدد لغة قالب HTML
+    """Build and send a branded multipart email with an attached file.
+
+    body is the plain-text alternative for mail clients that cannot render
+    HTML. project_name appears inside the template. file_kind_ar /
+    file_kind_en are the displayed file kind label in each language. The
+    language parameter selects which HTML template is rendered.
+
+    Raises:
+        EnvironmentError: SMTP_USER / SMTP_PASS missing in .env.
+        FileNotFoundError: the attachment path does not exist.
+        RuntimeError: the SMTP server rejected the message.
     """
     cfg = _get_config()
     if not cfg["user"] or not cfg["password"]:
@@ -195,16 +195,16 @@ def send_file_via_email(to_email: str, subject: str, body: str, file_path: str, 
     msg["Subject"] = subject
     msg["From"]    = cfg["from_addr"]
     msg["To"]      = to_email
-    msg.set_content(body)  # نسخة نصية بديلة
+    msg.set_content(body)
 
-    # نسخة HTML مع الشعار المضمّن (cid:logo) — حسب اللغة
+    # Pick the HTML template by language and add it as the rich alternative.
     if language == "en":
         html = _build_html_en(file_kind_en, project_name or "Your Project")
     else:
         html = _build_html(file_kind_ar, project_name or "مشروعك")
     msg.add_alternative(html, subtype="html")
 
-    # نضمّن الشعار كصورة inline لو متوفّر
+    # Embed the logo inline so the cid:logo reference in the HTML resolves.
     if os.path.isfile(LOGO_PATH):
         with open(LOGO_PATH, "rb") as f:
             msg.get_payload()[1].add_related(
@@ -214,7 +214,7 @@ def send_file_via_email(to_email: str, subject: str, body: str, file_path: str, 
                 cid="<logo>",
             )
 
-    # المرفق الفعلي (PDF / PPTX)
+    # Attach the actual report / pitch deck file.
     ctype, encoding = mimetypes.guess_type(file_path)
     if ctype is None or encoding is not None:
         ctype = "application/octet-stream"

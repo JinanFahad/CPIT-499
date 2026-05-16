@@ -1,26 +1,50 @@
-# =====================================================================
-# market_ai.py — تحليل المنافسين بالذكاء الاصطناعي
-# يأخذ بيانات المطاعم من قوقل بلايسز ويحلّلها لإنتاج:
-#   - تصنيف لكل منافس (مباشر / غير مباشر)
-#   - ملخص للمنافسين المباشرين
-#   - تحليل سردي للسوق + توصيات عملية
-#   - درجة فرصة السوق من 1 إلى 10
-# =====================================================================
+# market_ai.py
+# Market analysis module powered by OpenAI. Takes the raw places returned by
+# Google Places for the project's neighborhood and produces:
+#   - A direct vs indirect competitor classification for each place.
+#   - A summary of direct competitors (count, average rating, strongest one).
+#   - A narrative analysis plus practical recommendations.
+#   - A market opportunity score from 1 to 10.
 
 import json
-from openai import OpenAI
+import logging
+from openai import OpenAI, OpenAIError
 from market_schema import MARKET_SCHEMA
+
+logger = logging.getLogger(__name__)
 
 client = OpenAI()
 
 
+
+def _fallback_market_analysis(language: str = "ar") -> dict:
+    """Return a neutral placeholder result so the feasibility flow can finish
+    even when OpenAI is unavailable or returns malformed output."""
+    is_en = language == "en"
+    return {
+        "narrative": (
+            "Market analysis is currently unavailable. The investment decision is based on financial figures only."
+            if is_en else
+            "تحليل السوق غير متاح حالياً. القرار الاستثماري مبني على الأرقام المالية فقط."
+        ),
+        "competition_level": "Moderate" if is_en else "متوسط",
+        "market_opportunity_score": 5,
+        "direct_competitor_summary": {
+            "count": 0,
+            "avg_rating": 0,
+            "strongest_name": "No data available" if is_en else "لا تتوفر بيانات",
+            "weakest_gap": "Insufficient data" if is_en else "بيانات غير كافية",
+        },
+        "bullets": [],
+        "recommendations": [],
+        "classified_competitors": [],
+    }
+
+
 def build_competitor_summary(places: list[dict]) -> dict:
-    """
-    يأخذ نتائج قوقل بلايسز الخام (places list) ويحوّلها لقالب أبسط:
-    - يلخّص الحقول المهمة فقط (id, name, rating, count, address, types)
-    - يحسب متوسط التقييم
-    - يرتّب أقوى ٧ منافسين (rating × عدد المراجعات)
-    """
+    """Reduce the raw Google Places response into a lightweight summary:
+    keep only the fields the AI needs, compute an average rating, and rank
+    the top seven competitors by a simple rating-times-reviews score."""
     simplified = []
     for p in places:
         simplified.append({
@@ -34,15 +58,17 @@ def build_competitor_summary(places: list[dict]) -> dict:
             "primaryTypeDisplayName": (p.get("primaryTypeDisplayName") or {}).get("text"),
         })
 
-    ratings = [x["rating"] for x in simplified if isinstance(x.get("rating"), (int, float))]
+#عشان نعرف مستوى المنافسة في السوق، بنحسب متوسط التقييم لكل المنافسين  عشان نعطي فكرة عن جودة المطاعم الموجودة في المنطقةن .
+    ratings = [x["rating"] for x in simplified 
+               if isinstance(x.get("rating"), (int, float))]
     avg_rating = round(sum(ratings) / len(ratings), 2) if ratings else None
 
-    # معادلة ترتيب المنافسين: التقييم × 10 + (عدد المراجعات / 50)
-    # نحدّد عدد المراجعات بـ 500 كحد أقصى عشان مطعم واحد بـ 5000 مراجعة ما يطغى على الكل
+    # Ranking heuristic: rating * 10 plus a review-count bonus.
+    # Reviews are capped at 500 so one viral restaurant cannot dominate.
     def score(x: dict) -> float:
         r = x.get("rating") or 0
         c = x.get("userRatingCount") or 0
-        return (r * 10) + (min(c, 500) / 50)
+        return (r * 10) + (min(c, 500) / 50) # r = 50 , c= 10  هذي اكبر قيم وبكذا نضمن ان ال تقييمات دائما اهم من المراجعات وهي اللي بتاثر اكبر في المعادله 
 
     top = sorted(simplified, key=score, reverse=True)[:7]
 
@@ -50,7 +76,7 @@ def build_competitor_summary(places: list[dict]) -> dict:
         "count": len(simplified),
         "avg_rating": avg_rating,
         "top_competitors": top,
-        "all_competitors": simplified,   # أزلت [:30] لأن Google ترجع max 20 أصلاً
+        "all_competitors": simplified,
     }
 
 
@@ -61,37 +87,56 @@ def generate_market_analysis_ar(
     competitor_summary: dict,
     language: str = "ar",
 ) -> dict:
-    """
-    يأخذ ملخص المنافسين ويرسلهم لـ AI للتحليل الذكي:
-      1) يصنّف كل مطعم: مباشر أم غير مباشر بناءً على نوع المطبخ
-      2) يحسب ملخص المنافسين المباشرين (عدد، متوسط تقييم، أقوى منافس)
-      3) يكتب فقرة تحليلية + نقاط + توصيات عملية
-      4) يحدد مستوى المنافسة (منخفض/متوسط/مرتفع) ودرجة الفرصة (1-10)
+    """Send the competitor summary to OpenAI for analysis and return a
+    structured dict matching MARKET_SCHEMA.
 
-    language: "ar" (افتراضي) أو "en" — يحدد لغة كل النصوص في النتيجة.
+    The AI classifies each place as a direct or indirect competitor, then
+    writes the narrative, bullets, recommendations, competition_level, and
+    market_opportunity_score. On any failure the function falls back to a
+    neutral placeholder rather than raising — the feasibility flow should
+    not be blocked by market analysis problems.
     """
+    if not isinstance(competitor_summary, dict):
+        raise ValueError("competitor_summary must be a dict")
+    if language not in ("ar", "en"):
+        language = "ar"
 
-    payload = json.dumps(competitor_summary, ensure_ascii=False)
+    try:
+        payload = json.dumps(competitor_summary, ensure_ascii=False)
+    except (TypeError, ValueError) as e:
+        logger.warning("market_ai: failed to serialize competitor_summary (%s)", e)
+        return _fallback_market_analysis(language)
 
     if language == "en":
         prompt = _build_english_prompt(project_type, city, radius_m, payload)
     else:
         prompt = _build_arabic_prompt(project_type, city, radius_m, payload)
 
-    response = client.responses.create(
-        model="gpt-4o-mini",
-        input=prompt,
-        text={
-            "format": {
-                "type": "json_schema",
-                "name": "market_analysis",
-                "schema": MARKET_SCHEMA,
-                "strict": True
+    try:
+        response = client.responses.create(
+            model="gpt-4o-mini",
+            input=prompt,
+            text={
+                "format": {
+                    "type": "json_schema",
+                    "name": "market_analysis",
+                    "schema": MARKET_SCHEMA,
+                    "strict": True
+                }
             }
-        }
-    )
+        )
+    except OpenAIError:
+        logger.exception("market_ai: OpenAI call failed, returning fallback")
+        return _fallback_market_analysis(language)
+    except Exception:
+        logger.exception("market_ai: unexpected error, returning fallback")
+        return _fallback_market_analysis(language)
 
-    return json.loads(response.output_text)
+    try:
+        return json.loads(response.output_text)
+    except (json.JSONDecodeError, AttributeError, TypeError) as e:
+        logger.warning("market_ai: invalid JSON from AI, returning fallback (%s)", e)
+        return _fallback_market_analysis(language)
 
 
 def _build_arabic_prompt(project_type, city, radius_m, payload) -> str:

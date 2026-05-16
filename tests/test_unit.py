@@ -78,8 +78,7 @@ def test_payback_none_gives_zero_points():
             "payback_period_months": None,
             "year_1_total_profit":   1000,
         },
-        capital_breakdown={"cushion_amount": 5000},
-        market_score=5,
+        
     )
     payback_factor = next(f for f in result["factors"]
                            if f["name"] == "فترة الاسترداد")

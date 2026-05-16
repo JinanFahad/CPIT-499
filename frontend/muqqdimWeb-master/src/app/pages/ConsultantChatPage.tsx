@@ -140,6 +140,7 @@ export default function ConsultantChatPage() {
           report_id: project.report_id,
           message: messageText,
           history,
+          language,  // Current UI language; the server uses it to force the AI to reply in the same language.
         }),
       });
 

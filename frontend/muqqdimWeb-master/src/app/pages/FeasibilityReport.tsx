@@ -111,7 +111,7 @@ interface Report {
     utilities_cost: number;
     overhead_cost: number;
     marketing_cost: number;
-    // حقول منحنى التدرّج (تُحقن من المحرك المالي بعد توليد الـ AI)
+    // Ramp-up curve fields injected by the financial engine after AI generation.
     month_1_revenue?: number;
     month_1_net_profit?: number;
     break_even_month?: number | null;
@@ -127,7 +127,7 @@ interface Report {
     ramp_up_months?: number;
     salaries_total?: number;
     cogs_cost?: number;
-    // توقّع 3 سنوات
+    // Three-year projection.
     yearly_summary?: Array<{
       year: number;
       revenue: number;
@@ -146,7 +146,7 @@ interface Report {
     roi_3_year_percent?: number;
     yearly_revenue_growth?: number;
     yearly_cost_inflation?: number;
-    // توزيع رأس المال + التنبؤ بالنجاح/الفشل
+    // Capital allocation and outcome prediction.
     capital_allocation?: Array<{
       key: string;
       label_ar: string;

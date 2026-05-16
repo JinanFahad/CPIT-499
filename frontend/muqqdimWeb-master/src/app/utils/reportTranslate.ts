@@ -26,24 +26,24 @@ type Lang = "ar" | "en";
 // input is used to look up the other side, so callers don't need to
 // know which direction they're translating.
 const PAIRS: Array<[string, string]> = [
-  // ── تصنيفات النتيجة النهائية (success_predictor outcomes) ──
+  // Final-outcome labels from success_predictor.
   ["نجاح مرتفع",            "High Success"],
   ["نجاح محتمل",            "Probable Success"],
   ["مخاطرة متوسطة",         "Moderate Risk"],
   ["مخاطرة عالية",          "High Risk"],
   ["احتمال فشل عالي",       "High Failure Probability"],
-  // ── تصنيفات decision_engine القديمة ──
+  // Legacy decision_engine labels (still seen on older reports).
   ["مناسب للاستثمار",        "Suitable for Investment"],
   ["قابل للتطبيق بشروط",     "Viable with Conditions"],
 
-  // ── أسماء العوامل (factors) ──
+  // Factor names used in the per-factor breakdown.
   ["هامش الربح المستقر",            "Stable Profit Margin"],
   ["العائد على الاستثمار (3 سنوات)", "Return on Investment (3 Years)"],
   ["فترة الاسترداد",                 "Payback Period"],
   ["كفاية الاحتياطي التشغيلي",       "Operating Cushion Adequacy"],
   ["فرصة السوق",                     "Market Opportunity"],
 
-  // ── التقييمات (ratings) ──
+  // Per-factor ratings.
   ["ممتاز",                              "Excellent"],
   ["جيد جداً",                            "Very Good"],
   ["جيد (المعدل الطبيعي للقطاع)",         "Good (Sector Average)"],
@@ -71,10 +71,10 @@ const PAIRS: Array<[string, string]> = [
   ["ضعيف (سوق مشبع/ضعيف الطلب)",          "Weak (Saturated / Low Demand)"],
   ["غير محدّد (افتراضي)",                  "Undefined (Default)"],
 
-  // ── قيم خاصة ──
+  // Special values.
   ["غير مطلوب",          "Not Required"],
 
-  // ── أنواع النشاط (business_overview.business_type) ──
+  // Business types (business_overview.business_type).
   ["مطعم بيتزا",        "Pizza Restaurant"],
   ["وجبات سريعة",       "Fast Food"],
   ["كافيه",              "Cafe"],
@@ -85,9 +85,9 @@ const PAIRS: Array<[string, string]> = [
   ["مطعم شعبي / مندي",  "Traditional Restaurant"],
   ["مطعم عام",           "General Restaurant"],
 
-  // ── رسائل توصية النتيجة (success_prediction.message) ──
-  // الـ5 رسائل المعروفة من success_predictor — مفيدة عشان نترجم فورياً
-  // بدون استدعاء AI للتقارير المحفوظة.
+  // The five fixed advisory messages emitted by success_predictor. Listing
+  // them here lets the frontend translate them instantly without going
+  // through the AI translator on every page load.
   [
     "كل المؤشرات تدعم نجاح المشروع. تنفيذ منضبط للخطة المالية والتشغيلية متوقع أن يحقق العائد المستهدف خلال الإطار الزمني المتوقّع.",
     "All indicators support project success. Disciplined execution of the financial and operational plan is expected to deliver the targeted return within the projected timeframe.",
@@ -109,17 +109,17 @@ const PAIRS: Array<[string, string]> = [
     "The project as designed will not achieve sustainable profitability. Recommendation: do not invest without a full restructuring of the project's economics.",
   ],
 
-  // ── مستوى المنافسة (market_analysis.competition_level) ──
+  // Competition level (market_analysis.competition_level).
   ["منخفض",             "Low"],
   ["مرتفع",             "High"],
 
-  // ── خطورة المخاطر (risks_and_mitigations[].severity) ──
+  // Risk severity (risks_and_mitigations[].severity).
   ["عالي",              "High"],
   ["منخفض",             "Low"],
-  // ملاحظة: "متوسط" مكرر أعلاه لكن JavaScript ييسر التعامل لأنه نفس الترجمة "Moderate"
-  // والـ severity العربي "متوسط" ينطبق عليه "Medium" بدل "Moderate" — نعالجه أدناه.
+  // Note: 'متوسط' appears above mapped to 'Moderate'. For the severity field
+  // specifically, the more natural English term is 'Medium' — handled below.
 
-  // ── المدن السعودية (business_overview.city) ──
+  // Saudi cities (business_overview.city).
   ["الرياض",             "Riyadh"],
   ["جدة",                "Jeddah"],
   ["مكة المكرمة",        "Makkah"],
@@ -192,26 +192,27 @@ export function trReason(reason: string, target: Lang): string {
   if (typeof reason !== "string" || !reason) return reason;
   if (detectLang(reason) === target) return reason;
 
-  // نفصل عند أول ":" — اسم العامل قد يحتوي أقواس (مثل "Return on Investment (3 Years)")
-  // لكن لا يحتوي ":" داخله.
+  // Split on the FIRST colon. Factor names may contain parentheses
+  // (e.g. "Return on Investment (3 Years)") but never a colon.
   const colonIdx = reason.indexOf(":");
   if (colonIdx < 0) return reason;
   const name = reason.slice(0, colonIdx).trim();
   const rest = reason.slice(colonIdx + 1).trim();
 
-  // نبحث عن آخر مجموعة أقواس متطابقة من اليمين — هي قوس الـ value.
-  // كل ما قبلها هو التقييم (قد يحتوي أقواسه الداخلية).
-  // الصيغة بعد الفاصلة: "<rating[(...)]> (<value>) — X/Y"
-  // نقسم أولاً عند آخر " — " للحصول على score/weight ثم نحلّل اليسار.
+  // Walk back from the right edge to isolate the value group's parentheses.
+  // The format after the colon is: "<rating[(...)]> (<value>) — X/Y".
+  // First split on the LAST " — " to peel off the score/weight tail, then
+  // parse what's left.
   const sepIdx = rest.lastIndexOf(" — ");
   let left = rest;
   let scoreTail = "";
   if (sepIdx >= 0) {
     left = rest.slice(0, sepIdx).trim();
-    scoreTail = rest.slice(sepIdx); // يشمل " — "
+    scoreTail = rest.slice(sepIdx); // includes the leading " — "
   }
 
-  // الآن left = "<rating> (<value>)" — نبحث عن قوس الـ value الفاتح من اليمين
+  // left is now "<rating> (<value>)". Find the opening paren of the value
+  // group by scanning from the right with a paren-depth counter.
   let depth = 0;
   let valueOpenIdx = -1;
   for (let i = left.length - 1; i >= 0; i--) {
@@ -230,7 +231,7 @@ export function trReason(reason: string, target: Lang): string {
   let valueGroup = "";
   if (valueOpenIdx >= 0) {
     rating = left.slice(0, valueOpenIdx).trim();
-    valueGroup = left.slice(valueOpenIdx); // يشمل "(...)"
+    valueGroup = left.slice(valueOpenIdx); // includes the surrounding "(...)"
   } else {
     rating = left;
   }
@@ -260,13 +261,15 @@ const VALUE_WORD_PAIRS: Array<[string, string]> = [
 
 function translateValueGroup(text: string, target: Lang): string {
   if (!text) return text;
-  // محاولة الترجمة الكاملة من القاموس (الحالات المعروفة مثل "—" أو "غير مطلوب")
+  // Try a full dictionary lookup first (handles known values like "—" or
+  // "غير مطلوب" -> "Not Required").
   const inner = text.startsWith("(") && text.endsWith(")") ? text.slice(1, -1) : text;
   const fromDict = tr(inner, target);
   if (fromDict !== inner) {
     return text.startsWith("(") ? `(${fromDict})` : fromDict;
   }
-  // وإلا استبدال كلمات (طريقة الـ _translate_value_string في الباك)
+  // Otherwise fall back to per-word replacement (mirrors the
+  // _translate_value_string helper on the backend).
   let out = text;
   for (const [ar, en] of VALUE_WORD_PAIRS) {
     if (target === "en") out = out.split(ar).join(en);
