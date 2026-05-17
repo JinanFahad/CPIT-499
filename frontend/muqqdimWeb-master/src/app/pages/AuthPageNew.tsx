@@ -147,8 +147,12 @@ export default function AuthPageNew() {
   };
 
   return (
+    // Auth page is always rendered in dark mode — the wrapping `dark` class
+    // forces every `dark:` variant inside this page to activate regardless
+    // of the user's global theme preference.
+    <div className="dark">
     <div
-      className="min-h-screen flex relative bg-[#F0F0F0] dark:bg-gradient-to-br dark:from-[#062620] dark:via-[#08312D] dark:to-[#0a3d37] overflow-hidden"
+      className="min-h-screen flex relative bg-gradient-to-br from-[#062620] via-[#08312D] to-[#0a3d37] overflow-hidden"
       dir={isAr ? "rtl" : "ltr"}
     >
       {/* ── Decorative scattered stars in the background ── */}
@@ -498,6 +502,7 @@ export default function AuthPageNew() {
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
     </div>
   );
 }

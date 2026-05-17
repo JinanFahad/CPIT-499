@@ -2,7 +2,7 @@
 // routes.tsx — Defines all routes (URLs ↔ page components) in the app
 // =====================================================================
 // Public routes (no login required):
-//   /         → LandingPage   (the marketing page)
+//   /         → LandingPage   (splash screen — auto-navigates to /auth)
 //   /auth     → AuthPageNew   (login + signup)
 //
 // Protected routes (require an active Firebase session):

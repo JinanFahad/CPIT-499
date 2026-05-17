@@ -1,8 +1,3 @@
-# app.py
-# Main Flask API server for the Muqaddim platform. Wires every backend
-# component together: receives requests from the React frontend, invokes the
-# AI and finance engines, generates PDF and PowerPoint outputs, and persists
-# results to SQLite.
 
 # =====================================================================
 # Standard library imports.
@@ -23,8 +18,6 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 # Load .env BEFORE any import that may read OPENAI_API_KEY / SMTP_* etc.
-# override=True ensures that values in .env take precedence over anything
-# already present in the process environment.
 load_dotenv(override=True)
 
 # =====================================================================
@@ -61,7 +54,7 @@ from ai_advisor import (
     AdvisorResponseInvalid,
 )
 from market_ai import build_competitor_summary, generate_market_analysis_ar
-from gov_consultant import gov_chat, clear_gov_session, get_gov_suggestions
+from gov_consultant import gov_chat, clear_gov_session
 from report_translator import get_or_create_translation
 
 # =====================================================================
@@ -116,14 +109,15 @@ def home():
 #   6. Have the AI generate the full report JSON.
 #   7. Persist the report and return the PDF bytes.
 # =====================================================================
+
 @app.post("/api/feasibility/report-pdf")
 def report_pdf():
     data = request.get_json() or {}
 
     # Defense in depth: validate again on the server even though the frontend
-    # also validates. Direct callers (Postman, scripts) can bypass the UI.
+
     is_valid, error_msg = validate_feasibility_input(data)
-    if not is_valid:
+    if not is_valid: #false
         return jsonify({"error": error_msg}), 400
 
     # Core user inputs.
@@ -138,7 +132,7 @@ def report_pdf():
     lng               = data.get("lng")
 
     # Report language: 'ar' (default) or 'en'. Sent by the frontend based on
-    # the user's current UI selection.
+   
     language = (data.get("language") or "ar").lower()
     if language not in ("ar", "en"):
         language = "ar"
@@ -148,17 +142,18 @@ def report_pdf():
             "error": "نوع المشروع غير مدعوم",
             "supported_types": list(BUSINESS_TYPES.keys())
         }), 400
+    
 
-    # Heavy work starts here (AI calls, calculations, PDF rendering). The
-    # whole block is wrapped in try/except so we can map domain errors to
-    # specific HTTP codes instead of returning a generic 500.
+
+    # Heavy work starts here (AI calls, calculations, PDF rendering).
+
+
     is_en = language == "en"
+
     try:
         # AI generates the target_customers and value_proposition fields.
         enriched = enrich_project_data(business_type, city, language=language)
 
-        # Optional restaurant specialty entered by the user (e.g. "specialty
-        # coffee cafe", "premium burger restaurant").
         restaurant_type = (data.get("restaurant_type") or "").strip()
         project_type_for_market = restaurant_type or get_label(business_type, language)
 
@@ -209,8 +204,8 @@ def report_pdf():
         report = generate_feasibility_report(financials, decision, market_data, language=language)
 
         # Market analysis via Google Places (only if the user pinned a
-        # location). Wrapped in its own try/except so a market lookup failure
-        # does not block the whole report.
+        # location).
+
         market_analysis   = None
         competitor_places = []
 
@@ -257,7 +252,7 @@ def report_pdf():
                 print(f"[market analysis skipped] {e}")
 
         # Merge the real Google Places data into the AI-generated report
-        # before saving, so the internal viewer can show actual competitors.
+       
         if market_analysis:
             existing_ma = report.get("market_analysis", {}) or {}
             report["market_analysis"] = {
@@ -276,8 +271,7 @@ def report_pdf():
             language=language,
         )
 
-        # Return the PDF with the report id in a custom header so the
-        # frontend can link the project to the newly saved report.
+        # Return the PDF 
         resp = make_response(pdf_bytes)
         resp.headers["Content-Type"] = "application/pdf"
         resp.headers["Content-Disposition"] = 'attachment; filename="feasibility_report.pdf"'
@@ -301,8 +295,10 @@ def report_pdf():
         return jsonify({"error": msg, "detail": str(e)}), 500
 
 
-# Email a saved feasibility report to the user. Takes report_id, rebuilds
-# the PDF in the requested language, and sends it as an attachment.
+#----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+# Email 
 @app.post("/api/feasibility/email")
 def feasibility_email():
     data       = request.get_json(silent=True) or {}
@@ -312,20 +308,21 @@ def feasibility_email():
     if language not in ("ar", "en"):
         language = "ar"
     is_en      = language == "en"
-    # Default project name (used only when the frontend did not pass one).
+    # Default project name .
     project_nm = data.get("project_name") or ("Your Project" if is_en else "مشروعك")
 
     if not report_id:
         return jsonify({"error": "report_id required" if is_en else "report_id مطلوب"}), 400
-    if not email or "@" not in email:
-        return jsonify({"error": "Invalid email" if is_en else "إيميل غير صالح"}), 400
+    if not email:
+        return jsonify({"error": "email required" if is_en else "البريد الإلكتروني مطلوب"}), 400
 
     report = get_report_by_id(report_id)
     if not report:
         return jsonify({"error": "Report not found" if is_en else "الدراسة غير موجودة"}), 404
 
+
     # If the user requested English, fetch (or create) the translated copy
-    # of the report from the cache before rendering the PDF.
+   
     if is_en:
         report, _ = get_or_create_translation(report, "en")
 
@@ -338,6 +335,7 @@ def feasibility_email():
     )
 
     # Write the PDF to a temp file, attach it, and delete it after sending.
+
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
     try:
         tmp.write(pdf_bytes)
@@ -361,6 +359,7 @@ def feasibility_email():
             language=language,
         )
         return jsonify({"ok": True, "sent_to": email})
+    
     except EnvironmentError as e:
         msg = f"SMTP configuration missing: {e}" if is_en else f"إعداد SMTP ناقص: {e}"
         return jsonify({"error": msg}), 500
@@ -375,8 +374,9 @@ def feasibility_email():
 
 
 # =====================================================================
-# Saved-report management — list, fetch, translate, delete.
+# Saved-report management 
 # =====================================================================
+
 @app.get("/api/reports")
 def list_reports():
     """Return all stored reports (used by admin/dashboard listings)."""
@@ -429,9 +429,8 @@ def remove_report(report_id):
 
 # =====================================================================
 # AI Advisor — chat scoped to one project's feasibility report.
-# The model receives the full saved report as system context along with the
-# user's question and prior conversation history, then produces an answer.
 # =====================================================================
+
 @app.post("/api/advisor/chat")
 def advisor_chat():
     data      = request.get_json() or {}
@@ -449,10 +448,11 @@ def advisor_chat():
         return jsonify({"error": "report_id required" if is_en else "report_id مطلوب"}), 400
 
     # The full report is fed into the system prompt so the model can ground
-    # every answer in the actual numbers.
+    
     report = get_report_by_id(int(report_id))
     if not report:
         return jsonify({"error": "Report not found" if is_en else "الدراسة غير موجودة"}), 404
+
 
     try:
         reply = chat_with_advisor(report, message, history, language=language)
@@ -466,8 +466,8 @@ def advisor_chat():
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
-    # Return the reply along with the updated history so the frontend can
-    # send it back on the next message.
+    # Return the reply along with the updated history so the frontend can send it back on the next message.
+    
     return jsonify({
         "reply": reply,
         "history": history + [
@@ -479,9 +479,8 @@ def advisor_chat():
 
 # =====================================================================
 # Pitch deck — generation and email delivery.
-# Same overall pipeline as the feasibility report, but the output format
-# is .pptx instead of .pdf.
 # =====================================================================
+
 @app.post("/api/pitchdeck/generate")
 def pitchdeck_generate():
     try:
@@ -508,7 +507,7 @@ def pitchdeck_generate():
         decision = classify_project(
             profit_margin_percent=financials["profit_margin_percent"],
             payback_months=financials["payback_period_months"],
-            success_prediction=financials.get("success_prediction"),  # تصنيف موحّد
+            success_prediction=financials.get("success_prediction"),   
         )
         market_data = {
             "business_type":     get_label_ar(business_type),
@@ -541,15 +540,11 @@ def pitchdeck_generate():
             return jsonify({"error": "Deck JSON missing 'slides'"}), 500
 
         # Save the file under generated/ with a UUID name so concurrent
-        # users do not overwrite each other.
         os.makedirs("generated", exist_ok=True)
         filename = f"pitch_{uuid.uuid4().hex}.pptx"
         out_path = os.path.join("generated", filename)
         build_pptx(deck, out_path)
 
-        # If project_id was sent (i.e. the request came from the Pitch Deck
-        # page), mark the project as having had a deck generated. This is
-        # what enables the download/send buttons in the My Projects page.
         project_id = data.get("project_id")
         if project_id:
             try:
@@ -557,8 +552,6 @@ def pitchdeck_generate():
             except (ValueError, TypeError):
                 pass
 
-        # Delete the file after the response is sent so generated/ never
-        # accumulates orphaned files.
         @after_this_request
         def _cleanup(response):
             try:
@@ -618,8 +611,8 @@ def pitchdeck_email():
             language = "ar"
         is_en = language == "en"
 
-        if not email or "@" not in email:
-            return jsonify({"error": "Invalid email" if is_en else "إيميل غير صالح"}), 400
+        if not email:
+            return jsonify({"error": "email required" if is_en else "البريد الإلكتروني مطلوب"}), 400
 
         business_type = data.get("business_type", "restaurant")
         if not is_valid_type(business_type):
@@ -722,8 +715,7 @@ def pitchdeck_email():
 
 
 # =====================================================================
-# Location picker — validates that coordinates are within the valid
-# geographical range.
+# Location picker
 # =====================================================================
 @app.post("/api/location/pick")
 def location_pick():
@@ -747,9 +739,7 @@ def location_pick():
 
 
 # =====================================================================
-# Standalone market analysis (does not save a project). Used by the
-# Market Analysis page in the frontend. Pulls competitors from Google
-# Places and runs the AI competitor analysis on them.
+# Standalone market analysis 
 # =====================================================================
 @app.get("/analyze")
 def analyze():
@@ -827,10 +817,9 @@ def analyze():
 
 
 # =====================================================================
-# Government procedures chat. A specialized AI focused on Saudi licensing
-# and permit procedures for restaurants and cafes. Conversation history is
-# kept per session_id in memory (see gov_consultant.py).
+# Government procedures chat.
 # =====================================================================
+
 @app.post("/api/government/chat")
 def government_chat():
     """Receive a user message plus its session_id and return the AI reply."""
@@ -864,12 +853,6 @@ def government_chat():
         return jsonify({"error": msg, "detail": str(e)}), 503
 
 
-@app.get("/api/government/suggestions")
-def government_suggestions():
-    """Return the list of suggested starter questions shown in the chat UI."""
-    return jsonify({"suggestions": get_gov_suggestions()})
-
-
 @app.post("/api/government/clear")
 def government_clear():
     """Clear a chat session (called on logout)."""
@@ -882,8 +865,7 @@ def government_clear():
 
 
 # =====================================================================
-# User-project CRUD endpoints. user_id comes from Firebase Auth in the
-# frontend, so each user sees only their own projects.
+# User-project 
 # =====================================================================
 @app.post("/api/projects")
 def create_project():
@@ -964,7 +946,7 @@ def remove_project_route(project_id):
 
 
 # =====================================================================
-# Development entry point. Use gunicorn or another WSGI server in production.
+# Development entry point. 
 # =====================================================================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

@@ -36,7 +36,8 @@ def generate_pitch_deck_json(feasibility_report: dict, extra: dict | None = None
     Pulls every field from feasibility_report first, falling back to the
     optional extra dict for anything the report does not contain.
     """
-    extra = extra or {}
+    # معلومات اكسترا من المستخدم لما جا يولد دراسة الجدوى 
+    extra = extra or {} #يحول ال none ل dict فاضي عشان ما يطلع خطأ لما نعمل extra.get() بعدين
 
     project_name      = feasibility_report.get("project_name")      or extra.get("project_name")      or ""
     idea_description  = feasibility_report.get("idea_description")  or extra.get("idea_description")  or ""
@@ -51,13 +52,15 @@ def generate_pitch_deck_json(feasibility_report: dict, extra: dict | None = None
     customers_per_day = feasibility_report.get("customers_per_day") or extra.get("customers_per_day") or ""
     employees         = feasibility_report.get("employees")         or extra.get("employees")         or ""
 
-    year_1_revenue = feasibility_report.get("year_1_revenue") or ""
+    year_1_revenue = feasibility_report.get("year_1_revenue") or "" 
     year_2_revenue = feasibility_report.get("year_2_revenue") or ""
     year_3_revenue = feasibility_report.get("year_3_revenue") or ""
     funding_needed = feasibility_report.get("funding_needed") or extra.get("funding_needed") or ""
     payback        = feasibility_report.get("payback_period_months") or feasibility_report.get("payback_months") or ""
     profit_margin  = feasibility_report.get("profit_margin_percent") or ""
     monthly_profit = feasibility_report.get("monthly_net_profit")    or ""
+
+
 
     products_text = ", ".join(main_products) if isinstance(main_products, list) else str(main_products)
 
@@ -73,16 +76,21 @@ def generate_pitch_deck_json(feasibility_report: dict, extra: dict | None = None
     if funding_int > 0:
         equipment_amount  = round(funding_int * 0.40)
         fitout_amount     = round(funding_int * 0.30)
-        working_amount    = funding_int - equipment_amount - fitout_amount
+        working_amount    = funding_int - equipment_amount - fitout_amount # لان التقريب بيسوي مش بالضرورة يطلع المبلغ كامل، فبنخلي الباقي في bucket الثالث عشان نضمن ان المجموع يطلع مضبوط
+      
+      #نحولها لنص عشان نرسله للAi
         allocation_text = (
             f"- Equipment & Kitchen Setup: {equipment_amount:,} SAR\n"
             f"- Fit-out, Interior & Licenses: {fitout_amount:,} SAR\n"
             f"- Working Capital, Staffing & Marketing: {working_amount:,} SAR"
         )
         funding_display = f"{funding_int:,} SAR"
-    else:
+    else: # فاليديشن لو ماكان فيه راس مال او تمويل مطلوب، بنخلي النص عام بدون ارقام
         allocation_text = "- Equipment & Kitchen Setup\n- Fit-out, Interior & Licenses\n- Working Capital, Staffing & Marketing"
         funding_display = str(funding_needed) if funding_needed else "the required amount"
+
+
+#---------------------------------------------------------------
 
     project_context = f"""
 Project Data (use exactly as provided, do not change the project concept):
