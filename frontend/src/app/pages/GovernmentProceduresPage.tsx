@@ -107,32 +107,44 @@ export default function GovernmentProceduresPage() {
       {
         id: 1,
         text: isAr ? "السجل التجاري" : "Commercial Registration",
-        query: "السجل التجاري",
+        query: isAr
+          ? "اشرح لي خطوات استخراج السجل التجاري لمطعم/كافيه"
+          : "Explain the steps to issue a Commercial Registration for a restaurant or cafe",
       },
       {
         id: 2,
         text: isAr ? "الرقم الضريبي" : "Tax Number",
-        query: "الرقم الضريبي",
+        query: isAr
+          ? "اشرح لي خطوات استخراج الرقم الضريبي من هيئة الزكاة والضريبة لمطعم/كافيه"
+          : "Explain the steps to issue a Tax Number from ZATCA for a restaurant or cafe",
       },
       {
         id: 3,
         text: isAr ? "رخصة البلدية" : "Municipal License",
-        query: "رخصة البلدية",
+        query: isAr
+          ? "اشرح لي خطوات استخراج رخصة البلدية لمطعم/كافيه"
+          : "Explain the steps to issue a Municipal License for a restaurant or cafe",
       },
       {
         id: 4,
         text: isAr ? "رخصة الدفاع المدني" : "Civil Defense License",
-        query: "رخصة الدفاع المدني",
+        query: isAr
+          ? "اشرح لي خطوات استخراج رخصة الدفاع المدني لمطعم/كافيه"
+          : "Explain the steps to issue a Civil Defense License for a restaurant or cafe",
       },
       {
         id: 5,
         text: isAr ? "التأمينات الاجتماعية" : "Social Insurance",
-        query: "التأمينات الاجتماعية",
+        query: isAr
+          ? "اشرح لي خطوات تسجيل المنشأة في التأمينات الاجتماعية لمطعم/كافيه"
+          : "Explain the steps to register the business with GOSI (Social Insurance) for a restaurant or cafe",
       },
       {
         id: 6,
         text: isAr ? "رخصة العمل للأجانب" : "Work Permits",
-        query: "رخصة العمل للأجانب",
+        query: isAr
+          ? "اشرح لي خطوات استخراج رخصة العمل للأجانب لمطعم/كافيه"
+          : "Explain the steps to issue Work Permits for foreign employees in a restaurant or cafe",
       },
     ],
     [isAr],

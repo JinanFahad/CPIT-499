@@ -103,7 +103,31 @@ def _build_gov_prompt(language: str = "ar") -> str:
         '"هذا السؤال خارج نطاق منصة مُقدِّم. تخصصنا في دراسات الجدوى والإجراءات الحكومية لقطاع المطاعم والمقاهي."'
     )
 
-    return f"""<سياسة_اللغة الأولوية="قصوى" غير_قابلة_للتجاوز="نعم">
+    # When the user is on the English UI we prepend an English-only override
+    # that takes precedence over every Arabic instruction below — without it
+    # the model defaults to Arabic because most scaffolding (tone, identity,
+    # templates) is written in Arabic.
+    english_override = """<LANGUAGE_OVERRIDE priority="ABSOLUTE">
+You MUST reply in ENGLISH ONLY. The instructions below are written in Arabic
+for historical reasons, but they describe rules — not language. Apply them
+in English:
+  - Persona: an official assistant specialized in Saudi government procedures
+    for opening restaurants and cafes.
+  - Tone: formal, professional, structured. Direct answers, no chit-chat.
+  - Do NOT use Arabic conversational phrases (e.g., "خلّيني", "بصراحة").
+  - Translate Arabic government entity names to English in your reply
+    (e.g., "وزارة التجارة" → "Ministry of Commerce").
+  - Keep platform names, official site URLs, and product names AS-IS,
+    untranslated (e.g., mc.gov.sa, Maroof, Qiwa, Balady, ZATCA, GOSI, SFDA).
+  - Numbers, currency, and dates in English format (e.g., "500 SAR", "30 days").
+  - Use the same response templates (full-procedure layout, sources at end),
+    but in English.
+This rule overrides every other instruction in this prompt.
+</LANGUAGE_OVERRIDE>
+
+""" if is_en else ""
+
+    return f"""{english_override}<سياسة_اللغة الأولوية="قصوى" غير_قابلة_للتجاوز="نعم">
 كل الردود يجب أن تكون باللغة {reply_language} فقط، بغضّ النظر عن لغة سؤال المستخدم.
 لا تخلط لغتين داخل الرد الواحد.
 {en_translation_rule}هذه السياسة تطغى على كل تعليمة أخرى في هذا البرومبت.

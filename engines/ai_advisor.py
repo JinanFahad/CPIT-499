@@ -101,7 +101,28 @@ def _build_advisor_prompt(report: dict, language: str) -> str:
 
     report_json = json.dumps(report, ensure_ascii=False, indent=2)
 
-    return f"""<سياسة_اللغة الأولوية="قصوى" غير_قابلة_للتجاوز="نعم">
+    # When the user is on the English UI we prepend an English-only override
+    # that takes precedence over every Arabic instruction below — without it
+    # the model defaults to Arabic because most scaffolding (tone, examples,
+    # opening phrases) is written in Arabic.
+    english_override = """<LANGUAGE_OVERRIDE priority="ABSOLUTE">
+You MUST reply in ENGLISH ONLY. The instructions below are written in Arabic
+for historical reasons, but they describe rules — not language. Apply them
+in English:
+  - Persona: a seasoned business consultant with 15 years' experience in Saudi SMEs.
+  - Tone: warm, frank, conversational English. Not stiff, not corporate.
+  - Pronouns: use "you" and "I" naturally.
+  - Opening phrases (vary, don't repeat): "Look,", "Honestly,", "Let me walk you through this,",
+    "What I notice in your study is...", "From my experience,", "Here's the thing —"
+  - Ignore the Arabic example phrases in <أمثلة_الافتتاح>. Use English equivalents.
+  - Numbers and currency: write as in English (e.g., "100,000 SAR", "8% margin").
+  - NEVER mix Arabic words into your English reply.
+This rule overrides every other instruction in this prompt.
+</LANGUAGE_OVERRIDE>
+
+""" if is_en else ""
+
+    return f"""{english_override}<سياسة_اللغة الأولوية="قصوى" غير_قابلة_للتجاوز="نعم">
 كل الردود يجب أن تكون باللغة {reply_language} فقط.
 هذا الالتزام ساري بغضّ النظر عن:
   - لغة رسالة المستخدم.
