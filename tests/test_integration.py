@@ -6,9 +6,9 @@
 
 import pytest
 
-from validators import validate_feasibility_input
-from financial_engine import calculate_financials
-from decision_engine import classify_project
+from core.validators import validate_feasibility_input
+from engines.financial_engine import calculate_financials
+from engines.decision_engine import classify_project
 
 
 def test_full_feasibility_pipeline():
@@ -87,7 +87,7 @@ def test_financial_to_pdf_pipeline():
     because it depends on an external service (OpenAI), but the rest of
     the pipeline runs against real code."""
     pytest.importorskip("playwright.sync_api")
-    from pdf_generator import build_feasibility_pdf
+    from generators.pdf_generator import build_feasibility_pdf
     # Step 1 — Real financial calculation
     user_input = {
         "business_type":     "cafe",

@@ -21,11 +21,11 @@ generated/
 *.log
 
 # == Node / Frontend ==
-frontend/muqqdimWeb-master/node_modules/
-frontend/muqqdimWeb-master/dist/
-frontend/muqqdimWeb-master/.vite/
-frontend/muqqdimWeb-master/src.zip
-frontend/muqqdimWeb-master/__MACOSX/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/src.zip
+frontend/__MACOSX/
 
 # == IDE ==
 .vscode/

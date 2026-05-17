@@ -1,0 +1,523 @@
+import { useState, useEffect } from "react";
+import { Link, useLocation } from "react-router";
+
+// Lucide icons used by the action buttons + status messages
+import {
+  Plus,
+  Edit,
+  Trash2,
+  FileText,
+  Download,
+  FolderOpen,
+  Loader2,
+  Eye,
+  Mail,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react";
+
+// Framer Motion for the modal fade animation
+import { motion, AnimatePresence } from "motion/react";
+
+// Layout pieces + i18n + Firebase auth + city list (for translation)
+import { Header } from "../components/Header";
+import { SparkleField } from "../components/SparkleField";
+import { LoadingModal } from "../components/LoadingModal";
+import { useLanguage } from "../contexts/LanguageContext";
+import { auth } from "../firebase";
+import { cities } from "./FeasibilityStudyPage";
+
+// Build a reverse lookup once (Arabic city name → English name) so we can
+// translate stored Arabic city values when the UI is in English.
+const cityArToEn: Record<string, string> = cities.reduce(
+  (acc, c) => ({ ...acc, [c.ar]: c.en }),
+  {} as Record<string, string>,
+);
+
+// Translate a city string for display.
+// Falls back to the original if the city isn't in our list.
+const translateCity = (city: string | undefined, isAr: boolean): string => {
+  if (!city) return "—";
+  if (isAr) return city; // already Arabic — return as-is
+  return cityArToEn[city] || city; // English: look it up, else return original
+};
+
+import { BACKEND_URL } from "../config";
+import { getUserId, getUserName } from "../auth-storage";
+
+export default function MyProjectsPageNew() {
+  // ── State ──────────────────────────────────────────────────────────
+  // The list of project records loaded from the backend
+  const [projects, setProjects] = useState<any[]>([]);
+  // Project ID currently being processed for PDF download / email (loading spinner)
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState<number | null>(null);
+  const [emailingPDF, setEmailingPDF] = useState<number | null>(null);
+  // ID of the project for which the delete-confirmation modal is open (null = closed)
+  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  // A floating success/error toast (null = no toast)
+  const [notice, setNotice] = useState<{
+    type: "success" | "error";
+    title: string;
+    message: string;
+  } | null>(null);
+
+  // Language hook + helpers
+  const { t, language } = useLanguage();
+  const isAr = language === "ar";
+  const userName = getUserName(isAr ? "المستخدم" : "User");
+
+  // Tiny helpers to show toasts in one line at call sites
+  const showSuccess = (title: string, message: string) =>
+    setNotice({ type: "success", title, message });
+  const showError = (title: string, message: string) =>
+    setNotice({ type: "error", title, message });
+
+  // ── Re-fetch projects on initial mount AND every time the user lands here ─
+  // We watch location.key (changes on every navigation) so that returning to
+  // this page after creating a pitch deck re-loads the list, which keeps the
+  // pitch-deck buttons in sync with the latest backend state.
+  const location = useLocation();
+  useEffect(() => {
+    const userId = getUserId();
+    if (!userId) return;
+
+    fetch(`${BACKEND_URL}/api/projects?user_id=${userId}`)
+      .then((res) => res.json())
+      .then((data) => setProjects(Array.isArray(data) ? data : []))
+      .catch(() => setProjects([]));
+  }, [location.key]);
+
+  // ── Delete a project ───────────────────────────────────────────────
+  // Calls DELETE /api/projects/:id, then optimistically removes it
+  // from the local list so the UI updates instantly.
+  const handleDelete = async (projectId: number) => {
+    try {
+      await fetch(`${BACKEND_URL}/api/projects/${projectId}`, {
+        method: "DELETE",
+      });
+      setProjects(projects.filter((p) => p.id !== projectId));
+    } catch {
+      showError(
+        isAr ? "تعذّر إتمام العملية" : "Operation Failed",
+        isAr
+          ? "نأسف، تعذّر إتمام طلب حذف المشروع. نرجو إعادة المحاولة لاحقاً."
+          : "We were unable to complete the project deletion. Please try again later.",
+      );
+    }
+    setDeleteConfirm(null);
+  };
+
+  // ── Re-generate the PDF report and download it ─────────────────────
+  // Sends all the project's data to the backend, which calls the AI again
+  // and returns the freshly generated PDF as a blob the browser saves.
+  const handleDownloadPDF = async (project: any) => {
+    setIsGeneratingPDF(project.id);
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/api/feasibility/report-pdf`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            business_type: project.project_type,
+            restaurant_type: project.restaurant_type || "",
+            city: project.city,
+            capital: project.capital,
+            rent: project.rent,
+            employees: project.employees,
+            avg_price: project.avg_price,
+            customers_per_day: project.customers_per_day,
+            target_customers: project.target_customers || "",
+            main_products: project.main_products || [],
+            // Current site language — backend uses this to pick the
+            // correct AI prompt and the matching PDF template (Arabic/English)
+            language: language,
+            ...(project.lat && project.lng
+              ? { lat: project.lat, lng: project.lng }
+              : {}),
+          }),
+        },
+      );
+
+      if (!response.ok) throw new Error("Failed to generate PDF");
+
+      // Convert the response into a Blob, then trigger a download by
+      // creating a temporary <a> element, clicking it, and cleaning up.
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${project.project_name}_feasibility.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      showError(
+        isAr ? "تعذّر تحميل دراسة الجدوى" : "Unable to Download Report",
+        isAr
+          ? "نأسف، لم نتمكن من إتمام تحميل دراسة الجدوى. نرجو التحقق من الاتصال وإعادة المحاولة."
+          : "We were unable to download the feasibility report. Please check your connection and try again.",
+      );
+    } finally {
+      setIsGeneratingPDF(null);
+    }
+  };
+
+  // ── Email the feasibility report to the logged-in user's address ───
+  // The backend looks up the existing report by ID, attaches the PDF,
+  // and sends it via the configured SMTP credentials.
+  const handleEmailPDF = async (project: any) => {
+    const userEmail = auth.currentUser?.email;
+    if (!userEmail) {
+      showError(
+        isAr ? "يلزم تسجيل الدخول" : "Authentication Required",
+        isAr
+          ? "يرجى تسجيل الدخول لإتمام إرسال الملف إلى بريدكم الإلكتروني."
+          : "Please sign in to send the document to your email address.",
+      );
+      return;
+    }
+    if (!project.report_id) {
+      showError(
+        isAr ? "لا توجد دراسة جدوى مرتبطة" : "No Associated Report",
+        isAr
+          ? "هذا المشروع لا يحتوي على دراسة جدوى. يرجى إعادة إنشاء الدراسة عبر تعديل المشروع."
+          : "This project has no associated feasibility report. Please regenerate it by editing the project.",
+      );
+      return;
+    }
+    setEmailingPDF(project.id);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/feasibility/email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          report_id: project.report_id,
+          email: userEmail,
+          project_name: project.project_name,
+          language,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed");
+      showSuccess(
+        isAr
+          ? "تم إرسال دراسة الجدوى بنجاح"
+          : "Feasibility Report Sent Successfully",
+        isAr
+          ? `تم تسليم دراسة الجدوى الخاصة بمشروعكم إلى بريدكم الإلكتروني ${userEmail}. نشكركم لاستخدامكم منصة مُقدِّم.`
+          : `Your project's feasibility report has been delivered to ${userEmail}. Thank you for using Muqaddim.`,
+      );
+    } catch (err: any) {
+      showError(
+        isAr ? "تعذّر إرسال البريد الإلكتروني" : "Email Delivery Failed",
+        isAr
+          ? `نأسف، تعذّر إتمام إرسال البريد الإلكتروني. السبب: ${err.message}`
+          : `We were unable to deliver the email. Reason: ${err.message}`,
+      );
+    } finally {
+      setEmailingPDF(null);
+    }
+  };
+
+  // ── Helper: format a date string for display ───────────────────────
+  // Uses the locale that matches the current language so dates appear
+  // naturally (e.g. "٢٤ ذو القعدة ١٤٤٧" in Arabic, "May 13, 2026" in English).
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return "—";
+    try {
+      return new Date(dateStr).toLocaleDateString(isAr ? "ar-SA" : "en-US");
+    } catch {
+      return "—";
+    }
+  };
+
+  return (
+    <>
+      <Header />
+      <div
+        className="min-h-screen bg-gray-50 p-6 lg:p-8 relative"
+        dir={isAr ? "rtl" : "ltr"}
+      >
+        <SparkleField />
+        <div className="max-w-7xl mx-auto space-y-6">
+          <div className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md rounded-2xl p-8 border border-[#C6A75E]/30 card-glow">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <h1 className="text-4xl font-bold text-[#08312d] dark:text-white mb-2">
+                  {t("projects.welcome")}, {userName}
+                </h1>
+                <p className="text-gray-600 dark:text-white/70 text-lg font-medium font-[Changa]">
+                  {t("projects.youHave")}{" "}
+                  <span className="font-bold text-[#08312d] dark:text-[#C6A75E]">
+                    {projects.length}
+                  </span>{" "}
+                  {projects.length === 1
+                    ? t("projects.project")
+                    : t("projects.projects")}
+                </p>
+              </div>
+              <Link
+                to="/dashboard/feasibility-study"
+                className="bg-[#C6A75E] hover:bg-[#a88f4e] rounded-lg px-5 py-2 text-white transition-all flex items-center gap-2 font-bold text-sm shadow-md font-[Changa]"
+              >
+                <Plus className="w-4 h-4" />
+                <span>{t("projects.createNew")}</span>
+              </Link>
+            </div>
+          </div>
+
+          {projects.length === 0 ? (
+            <div className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md rounded-2xl p-20 text-center border border-[#C6A75E]/30 card-glow">
+              <div className="w-32 h-32 rounded-2xl bg-[#E6F2F0] dark:bg-[#C6A75E]/15 flex items-center justify-center mx-auto mb-8">
+                <FolderOpen className="w-16 h-16 text-[#C6A75E]" />
+              </div>
+              <h2 className="text-3xl font-bold text-[#08312d] dark:text-white mb-4">
+                {t("projects.noProjects")}
+              </h2>
+              <p className="text-gray-600 dark:text-white/70 text-lg mb-10 max-w-2xl mx-auto leading-relaxed font-[Changa]">
+                {t("projects.noProjectsDesc")}
+              </p>
+              <Link
+                to="/dashboard/feasibility-study"
+                className="inline-flex items-center gap-3 bg-[#C6A75E] hover:bg-[#a88f4e] rounded-lg px-10 py-5 text-white transition-all font-bold text-lg shadow-md font-[Changa]"
+              >
+                <Plus className="w-6 h-6" />
+                <span>{t("projects.createNew")}</span>
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-6">
+              {projects.map((project) => (
+                <div
+                  key={project.id}
+                  className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md rounded-2xl p-6 border border-[#C6A75E]/30 card-glow hover:shadow-xl hover:border-[#C6A75E]/60 transition-all duration-300"
+                >
+                  <div className="flex flex-col lg:flex-row gap-6">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start gap-4 mb-5">
+                        <div className="w-16 h-16 rounded-lg bg-[#C6A75E] flex items-center justify-center flex-shrink-0 shadow-md">
+                          <FileText className="w-8 h-8 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-2xl font-bold text-[#08312d] dark:text-white mb-1">
+                            {project.project_name}
+                          </h3>
+                          <p className="text-gray-500 dark:text-white/50 text-sm font-[Changa]">
+                            {formatDate(project.created_at)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-4 bg-gray-50 dark:bg-[#062620] rounded-lg p-5 border border-gray-200 dark:border-white/10">
+                        <div>
+                          <div className="text-gray-600 dark:text-white/60 text-sm font-semibold mb-1 font-[Changa]">
+                            {isAr ? "المدينة" : "City"}
+                          </div>
+                          <div className="text-[#08312d] dark:text-white font-bold text-lg">
+                            {translateCity(project.city, isAr)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-gray-600 dark:text-white/60 text-sm font-semibold mb-1 font-[Changa]">
+                            {isAr ? "رأس المال" : "Capital"}
+                          </div>
+                          <div className="text-[#08312d] dark:text-white font-bold text-lg">
+                            {project.capital
+                              ? `${project.capital.toLocaleString()} ${isAr ? "ر.س" : "SAR"}`
+                              : "—"}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-gray-600 dark:text-white/60 text-sm font-semibold mb-1 font-[Changa]">
+                            {isAr ? "الإيجار الشهري" : "Monthly Rent"}
+                          </div>
+                          <div className="text-[#08312d] dark:text-white font-bold text-lg">
+                            {project.rent
+                              ? `${project.rent.toLocaleString()} ${isAr ? "ر.س" : "SAR"}`
+                              : "—"}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-3 lg:min-w-[220px]">
+                      <Link
+                        to={`/dashboard/report/${project.id}`}
+                        className="flex items-center justify-center gap-2 bg-[#08312D] hover:bg-[#0E4A43] border border-[#C6A75E]/40 hover:border-[#C6A75E] rounded-lg px-5 py-3 text-white transition-all font-semibold shadow-sm font-[Changa]"
+                      >
+                        <Eye className="w-5 h-5" />
+                        <span>{isAr ? "عرض الدراسة" : "View Report"}</span>
+                      </Link>
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleDownloadPDF(project)}
+                          disabled={
+                            isGeneratingPDF === project.id ||
+                            emailingPDF === project.id
+                          }
+                          className="flex-1 flex items-center justify-center gap-2 bg-gray-50 dark:bg-[#062620] border border-gray-300 dark:border-white/20 hover:bg-gray-100 dark:hover:bg-[#08312D] rounded-lg px-4 py-3 text-[#08312D] dark:text-white transition-all font-semibold shadow-sm font-[Changa] disabled:opacity-50"
+                        >
+                          {isGeneratingPDF === project.id ? (
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                          ) : (
+                            <Download className="w-5 h-5" />
+                          )}
+                          <span>{t("projects.downloadFeasibility")}</span>
+                        </button>
+                        <button
+                          onClick={() => handleEmailPDF(project)}
+                          disabled={
+                            emailingPDF === project.id ||
+                            isGeneratingPDF === project.id
+                          }
+                          title={isAr ? "إرسال للإيميل" : "Send to email"}
+                          className="flex items-center justify-center bg-gray-50 dark:bg-[#062620] border border-gray-300 dark:border-white/20 hover:bg-[#08312D] hover:text-white rounded-lg px-4 py-3 text-[#08312D] dark:text-white transition-all shadow-sm disabled:opacity-50"
+                        >
+                          {emailingPDF === project.id ? (
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                          ) : (
+                            <Mail className="w-5 h-5" />
+                          )}
+                        </button>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Link
+                          to={`/dashboard/edit-project/${project.id}`}
+                          className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-[#062620] border border-gray-300 dark:border-white/20 hover:bg-gray-100 dark:hover:bg-[#08312D] rounded-lg px-4 py-3 text-gray-700 dark:text-white/80 transition-all shadow-sm"
+                        >
+                          <Edit className="w-5 h-5" />
+                        </Link>
+                        <button
+                          onClick={() => setDeleteConfirm(project.id)}
+                          className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-[#062620] border border-gray-300 dark:border-white/20 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg px-4 py-3 text-red-600 dark:text-red-400 transition-all shadow-sm"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {deleteConfirm && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-6"
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white dark:bg-gray-200 rounded-2xl p-8 max-w-md w-full shadow-2xl border border-gray-200"
+          >
+            <div className="flex flex-col items-center text-center">
+              <div className="w-20 h-20 rounded-full bg-red-100 flex items-center justify-center mb-6">
+                <Trash2 className="w-10 h-10 text-red-500" />
+              </div>
+              <h3 className="text-2xl font-bold text-[#08312d] mb-3 font-[Changa]">
+                {isAr ? "حذف المشروع" : "Delete Project"}
+              </h3>
+              <p className="text-gray-600 text-lg leading-relaxed mb-6 font-[Changa]">
+                {isAr
+                  ? "هل أنت متأكد من حذف هذا المشروع؟ لا يمكن التراجع عن هذا الإجراء."
+                  : "Are you sure? This action cannot be undone."}
+              </p>
+              <div className="flex gap-3 w-full">
+                <button
+                  onClick={() => handleDelete(deleteConfirm)}
+                  className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-4 rounded-xl transition-all font-[Changa]"
+                >
+                  {isAr ? "حذف" : "Delete"}
+                </button>
+                <button
+                  onClick={() => setDeleteConfirm(null)}
+                  className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-4 rounded-xl transition-all font-[Changa]"
+                >
+                  {isAr ? "إلغاء" : "Cancel"}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      <LoadingModal
+        open={isGeneratingPDF !== null}
+        title={isAr ? "جاري التحضير" : "Preparing..."}
+        description={
+          isAr
+            ? "جاري إنشاء ملف دراسة الجدوى وتحميله"
+            : "Generating and downloading your feasibility report"
+        }
+        dir={isAr ? "rtl" : "ltr"}
+      />
+
+      {/* Notice Modal — للنجاح والفشل */}
+      <AnimatePresence>
+        {notice && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-6"
+            onClick={() => setNotice(null)}
+            dir={isAr ? "rtl" : "ltr"}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              className="bg-white dark:bg-[#0E4A43] rounded-2xl p-8 max-w-md w-full shadow-2xl border border-gray-200 dark:border-[#C6A75E]/30 overflow-hidden relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* شريط ملوّن في الأعلى */}
+              <div
+                className="absolute inset-x-0 top-0 h-1.5"
+                style={{
+                  background: notice.type === "success" ? "#C6A75E" : "#dc2626",
+                }}
+              />
+              <div className="flex flex-col items-center text-center">
+                <div
+                  className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${
+                    notice.type === "success"
+                      ? "bg-[#FFF9F0] dark:bg-[#C6A75E]/15 border-2 border-[#C6A75E]"
+                      : "bg-red-50 dark:bg-red-500/15 border-2 border-red-300 dark:border-red-400/50"
+                  }`}
+                >
+                  {notice.type === "success" ? (
+                    <CheckCircle2 className="w-11 h-11 text-[#C6A75E]" />
+                  ) : (
+                    <AlertCircle className="w-11 h-11 text-red-500 dark:text-red-300" />
+                  )}
+                </div>
+                <h3 className="text-2xl font-bold text-[#08312D] dark:text-white mb-3 font-[Changa]">
+                  {notice.title}
+                </h3>
+                <p className="text-gray-600 dark:text-white/80 text-base leading-relaxed mb-6 font-[Changa]">
+                  {notice.message}
+                </p>
+                <button
+                  onClick={() => setNotice(null)}
+                  className={`w-full font-bold py-4 rounded-xl transition-all font-[Changa] text-white ${
+                    notice.type === "success"
+                      ? "bg-[#08312D] hover:bg-[#0E4A43] dark:bg-[#C6A75E] dark:hover:bg-[#a88f4e] dark:text-[#08312D]"
+                      : "bg-gray-700 hover:bg-gray-800 dark:bg-red-500/30 dark:hover:bg-red-500/40 dark:text-white"
+                  }`}
+                >
+                  {isAr ? "تمام" : "OK"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}

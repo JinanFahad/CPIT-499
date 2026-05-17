@@ -23,47 +23,47 @@ load_dotenv(override=True)
 # =====================================================================
 # Internal imports — file generators (PDF / PowerPoint / Email).
 # =====================================================================
-from pdf_generator import build_feasibility_pdf
-from ppt_builder import build_pptx
-from email_sender import send_file_via_email
+from generators.pdf_generator import build_feasibility_pdf
+from generators.ppt_builder import build_pptx
+from services.email_sender import send_file_via_email
 
 # =====================================================================
 # Internal imports — calculation and decision engines.
 # =====================================================================
-from financial_engine import calculate_financials
-from decision_engine import classify_project
+from engines.financial_engine import calculate_financials
+from engines.decision_engine import classify_project
 
 # =====================================================================
 # Internal imports — AI engines and their custom exceptions.
 # =====================================================================
-from ai_report_engine import (
+from engines.ai_report_engine import (
     generate_feasibility_report,
     enrich_project_data,
     AIServiceUnavailable,
     AIResponseInvalid,
 )
-from ai_pitch_engine import (
+from engines.ai_pitch_engine import (
     generate_pitch_deck_json,
     PitchGenerationError,
     PitchServiceUnavailable,
     PitchResponseInvalid,
 )
-from ai_advisor import (
+from engines.ai_advisor import (
     chat_with_advisor,
     AdvisorServiceUnavailable,
     AdvisorResponseInvalid,
 )
-from market_ai import build_competitor_summary, generate_market_analysis_ar
-from gov_consultant import gov_chat, clear_gov_session
-from report_translator import get_or_create_translation
+from engines.market_ai import build_competitor_summary, generate_market_analysis_ar
+from engines.gov_consultant import gov_chat, clear_gov_session
+from services.report_translator import get_or_create_translation
 
 # =====================================================================
 # Internal imports — domain config, validators, database.
 # =====================================================================
-from business_types import BUSINESS_TYPES, get_google_type, get_label_ar, get_label, is_valid_type
-from saudi_assumptions import DEFAULT_SALARY
-from validators import validate_feasibility_input
-from database import (
+from schemas.business_types import BUSINESS_TYPES, get_google_type, get_label_ar, get_label, is_valid_type
+from data.saudi_assumptions import DEFAULT_SALARY
+from core.validators import validate_feasibility_input
+from core.database import (
     init_db,
     save_report, get_all_reports, get_report_by_id, delete_report, update_report,
     save_project, get_projects_by_user, get_project_by_id, update_project, delete_project,

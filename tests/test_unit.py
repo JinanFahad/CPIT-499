@@ -4,9 +4,9 @@
 # Each test verifies a single piece of logic without external dependencies.
 # =====================================================================
 
-from validators import validate_feasibility_input
-from saudi_assumptions import calculate_capital_allocation
-from success_predictor import predict_project_outcome
+from core.validators import validate_feasibility_input
+from data.saudi_assumptions import calculate_capital_allocation
+from engines.success_predictor import predict_project_outcome
 
 
 # =====================================================================
