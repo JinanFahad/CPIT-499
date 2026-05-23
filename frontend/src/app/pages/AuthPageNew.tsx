@@ -272,7 +272,7 @@ export default function AuthPageNew() {
                       setForgotEmail(loginData.email);
                       setForgotOpen(true);
                     }}
-                    className="text-sm text-[#08312D] hover:text-[#C6A75E] font-semibold transition-colors"
+                    className="text-sm text-[#C6A75E] hover:text-white font-semibold transition-colors"
                   >
                     {isAr ? "نسيتِ كلمة المرور؟" : "Forgot Password?"}
                   </button>
