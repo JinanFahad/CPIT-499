@@ -1,9 +1,3 @@
-// React APIs we need:
-//   - createContext: builds a Context object
-//   - useContext:    consumes the Context inside a component
-//   - useEffect:     runs side effects (writing to <html> and localStorage)
-//   - useState:      stores the current language value in the Provider
-//   - ReactNode:     type for the children prop
 import {
   createContext,
   useContext,
@@ -12,27 +6,18 @@ import {
   ReactNode,
 } from "react";
 
-// Strict union type — only 'ar' or 'en' are allowed
 type Language = "ar" | "en";
 
-// The shape of the value the Provider exposes to consumers
 interface LanguageContextType {
   language: Language;
   toggleLanguage: () => void;
-  t: (key: string) => string; // translation lookup
+  t: (key: string) => string;
 }
 
-// The Context itself — undefined by default so we can detect misuse
 const LanguageContext = createContext<LanguageContextType | undefined>(
   undefined,
 );
 
-// =====================================================================
-// Translations dictionary
-// =====================================================================
-// Structure: { language: { 'dot.notation.key': 'translated string', ... } }
-// Add a new string by adding the same key under BOTH 'ar' and 'en'.
-// Components look up strings via t('the.key').
 const translations: Record<Language, Record<string, string>> = {
   ar: {
     // Header
@@ -301,23 +286,15 @@ const translations: Record<Language, Record<string, string>> = {
   },
 };
 
-// =====================================================================
-// LanguageProvider — wraps the app and supplies the language state
-// =====================================================================
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  // Initial state: read the saved language from localStorage, default to 'ar'.
-  // The function form of useState runs only once on first mount.
   const [language, setLanguage] = useState<Language>(() => {
     const savedLanguage = localStorage.getItem("language") as Language;
     return savedLanguage || "ar";
   });
 
-  // Whenever `language` changes, sync the <html> attributes and persist.
   useEffect(() => {
     const root = document.documentElement;
 
-    // Set both `dir` (for layout direction) and `lang` (for screen readers,
-    // search engines, and CSS selectors like [lang="ar"])
     if (language === "ar") {
       root.setAttribute("dir", "rtl");
       root.setAttribute("lang", "ar");
@@ -326,19 +303,13 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       root.setAttribute("lang", "en");
     }
 
-    // Save the choice so it survives reloads
     localStorage.setItem("language", language);
   }, [language]);
 
-  // Flip 'ar' ↔ 'en' — uses the functional updater so we always
-  // base the new value on the latest state.
   const toggleLanguage = () => {
     setLanguage((prev) => (prev === "ar" ? "en" : "ar"));
   };
 
-  // Translation helper: look up the key in the current language's dictionary.
-  // If the key isn't found, fall back to the key itself (so missing
-  // translations are visible during development instead of empty strings).
   const t = (key: string): string => {
     return translations[language][key] || key;
   };
@@ -350,15 +321,6 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// =====================================================================
-// useLanguage — convenience hook for consumers
-// =====================================================================
-// Usage in any component:
-//   const { language, toggleLanguage, t } = useLanguage();
-//   return <h1>{t('dashboard.welcome')}</h1>;
-//
-// Throws a clear error if used outside the Provider, so bugs are caught
-// at development time instead of silently doing nothing.
 export function useLanguage() {
   const context = useContext(LanguageContext);
   if (context === undefined) {

@@ -1,18 +1,4 @@
-# financial_engine.py
-# Core financial calculation engine for the platform.
-#
-# How it works:
-#   - The user inputs an expected daily customer count as the steady-state
-#     target after the project stabilizes.
-#   - A 6-month ramp-up curve is applied: month 1 starts at 50% of target,
-#     reaches 100% at month 6 and beyond.
-#   - All headline metrics (margin, payback, etc.) are computed from the
-#     steady-state numbers, not from month 1 — a new project is not judged
-#     by its first month.
-#   - Payback period is computed from the actual cumulative cash flow
-#     including the ramp-up losses.
-#   - A month-by-month 12-month projection is returned for charts and tables.
-
+# Financial projections, profitability, and payback calculations.
 from data.saudi_assumptions import (
     DEFAULT_COGS,
     UTILITIES_RATE,
@@ -25,14 +11,14 @@ from data.saudi_assumptions import (
 )
 from engines.success_predictor import predict_project_outcome
 
-# Ramp-up curve constants: month 1 = 50%, month 6+ = 100% (10% step per month).
+# Ramp-up assumptions
 RAMP_UP_MONTHS = 6
 RAMP_UP_START = 0.5
 
-# Upper bound when searching for payback period (10 years).
+# Maximum payback period considered (months)
 PAYBACK_MAX_MONTHS = 120
 
-# Number of years projected in the multi-year summary returned to the UI.
+# Multi-year projection horizon
 PROJECTION_YEARS = 3
 
 
@@ -49,7 +35,6 @@ def calculate_financials(data, language: str = "ar"):
     Raises:
         ValueError: when an input is missing, non-numeric, or out of range.
     """
-    # Top-level input shape check.
     if not isinstance(data, dict):
         raise ValueError("data must be a dict")
 
@@ -57,8 +42,6 @@ def calculate_financials(data, language: str = "ar"):
     if not isinstance(business_type, str) or not business_type:
         raise ValueError("business_type must be a non-empty string")
 
-    # Safe number-coercion helpers. They raise ValueError with the offending
-    # field name so the caller can return a clean 400 with a useful message.
     def _to_float(value, field_name, allow_none=False, default=0.0, min_value=None):
         if value is None or value == "":
             if allow_none:
@@ -85,7 +68,6 @@ def calculate_financials(data, language: str = "ar"):
             raise ValueError(f"{field_name} must be >= {min_value}, got {result}")
         return result
 
-    # Capital is mandatory and must be strictly positive.
     if "capital" not in data:
         raise ValueError("capital is required")
     capital = _to_float(data["capital"], "capital", min_value=1)
@@ -95,8 +77,7 @@ def calculate_financials(data, language: str = "ar"):
     customers_per_day = _to_float(data.get("customers_per_day"), "customers_per_day",
                                   allow_none=True, min_value=0)
 
-    # Sanity check: zero revenue makes the rest of the math meaningless, so log
-    # a warning. The flow still runs because the user may be exploring inputs.
+
     if avg_price * customers_per_day == 0:
         import logging
         logging.getLogger(__name__).warning(
@@ -104,7 +85,6 @@ def calculate_financials(data, language: str = "ar"):
             avg_price, customers_per_day,
         )
 
-    # Cost of goods sold (COGS). Either user-provided or a sector default.
     if data.get("cogs_known") and data.get("cogs_percent") not in (None, ""):
         cogs_rate = _to_float(data["cogs_percent"], "cogs_percent", min_value=0) / 100
         if cogs_rate >= 1:
@@ -112,12 +92,10 @@ def calculate_financials(data, language: str = "ar"):
     else:
         cogs_rate = DEFAULT_COGS.get(business_type, 0.40)
 
-    # Steady-state revenue. 28-day months account for holidays / slow days.
     steady_daily_revenue = avg_price * customers_per_day
     steady_monthly_revenue = steady_daily_revenue * 28
 
-    # Fixed costs do not change with ramp-up. Variable costs are a percentage
-    # of revenue, so they scale automatically with the ramp.
+
     staff = calculate_staff_salaries(employees)
     salaries = staff["total"]
     salary_breakdown = staff["breakdown"]
@@ -164,11 +142,9 @@ def calculate_financials(data, language: str = "ar"):
             "net_profit":    round(profit, 2),
         }
 
-    # Build the full 3-year, month-by-month projection up front.
     full_projection = [project_month(m) for m in range(1, PROJECTION_YEARS * 12 + 1)]
     monthly_projection = full_projection[:12]
 
-    # The headline metrics use the steady-state month, not month 1.
     steady = project_month(RAMP_UP_MONTHS)
     monthly_revenue   = steady["revenue"]
     monthly_expenses  = steady["expenses"]
@@ -181,9 +157,7 @@ def calculate_financials(data, language: str = "ar"):
     year_1_total_expenses = sum(m["expenses"] for m in monthly_projection)
     year_1_total_profit   = sum(m["net_profit"] for m in monthly_projection)
 
-    # Per-year totals and a running cumulative profit. cumulative_roi_pct
-    # measures how much of the initial capital has been recovered (100% =
-    # fully recouped).
+
     yearly_summary = []
     cumulative_so_far = 0.0
     for y in range(1, PROJECTION_YEARS + 1):
@@ -201,8 +175,7 @@ def calculate_financials(data, language: str = "ar"):
             "cumulative_roi_pct": round(cumulative_so_far / capital * 100, 2) if capital > 0 else 0,
         })
 
-    # Month-by-month cumulative-profit curve used by the chart that visualizes
-    # the payback point graphically.
+
     cumulative_profit_curve = []
     running = 0.0
     for m in full_projection:
@@ -217,24 +190,20 @@ def calculate_financials(data, language: str = "ar"):
     total_3_year_profit = yearly_summary[-1]["cumulative_profit"]
     roi_3_year_percent = round(total_3_year_profit / capital * 100, 2) if capital > 0 else 0
 
-    # Break-even revenue: minimum monthly revenue at which fixed costs are
-    # exactly covered, accounting for the variable-cost percentage.
+   # Calculate break-even revenue.
     break_even_revenue = (
         fixed_monthly_costs / (1 - variable_cost_rate)
         if variable_cost_rate < 1 else 0
     )
 
-    # First month where projected revenue meets or exceeds break-even.
+    # Find the break-even month.
     break_even_month = None
     for m in monthly_projection:
         if m["revenue"] >= break_even_revenue:
             break_even_month = m["month"]
             break
 
-    # Realistic payback period: walk forward month by month, adding each
-    # month's net profit (which is negative during the ramp-up) until the
-    # running total covers the initial capital. Returns None if payback
-    # does not occur within the 10-year search window.
+    # Calculate payback period from cumulative cash flow.
     payback_months = None
     cumulative = 0.0
     for month in range(1, PAYBACK_MAX_MONTHS + 1):
@@ -244,13 +213,10 @@ def calculate_financials(data, language: str = "ar"):
             payback_months = month
             break
 
-    # Allocate the initial capital across the standard setup categories.
-    # The allocation is sector-specific (a cafe and a fast-food setup spend
-    # differently on equipment, fit-out, and inventory).
+    # Generate capital allocation by business type.
     capital_breakdown = calculate_capital_allocation(business_type, capital)
 
-    # Five-factor success prediction. Combines the financials, the operating
-    # cushion, and (optionally) the market score from market_ai.
+    # Generate the project success prediction.
     market_score = data.get("market_opportunity_score")
     success_prediction = predict_project_outcome(
         financials={
@@ -264,14 +230,14 @@ def calculate_financials(data, language: str = "ar"):
         language=language,
     )
 
-    # Detailed steady-state cost breakdown for the report tables.
+    # Steady-state cost breakdown
     cogs_steady      = monthly_revenue * cogs_rate
     utilities_steady = monthly_revenue * UTILITIES_RATE
     overhead_steady  = monthly_revenue * OVERHEAD_RATE
     marketing_steady = monthly_revenue * MARKETING_RATE
 
     return {
-        # Headline metrics (steady-state, month 6+).
+        # Key financial metrics
         "monthly_revenue":         round(monthly_revenue, 2),
         "monthly_expenses":        round(monthly_expenses, 2),
         "monthly_net_profit":      round(net_profit, 2),
@@ -279,7 +245,7 @@ def calculate_financials(data, language: str = "ar"):
         "break_even_revenue":      round(break_even_revenue, 2),
         "payback_period_months":   payback_months,
 
-        # Ramp-up metrics for the year-1 journey view.
+        # Year 1 projection metrics
         "month_1_revenue":         month_1["revenue"],
         "month_1_net_profit":      month_1["net_profit"],
         "break_even_month":        break_even_month,
@@ -289,7 +255,7 @@ def calculate_financials(data, language: str = "ar"):
         "year_1_total_profit":     round(year_1_total_profit, 2),
         "ramp_up_months":          RAMP_UP_MONTHS,
 
-        # Cost breakdown (steady-state).
+        # Cost breakdown
         "salaries_total":          round(salaries, 2),
         "salary_breakdown":        salary_breakdown,
         "utilities_cost":          round(utilities_steady, 2),
@@ -297,7 +263,7 @@ def calculate_financials(data, language: str = "ar"):
         "marketing_cost":          round(marketing_steady, 2),
         "cogs_cost":               round(cogs_steady, 2),
 
-        # Three-year projection.
+        # Three-year projection
         "yearly_summary":          yearly_summary,
         "cumulative_profit_curve": cumulative_profit_curve,
         "total_3_year_profit":     round(total_3_year_profit, 2),
@@ -305,21 +271,19 @@ def calculate_financials(data, language: str = "ar"):
         "yearly_revenue_growth":   YEARLY_REVENUE_GROWTH,
         "yearly_cost_inflation":   YEARLY_COST_INFLATION,
 
-        # Per-year revenue copies kept for backward compatibility with the
-        # pitch deck builder and older parts of the UI.
+        # Legacy yearly revenue fields
         "year_1_revenue":          yearly_summary[0]["revenue"],
         "year_2_revenue":          yearly_summary[1]["revenue"],
         "year_3_revenue":          yearly_summary[2]["revenue"],
 
         "funding_needed":          round(capital, 2),
 
-        # Capital allocation + outcome prediction.
+        # Capital allocation and success prediction
         "capital_allocation":      capital_breakdown["allocation"],
         "operating_cushion":       capital_breakdown["cushion_amount"],
         "success_prediction":      success_prediction,
 
-        # Echo of the user-provided inputs so they can be shown back in the
-        # report for transparency and reproducibility.
+        # Original user inputs
         "inputs_summary": {
             "capital":           round(capital, 2),
             "rent":              round(rent, 2),

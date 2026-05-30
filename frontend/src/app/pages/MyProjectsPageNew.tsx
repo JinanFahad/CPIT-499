@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router";
 
-// Lucide icons used by the action buttons + status messages
 import {
   Plus,
   Edit,
@@ -16,10 +15,8 @@ import {
   AlertCircle,
 } from "lucide-react";
 
-// Framer Motion for the modal fade animation
 import { motion, AnimatePresence } from "motion/react";
 
-// Layout pieces + i18n + Firebase auth + city list (for translation)
 import { Header } from "../components/Header";
 import { SparkleField } from "../components/SparkleField";
 import { LoadingModal } from "../components/LoadingModal";
@@ -27,55 +24,40 @@ import { useLanguage } from "../contexts/LanguageContext";
 import { auth } from "../firebase";
 import { cities } from "./FeasibilityStudyPage";
 
-// Build a reverse lookup once (Arabic city name → English name) so we can
-// translate stored Arabic city values when the UI is in English.
 const cityArToEn: Record<string, string> = cities.reduce(
   (acc, c) => ({ ...acc, [c.ar]: c.en }),
   {} as Record<string, string>,
 );
 
-// Translate a city string for display.
-// Falls back to the original if the city isn't in our list.
 const translateCity = (city: string | undefined, isAr: boolean): string => {
   if (!city) return "—";
-  if (isAr) return city; // already Arabic — return as-is
-  return cityArToEn[city] || city; // English: look it up, else return original
+  if (isAr) return city;
+  return cityArToEn[city] || city;
 };
 
 import { BACKEND_URL } from "../config";
 import { getUserId, getUserName } from "../auth-storage";
 
 export default function MyProjectsPageNew() {
-  // ── State ──────────────────────────────────────────────────────────
-  // The list of project records loaded from the backend
   const [projects, setProjects] = useState<any[]>([]);
-  // Project ID currently being processed for PDF download / email (loading spinner)
   const [isGeneratingPDF, setIsGeneratingPDF] = useState<number | null>(null);
   const [emailingPDF, setEmailingPDF] = useState<number | null>(null);
-  // ID of the project for which the delete-confirmation modal is open (null = closed)
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
-  // A floating success/error toast (null = no toast)
   const [notice, setNotice] = useState<{
     type: "success" | "error";
     title: string;
     message: string;
   } | null>(null);
 
-  // Language hook + helpers
   const { t, language } = useLanguage();
   const isAr = language === "ar";
   const userName = getUserName(isAr ? "المستخدم" : "User");
 
-  // Tiny helpers to show toasts in one line at call sites
   const showSuccess = (title: string, message: string) =>
     setNotice({ type: "success", title, message });
   const showError = (title: string, message: string) =>
     setNotice({ type: "error", title, message });
 
-  // ── Re-fetch projects on initial mount AND every time the user lands here ─
-  // We watch location.key (changes on every navigation) so that returning to
-  // this page after creating a pitch deck re-loads the list, which keeps the
-  // pitch-deck buttons in sync with the latest backend state.
   const location = useLocation();
   useEffect(() => {
     const userId = getUserId();
@@ -87,9 +69,6 @@ export default function MyProjectsPageNew() {
       .catch(() => setProjects([]));
   }, [location.key]);
 
-  // ── Delete a project ───────────────────────────────────────────────
-  // Calls DELETE /api/projects/:id, then optimistically removes it
-  // from the local list so the UI updates instantly.
   const handleDelete = async (projectId: number) => {
     try {
       await fetch(`${BACKEND_URL}/api/projects/${projectId}`, {
@@ -107,9 +86,6 @@ export default function MyProjectsPageNew() {
     setDeleteConfirm(null);
   };
 
-  // ── Re-generate the PDF report and download it ─────────────────────
-  // Sends all the project's data to the backend, which calls the AI again
-  // and returns the freshly generated PDF as a blob the browser saves.
   const handleDownloadPDF = async (project: any) => {
     setIsGeneratingPDF(project.id);
     try {
@@ -129,8 +105,7 @@ export default function MyProjectsPageNew() {
             customers_per_day: project.customers_per_day,
             target_customers: project.target_customers || "",
             main_products: project.main_products || [],
-            // Current site language — backend uses this to pick the
-            // correct AI prompt and the matching PDF template (Arabic/English)
+
             language: language,
             ...(project.lat && project.lng
               ? { lat: project.lat, lng: project.lng }
@@ -141,8 +116,6 @@ export default function MyProjectsPageNew() {
 
       if (!response.ok) throw new Error("Failed to generate PDF");
 
-      // Convert the response into a Blob, then trigger a download by
-      // creating a temporary <a> element, clicking it, and cleaning up.
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -162,9 +135,6 @@ export default function MyProjectsPageNew() {
     }
   };
 
-  // ── Email the feasibility report to the logged-in user's address ───
-  // The backend looks up the existing report by ID, attaches the PDF,
-  // and sends it via the configured SMTP credentials.
   const handleEmailPDF = async (project: any) => {
     const userEmail = auth.currentUser?.email;
     if (!userEmail) {
@@ -219,9 +189,6 @@ export default function MyProjectsPageNew() {
     }
   };
 
-  // ── Helper: format a date string for display ───────────────────────
-  // Uses the locale that matches the current language so dates appear
-  // naturally (e.g. "٢٤ ذو القعدة ١٤٤٧" in Arabic, "May 13, 2026" in English).
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "—";
     try {
@@ -458,7 +425,7 @@ export default function MyProjectsPageNew() {
         dir={isAr ? "rtl" : "ltr"}
       />
 
-      {/* Notice Modal — للنجاح والفشل */}
+      {/* Success / Error modal */}
       <AnimatePresence>
         {notice && (
           <motion.div
@@ -476,7 +443,6 @@ export default function MyProjectsPageNew() {
               className="bg-white dark:bg-[#0E4A43] rounded-2xl p-8 max-w-md w-full shadow-2xl border border-gray-200 dark:border-[#C6A75E]/30 overflow-hidden relative"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* شريط ملوّن في الأعلى */}
               <div
                 className="absolute inset-x-0 top-0 h-1.5"
                 style={{

@@ -1,6 +1,4 @@
-# decision_engine.py
-# Investment decision module. Scores a project from 0 to 4 based on profit
-# margin and payback period, then maps the score to one of four classifications.
+# Project investment classification logic.
 
 from data.saudi_assumptions import (
     STRONG_PROFIT_MARGIN,
@@ -10,8 +8,7 @@ from data.saudi_assumptions import (
 )
 
 
-# Maps the Arabic classification strings to English for clients that
-# requested the report with language="en".
+# Arabic-to-English classification labels.
 _AR_TO_EN = {
     "مناسب للاستثمار":     "Suitable for Investment",
     "مخاطرة متوسطة":       "Moderate Risk",
@@ -36,8 +33,7 @@ def classify_project(profit_margin_percent: float, payback_months, success_predi
     The language parameter only affects the classification label in the
     returned dict. Reasons are produced in Arabic regardless.
     """
-    # Preferred path. Translate the percent score to the legacy 0-4 score
-    # so existing consumers of this function keep working.
+    # Use success prediction when available.
     if success_prediction:
         outcome = success_prediction["outcome"]
         score_pct = success_prediction.get("score_percent", 0)
@@ -61,7 +57,7 @@ def classify_project(profit_margin_percent: float, payback_months, success_predi
             "reasons":        reasons,
         }
 
-    # Fallback scoring. Only used if success_prediction was not provided.
+    # Fallback to financial-metric scoring.
     score = 0
     reasons = []
 

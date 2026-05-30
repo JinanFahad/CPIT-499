@@ -1,16 +1,4 @@
-# success_predictor.py
-# Multi-factor scoring engine that predicts the project outcome (high success,
-# probable success, moderate risk, high risk, or high failure probability).
-#
-# The weighted score (out of 100) is computed from five factors:
-#   - Stable profit margin           25 points
-#   - Return on investment (3 years) 30 points
-#   - Payback period                 20 points
-#   - Operating cushion adequacy     15 points
-#   - Market opportunity             10 points
-#
-# All thresholds are calibrated to the Saudi restaurant / cafe sector.
-
+# Project success prediction model based on five weighted factors.
 
 def predict_project_outcome(
     financials: dict,
@@ -30,7 +18,7 @@ def predict_project_outcome(
     max_score = 0
     factors = []
 
-    # Factor 1: stable profit margin. Sector average is 5-15%, 15%+ is strong.
+
     margin = financials.get("profit_margin_percent", 0)
     max_score += 25
     if margin >= 15:
@@ -56,7 +44,7 @@ def predict_project_outcome(
         "weight": 25,
     })
 
-    # Factor 2: 3-year ROI. Sector reality is 30-80%; reaching 100% is rare.
+
     roi = financials.get("roi_3_year_percent", 0)
     max_score += 30
     if roi >= 100:
@@ -82,7 +70,7 @@ def predict_project_outcome(
         "weight": 30,
     })
 
-    # Factor 3: payback period. Sector average is 36-60 months.
+
     payback = financials.get("payback_period_months")
     max_score += 20
     if payback is None:
@@ -110,9 +98,8 @@ def predict_project_outcome(
         "weight": 20,
     })
 
-    # Factor 4: operating cushion. Compares the reserved buffer against the
-    # expected Year-1 losses (during the ramp-up curve). If the project is
-    # profitable in Year 1 the cushion is not required.
+
+
     max_score += 15
     year_1_profit = financials.get("year_1_total_profit", 0)
     cushion = (capital_breakdown or {}).get("cushion_amount", 0)
@@ -143,7 +130,7 @@ def predict_project_outcome(
         "weight": 15,
     })
 
-    # Factor 5: market opportunity score (0-10 from the market analysis).
+
     max_score += 10
     if market_score is None:
         f_score, rating, value = 5, "غير محدّد (افتراضي)", "—"
@@ -164,7 +151,7 @@ def predict_project_outcome(
         "weight": 10,
     })
 
-    # Final outcome label and advisory message based on the total score.
+    # Final outcome
     if score >= 75:
         outcome       = "نجاح مرتفع"
         outcome_color = "green"
@@ -223,9 +210,7 @@ def predict_project_outcome(
     return result
 
 
-# Arabic-to-English lookup for the strings produced above. The Arabic copies
-# are the source of truth, so any new label added in this file must also be
-# added here for English output to work.
+# Arabic-to-English label mapping.
 _AR_TO_EN = {
     "هامش الربح المستقر":                "Stable Profit Margin",
     "العائد على الاستثمار (3 سنوات)":     "Return on Investment (3 Years)",

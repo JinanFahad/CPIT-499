@@ -1,17 +1,8 @@
-# =====================================================================
-# market_schema.py — هيكل JSON لتحليل السوق
-# يحتوي على:
-#   - تصنيف كل منافس (مباشر / غير مباشر)
-#   - ملخص المنافسين المباشرين
-#   - تحليل سردي + نقاط + توصيات
-#   - مستوى المنافسة + درجة الفرصة (1-10)
-# =====================================================================
 
 MARKET_SCHEMA = {
   "type": "object",
   "properties": {
 
-    # تصنيف كل مطعم بشكل فردي
     "classified_competitors": {
       "type": "array",
       "items": {
@@ -28,20 +19,19 @@ MARKET_SCHEMA = {
       }
     },
 
-    # ملخص المنافسين المباشرين فقط
     "direct_competitor_summary": {
       "type": "object",
       "properties": {
         "count":           {"type": "integer"},
         "avg_rating":      {"type": "number"},
         "strongest_name":  {"type": "string"},
-        "weakest_gap":     {"type": "string"}   # فرصة واضحة من الأضعف
+        "weakest_gap":     {"type": "string"}  
       },
       "required": ["count","avg_rating","strongest_name","weakest_gap"],
       "additionalProperties": False
     },
 
-    "narrative":         {"type": "string"},   # فقرة تحليلية مختصرة
+    "narrative":         {"type": "string"},  
     "bullets": {
       "type": "array",
       "items": {"type": "string"},
@@ -56,7 +46,7 @@ MARKET_SCHEMA = {
       "type": "string",
       "enum": ["منخفض", "متوسط", "مرتفع", "Low", "Moderate", "High"]
     },
-    "market_opportunity_score": {   # رقم من 1-10 يساعد في قرار الجدوى
+    "market_opportunity_score": {  
       "type": "integer"
     }
   },

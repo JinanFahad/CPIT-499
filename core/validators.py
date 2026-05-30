@@ -21,21 +21,18 @@ def validate_feasibility_input(data: dict) -> tuple[bool, str]:
     if not isinstance(data, dict):
         return False, "البيانات المرسلة غير صحيحة"
 
-    # ── التحقق من كل حقل رقمي ──
+    # Validate numeric fields
     for field, rules in _FEASIBILITY_NUMERIC_FIELDS.items():
         value = data.get(field)
 
-        # 1) الحقل موجود؟
         if value is None or value == "":
             return False, f"{rules['label_ar']} مطلوب"
 
-        # 2) الحقل رقم فعلاً؟
         try:
             num_value = float(value)
         except (TypeError, ValueError):
             return False, f"{rules['label_ar']} يجب أن يكون رقماً"
 
-        # 3) الحقل أكبر من الحد الأدنى؟ (هذا يغطّي الأرقام السالبة والصفر تلقائياً)
         if num_value < rules["min"]:
             return False, (
                 f"{rules['label_ar']} يجب أن يكون "
@@ -44,7 +41,6 @@ def validate_feasibility_input(data: dict) -> tuple[bool, str]:
                 else f"{rules['label_ar']} يجب أن يكون {rules['min']} أو أكثر"
             )
 
-    # ── التحقق من إحداثيات الموقع (اختياري) ──
     lat = data.get("lat")
     lng = data.get("lng")
 

@@ -10,14 +10,12 @@ import { BACKEND_URL } from "../config";
 import { getUserId } from "../auth-storage";
 
 export default function ConsultantPage() {
-  // List of projects loaded from the backend
   const [projects, setProjects] = useState<any[]>([]);
 
   const navigate = useNavigate();
   const { language } = useLanguage();
   const isAr = language === "ar";
 
-  // Load the current user's projects on mount
   useEffect(() => {
     const userId = getUserId();
     if (!userId) return;
@@ -28,7 +26,6 @@ export default function ConsultantPage() {
       .catch(() => setProjects([]));
   }, []);
 
-  // Navigate to the chat screen with the chosen project's ID in the URL
   const handleSelectProject = (projectId: number) => {
     navigate(`/dashboard/consultant/chat/${projectId}`);
   };

@@ -1,8 +1,3 @@
-# email_sender.py
-# Sends a feasibility report (PDF) or pitch deck (PPTX) to the user as an
-# email attachment. The body is a branded HTML template (Arabic or English)
-# with the Muqaddim logo embedded inline. SMTP credentials are read from .env.
-
 import os
 import smtplib
 import mimetypes
@@ -197,14 +192,12 @@ def send_file_via_email(to_email: str, subject: str, body: str, file_path: str, 
     msg["To"]      = to_email
     msg.set_content(body)
 
-    # Pick the HTML template by language and add it as the rich alternative.
     if language == "en":
         html = _build_html_en(file_kind_en, project_name or "Your Project")
     else:
         html = _build_html(file_kind_ar, project_name or "مشروعك")
     msg.add_alternative(html, subtype="html")
 
-    # Embed the logo inline so the cid:logo reference in the HTML resolves.
     if os.path.isfile(LOGO_PATH):
         with open(LOGO_PATH, "rb") as f:
             msg.get_payload()[1].add_related(
@@ -214,7 +207,6 @@ def send_file_via_email(to_email: str, subject: str, body: str, file_path: str, 
                 cid="<logo>",
             )
 
-    # Attach the actual report / pitch deck file.
     ctype, encoding = mimetypes.guess_type(file_path)
     if ctype is None or encoding is not None:
         ctype = "application/octet-stream"

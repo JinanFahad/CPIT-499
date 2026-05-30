@@ -1,9 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 
-// Lucide icons used in the chat layout
 import { Building2, Bot, User, Send, Loader2 } from "lucide-react";
 
-// Animations + layout pieces + i18n + reusable UI primitives
 import { motion } from "motion/react";
 import { Header } from "../components/Header";
 import { SparkleField } from "../components/SparkleField";
@@ -12,9 +10,6 @@ import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { BACKEND_URL } from "../config";
 
-// One chat bubble — either from the user or the bot.
-// `showOptions` (when set on a bot message) tells the UI to render
-// the corresponding button group below the text.
 interface Message {
   id: number;
   text: string;
@@ -49,9 +44,6 @@ export default function GovernmentProceduresPage() {
   const [inputValue, setInputValue] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // session_id is generated once per browser tab and persisted in
-  // sessionStorage. The backend uses it as a key to keep conversation
-  // context across messages (so follow-up questions feel natural).
   const [sessionId] = useState(() => {
     const existing = sessionStorage.getItem("gov_session_id");
     if (existing) return existing;
@@ -60,7 +52,6 @@ export default function GovernmentProceduresPage() {
     return newId;
   });
 
-  // ── Send a question to the backend and return the bot's reply text ──
   const fetchBotResponse = async (message: string): Promise<string> => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/government/chat`, {

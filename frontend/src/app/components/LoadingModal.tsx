@@ -1,25 +1,11 @@
-// Branded full-screen loading dialog shown while a long backend operation
-// is in flight (AI report generation, PDF build, pitch deck export, etc.).
-//
-// The dialog renders nothing when `open` is false. When open it draws a
-// dimmed backdrop with a centered white card containing a gold spinner
-// badge, the title + description text, and an indeterminate progress bar.
-//
-// Used in: PitchDeckPage, MyProjectsPageNew, FeasibilityStudyPage,
-// FeasibilityReport, EditProjectPage, MarketAnalysisPage.
 import { motion } from "motion/react";
 import { Loader2 } from "lucide-react";
 
 interface LoadingModalProps {
   open: boolean;
-  // Big bold heading at the top of the card (e.g. "جاري التحضير")
   title: string;
-  // One-line explanation under the title (e.g. "جاري إنشاء عرضك التقديمي")
   description: string;
-  // Small accent line under the description. Defaults to a generic
-  // "please wait" message in both languages.
   hint?: string;
-  // Layout direction. Defaults to RTL since most callers are Arabic-first.
   dir?: "rtl" | "ltr";
 }
 
@@ -31,7 +17,8 @@ export function LoadingModal({
   dir = "rtl",
 }: LoadingModalProps) {
   if (!open) return null;
-  const resolvedHint = hint ?? (dir === "rtl" ? "الرجاء الانتظار..." : "Please wait...");
+  const resolvedHint =
+    hint ?? (dir === "rtl" ? "الرجاء الانتظار..." : "Please wait...");
   return (
     <motion.div
       initial={{ opacity: 0 }}

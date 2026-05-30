@@ -3,7 +3,6 @@
 :root {
   --font-size: 16px;
   
-  /* Ù…ÙÙ‚Ø¯ÙÙ‘Ù… Brand Colors - Modern Light Theme */
   /* Primary: Deep Teal #08312d */
   --primary-50: #e6f4f3;
   --primary-100: #b3e0dc;
@@ -156,9 +155,9 @@
   --neu-shadow-light: #ffffff;
 }
 
-/* ============================================ */
+
 /* DARK MODE THEME */
-/* ============================================ */
+
 .dark {
   /* Primary Colors - Muted green family (no bright turquoise) */
   --primary-50: #031613;
@@ -285,8 +284,7 @@
   z-index: 0;
 }
 
-/* @keyframes aurora1 / aurora2 live in @layer base below — referenced
-   here by the dark-mode body::before/after rules. */
+
 
 /* Glass Effect Utility Classes - Dark Mode */
 .dark .glass {
@@ -379,7 +377,6 @@
   box-shadow: inset 8px 8px 16px var(--neu-shadow-dark), inset -8px -8px 16px var(--neu-shadow-light);
 }
 
-/* توهج خفيف ذهبي تحت الكروت — بسيط وأنيق في الوضعين */
 .card-glow {
   box-shadow:
     0 4px 12px -2px rgba(0, 0, 0, 0.06),
@@ -392,8 +389,7 @@
     0 25px 40px -15px rgba(198, 167, 94, 0.2);
 }
 
-/* "ورقة" التقرير — ألوان الرمادي الفاتح حتى في الوضع الليلي
-   لأن خلفية التقرير دايماً فاتحة، فالنصوص يجب أن تكون داكنة بغض النظر عن الثيم */
+
 .report-paper {
   --gray-50: #F8FAFB;
   --gray-100: #F3F6F9;
@@ -408,7 +404,6 @@
   --gray-950: #0F1419;
 }
 
-/* تعطيل لون autofill الأصفر من المتصفح */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
@@ -655,9 +650,6 @@ input:-webkit-autofill:active {
 }
 
 
-/* ============================================ */
-/* RESPONSIVE TYPOGRAPHY - Mobile First */
-/* ============================================ */
 @media (max-width: 768px) {
   .text-7xl  { font-size: 2.5rem  !important; line-height: 1.2; }
   .text-6xl  { font-size: 2.25rem !important; line-height: 1.2; }

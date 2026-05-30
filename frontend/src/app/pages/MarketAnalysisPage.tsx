@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 
-// Lucide icons used in the form and the result cards
 import {
   BarChart3,
   MapPin,
@@ -12,14 +11,12 @@ import {
   Lightbulb,
 } from "lucide-react";
 
-// Reusable UI primitives + layout pieces + i18n
 import { Button } from "../components/ui/button";
 import { motion } from "motion/react";
 import { Header } from "../components/Header";
 import { useLanguage } from "../contexts/LanguageContext";
 import { MapPicker } from "../components/MapPicker";
 
-// Lookup tables shared with the create/edit feasibility pages
 import {
   businessTypes,
   cities,
@@ -28,8 +25,6 @@ import {
 } from "./FeasibilityStudyPage";
 import { BACKEND_URL } from "../config";
 
-// ── TypeScript interfaces — describe the shape of the API response ──
-// One competitor as classified by the AI ("direct" / "not direct")
 interface ClassifiedCompetitor {
   id: string;
   estimated_cuisine: string;
@@ -100,39 +95,29 @@ const sectionTitle =
   "text-[#08312d] dark:text-white font-bold text-lg mb-5 pb-2 border-b border-gray-200 dark:border-white/10 font-[Changa]";
 
 export default function MarketAnalysisPage() {
-  // ── i18n ───────────────────────────────────────────────────────────
   const { language } = useLanguage();
   const isAr = language === "ar";
 
-  // ── Form fields ────────────────────────────────────────────────────
-  const [businessType, setBusinessType] = useState(""); // selected business type
-  const [city, setCity] = useState(""); // selected city (for the dropdown)
-  const [lat, setLat] = useState(""); // map-picked latitude
-  const [lng, setLng] = useState(""); // map-picked longitude
-  const [radius, setRadius] = useState("1500"); // search radius in meters
+  const [businessType, setBusinessType] = useState("");
+  const [city, setCity] = useState("");
+  const [lat, setLat] = useState("");
+  const [lng, setLng] = useState("");
+  const [radius, setRadius] = useState("1500");
 
-  // ── UI state ───────────────────────────────────────────────────────
-  const [loading, setLoading] = useState(false); // analysis request in flight
-  const [error, setError] = useState(""); // error message to show
-  const [result, setResult] = useState<AnalysisResult | null>(null); // analysis result
-  const [mapOpen, setMapOpen] = useState(false); // is the map picker open?
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [mapOpen, setMapOpen] = useState(false);
 
-  // Scroll to top on first render
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
-  // Map picker callback — store the chosen point as 6-decimal strings
   const handleLocationSelect = (newLat: number, newLng: number) => {
     setLat(newLat.toFixed(6));
     setLng(newLng.toFixed(6));
   };
 
-  // ── Run the analysis ───────────────────────────────────────────────
-  // Sends the inputs to the backend, which:
-  //   1) Calls Google Places to fetch nearby businesses
-  //   2) Asks the AI to classify each as "direct competition" or not
-  //   3) Returns a structured result with score + recommendations
   const handleAnalyze = async () => {
     setError("");
     if (!businessType) {

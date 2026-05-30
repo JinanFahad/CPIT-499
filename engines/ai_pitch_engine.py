@@ -1,9 +1,4 @@
-# ai_pitch_engine.py
-# Generates a structured pitch deck (8 slides) from a feasibility report
-# using OpenAI. The deck content is always in English because investor-facing
-# pitch decks are conventionally English even when the underlying report is
-# Arabic.
-
+# Generates investor-facing pitch decks in English.
 from openai import OpenAI, OpenAIError
 import json
 import logging
@@ -36,8 +31,7 @@ def generate_pitch_deck_json(feasibility_report: dict, extra: dict | None = None
     Pulls every field from feasibility_report first, falling back to the
     optional extra dict for anything the report does not contain.
     """
-    # معلومات اكسترا من المستخدم لما جا يولد دراسة الجدوى 
-    extra = extra or {} #يحول ال none ل dict فاضي عشان ما يطلع خطأ لما نعمل extra.get() بعدين
+    extra = extra or {} 
 
     project_name      = feasibility_report.get("project_name")      or extra.get("project_name")      or ""
     idea_description  = feasibility_report.get("idea_description")  or extra.get("idea_description")  or ""
@@ -64,8 +58,7 @@ def generate_pitch_deck_json(feasibility_report: dict, extra: dict | None = None
 
     products_text = ", ".join(main_products) if isinstance(main_products, list) else str(main_products)
 
-    # Funding allocation is precomputed here in Python (40/30/30 split) so
-    # the AI cannot drift on the totals. The third bucket absorbs rounding.
+    # Calculate funding allocation before sending data to the AI.
     def _to_int(v):
         try:
             return int(float(str(v).replace(",", "").replace("SAR", "").strip()))
@@ -76,21 +69,19 @@ def generate_pitch_deck_json(feasibility_report: dict, extra: dict | None = None
     if funding_int > 0:
         equipment_amount  = round(funding_int * 0.40)
         fitout_amount     = round(funding_int * 0.30)
-        working_amount    = funding_int - equipment_amount - fitout_amount # لان التقريب بيسوي مش بالضرورة يطلع المبلغ كامل، فبنخلي الباقي في bucket الثالث عشان نضمن ان المجموع يطلع مضبوط
+        working_amount    = funding_int - equipment_amount - fitout_amount 
       
-      #نحولها لنص عشان نرسله للAi
         allocation_text = (
             f"- Equipment & Kitchen Setup: {equipment_amount:,} SAR\n"
             f"- Fit-out, Interior & Licenses: {fitout_amount:,} SAR\n"
             f"- Working Capital, Staffing & Marketing: {working_amount:,} SAR"
         )
         funding_display = f"{funding_int:,} SAR"
-    else: # فاليديشن لو ماكان فيه راس مال او تمويل مطلوب، بنخلي النص عام بدون ارقام
+    else:
         allocation_text = "- Equipment & Kitchen Setup\n- Fit-out, Interior & Licenses\n- Working Capital, Staffing & Marketing"
         funding_display = str(funding_needed) if funding_needed else "the required amount"
 
 
-#---------------------------------------------------------------
 
     project_context = f"""
 Project Data (use exactly as provided, do not change the project concept):
@@ -170,8 +161,7 @@ Slide Structure (mandatory order):
      * value = the numeric amount only (e.g. "200000"), no commas, no "SAR" suffix
 """
 
-    # Call OpenAI with strict JSON schema enforcement so the response is
-    # guaranteed to have the required slide structure.
+    # Enforce the pitch deck JSON schema.
     try:
         response = client.responses.create(
             model="gpt-4o",
@@ -203,8 +193,7 @@ Slide Structure (mandatory order):
     if "slides" not in deck:
         raise PitchResponseInvalid("AI response missing required 'slides' field")
 
-    # Attach funding_needed outside the schema so ppt_builder can use it for
-    # the TOTAL_AMOUNT placeholder on the Investment Ask slide.
+    # Pass funding_needed to ppt_builder outside the schema.
     if funding_int > 0:
         deck["funding_needed"] = funding_int
     return deck

@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 
-// Lucide icons
 import {
   User,
   Mail,
@@ -15,15 +14,12 @@ import {
   AlertCircle,
 } from "lucide-react";
 
-// Firebase auth functions used by this page (signOut is handled by the
-// shared logout() helper in auth-storage.ts).
 import {
   onAuthStateChanged,
   updateProfile,
   sendPasswordResetEmail,
 } from "firebase/auth";
 
-// Animations + layout pieces + i18n
 import { motion, AnimatePresence } from "motion/react";
 import { Header } from "../components/Header";
 import { SparkleField } from "../components/SparkleField";
@@ -32,26 +28,21 @@ import { auth } from "../firebase";
 import { getUserName, setUserName, logout } from "../auth-storage";
 
 export default function ProfilePage() {
-  // ── i18n + routing ─────────────────────────────────────────────────
   const { language } = useLanguage();
   const isAr = language === "ar";
   const navigate = useNavigate();
 
-  // ── Edit-mode state ────────────────────────────────────────────────
-  const [isEditing, setIsEditing] = useState(false); // is the form in edit mode?
-  const [isSaving, setIsSaving] = useState(false); // save request in flight?
-  const [saveError, setSaveError] = useState(""); // error message under the field
-  const [logoutConfirm, setLogoutConfirm] = useState(false); // logout confirmation modal open?
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [logoutConfirm, setLogoutConfirm] = useState(false);
 
-  // ── Form data state ────────────────────────────────────────────────
-  const [name, setName] = useState(""); // editable name
-  const [originalName, setOriginalName] = useState(""); // last saved name (for "Cancel")
-  const [email, setEmail] = useState(""); // read-only email
+  const [name, setName] = useState("");
+  const [originalName, setOriginalName] = useState("");
+  const [email, setEmail] = useState("");
 
-  // ── "Reset password" modal state ───────────────────────────────────
-  const [resetOpen, setResetOpen] = useState(false); // modal open?
-  const [resetLoading, setResetLoading] = useState(false); // request in flight?
-  // Result message to show after sending — null = no message yet
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
   const [resetStatus, setResetStatus] = useState<{
     type: "success" | "error";
     msg: string;
@@ -86,27 +77,18 @@ export default function ProfilePage() {
     setResetStatus(null);
   };
 
-  // ── Load the current user's info on mount + react to auth changes ──
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) return;
 
-      // Name resolution priority:
-      //   1) Firebase displayName  (most accurate)
-      //   2) localStorage          (fallback for older users)
-      //   3) "User" / "المستخدم"    (final default)
       const stored = getUserName();
       let displayName = user.displayName || stored || "";
 
-      // Self-healing: if Firebase doesn't know the name but localStorage does,
-      // sync the value back to Firebase so it's the single source of truth.
       if (!user.displayName && stored && stored.trim()) {
         try {
           await updateProfile(user, { displayName: stored });
           displayName = stored;
-        } catch {
-          // Sync failed — keep going (we still have the name from localStorage)
-        }
+        } catch {}
       }
 
       if (!displayName) displayName = isAr ? "المستخدم" : "User";
@@ -118,7 +100,6 @@ export default function ProfilePage() {
     return () => unsubscribe();
   }, [isAr]);
 
-  // ── Save the edited name to Firebase + localStorage ────────────────
   const handleSave = async () => {
     if (!name.trim()) {
       setSaveError(
@@ -165,14 +146,12 @@ export default function ProfilePage() {
       >
         <SparkleField />
         <div className="max-w-3xl mx-auto">
-          {/* ── بانر علوي رسمي ── */}
           <motion.div
             className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md border border-[#C6A75E]/30 rounded-2xl card-glow overflow-hidden mb-6"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
           >
-            {/* شريط أخضر علوي رفيع */}
             <div
               className="h-1 w-full"
               style={{
@@ -206,7 +185,6 @@ export default function ProfilePage() {
             </div>
           </motion.div>
 
-          {/* ── معلومات الحساب ── */}
           <motion.div
             className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md border border-[#C6A75E]/30 rounded-2xl card-glow overflow-hidden mb-6"
             initial={{ opacity: 0, y: 20 }}
@@ -270,7 +248,6 @@ export default function ProfilePage() {
                 </div>
               )}
 
-              {/* الاسم الكامل */}
               <div>
                 <label className="text-xs text-gray-500 dark:text-white/60 mb-2 flex items-center gap-2 font-semibold uppercase tracking-wide">
                   <User className="w-3.5 h-3.5 text-[#08312D] dark:text-[#C6A75E]" />
@@ -295,7 +272,6 @@ export default function ProfilePage() {
                 )}
               </div>
 
-              {/* البريد الإلكتروني */}
               <div>
                 <label className="text-xs text-gray-500 dark:text-white/60 mb-2 flex items-center gap-2 font-semibold uppercase tracking-wide">
                   <Mail className="w-3.5 h-3.5 text-[#08312D] dark:text-[#C6A75E]" />
@@ -313,7 +289,6 @@ export default function ProfilePage() {
             </div>
           </motion.div>
 
-          {/* ── بطاقة الأمان ── */}
           <motion.div
             className="bg-white/80 dark:bg-[#08312D]/40 backdrop-blur-md border border-[#C6A75E]/30 rounded-2xl card-glow overflow-hidden mb-6"
             initial={{ opacity: 0, y: 20 }}
@@ -353,7 +328,6 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* ── نافذة تأكيد تغيير كلمة المرور ── */}
       <AnimatePresence>
         {resetOpen && (
           <motion.div
@@ -462,7 +436,6 @@ export default function ProfilePage() {
         )}
       </AnimatePresence>
 
-      {/* ── نافذة تأكيد تسجيل الخروج ── */}
       <AnimatePresence>
         {logoutConfirm && (
           <motion.div

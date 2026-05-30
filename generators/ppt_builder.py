@@ -1,10 +1,3 @@
-# =====================================================================
-# ppt_builder.py — يبني ملف PowerPoint من JSON (نتيجة ai_pitch_engine)
-# الفكرة: نستخدم قالب جاهز فيه placeholders زي {{S2_TITLE}} و {{REV_Y1}}
-# ثم نستبدل كل placeholder بالقيمة المناسبة من JSON
-# هذي الطريقة تحافظ على التصميم الاحترافي للقالب
-# =====================================================================
-
 import os
 from pptx import Presentation
 
@@ -43,11 +36,9 @@ def _build_mapping_from_deck(deck: dict) -> dict:
             return text or ""
         return text[:limit].rsplit(" ", 1)[0] + "…"
 
-    # Slide 1 — Cover
     mapping["{{DECK_TITLE}}"] = deck.get("deck_title", "")
     mapping["{{TAGLINE}}"]    = deck.get("tagline", "")
 
-    # Slides 2–5 — generic
     for i in range(1, 5):
         slide = s(i)
         idx = i + 1
@@ -58,7 +49,6 @@ def _build_mapping_from_deck(deck: dict) -> dict:
             text = bullets[b] if b < len(bullets) else ""
             mapping[f"{{{{S{idx}_B{b+1}}}}}"] = trim(text, 85)
 
-    # Slide 6 — Financial Highlights
     slide6 = s(5)
     mapping["{{S6_TITLE}}"] = slide6.get("title", "")
     nums = slide6.get("numbers", [])
@@ -66,17 +56,14 @@ def _build_mapping_from_deck(deck: dict) -> dict:
     mapping["{{REV_Y2}}"] = _fmt(nums[1]["value"]) if len(nums) > 1 else ""
     mapping["{{REV_Y3}}"] = _fmt(nums[2]["value"]) if len(nums) > 2 else ""
 
-    # Slide 7 — Competitive Advantage
     slide7 = s(6)
     mapping["{{S7_TITLE}}"]            = slide7.get("title", "")
     mapping["{{LIST_OF_COMPETITORS}}"] = "\n".join(slide7.get("bullets", []))
 
-    # Slide 8 — Investment Ask
     slide8 = s(7)
     mapping["{{S9_TITLE}}"] = slide8.get("title", "")
 
     nums8 = slide8.get("numbers", [])
-    # نحسب الإجمالي من مجموع البنود لو funding_needed مو متوفر صريحاً
     total_from_items = 0
     for item in nums8:
         try:
@@ -127,11 +114,9 @@ def build_pptx(deck: dict, out_path: str, template_path: str = None):
     if len(slides) != 8:
         raise ValueError(f"Pitch deck must have exactly 8 slides, got {len(slides)}")
 
-    # نفتح القالب ونبني خريطة الاستبدالات
     prs = Presentation(template_path)
     mapping = _build_mapping_from_deck(deck)
 
-    # نمر على كل شريحة وكل عنصر فيها ونستبدل النصوص
     for slide in prs.slides:
         for shape in slide.shapes:
             _replace_in_shape(shape, mapping)

@@ -13,14 +13,14 @@ REPORT_SCHEMA = {
         "type": "object",
         "additionalProperties": False,
         "properties": {
-          "verdict":    {"type": "string"},   # جملة واحدة: ما هو الحكم الاستثماري؟
-          "highlights": {                      # 3 نقاط قصيرة مميزة
+          "verdict":    {"type": "string"},  
+          "highlights": {                    
             "type": "array",
             "items": {"type": "string"},
             "minItems": 3, "maxItems": 3
           },
-          "key_concern": {"type": "string"},   # أكبر مخاطرة واحدة بجملة قصيرة
-          "key_opportunity": {"type": "string"} # أبرز فرصة بجملة قصيرة
+          "key_concern": {"type": "string"},  
+          "key_opportunity": {"type": "string"} 
         },
         "required": ["verdict", "highlights", "key_concern", "key_opportunity"]
       },
@@ -117,10 +117,10 @@ REPORT_SCHEMA = {
           "score":          {"type": "integer"},
           "reasons":        {"type": "array", "items": {"type": "string"}},
           "invest_conditions": {
-            "type": "array", "items": {"type": "string"}  # شروط الاستثمار
+            "type": "array", "items": {"type": "string"} 
           },
           "reject_conditions": {
-            "type": "array", "items": {"type": "string"}  # شروط الرفض
+            "type": "array", "items": {"type": "string"}  
           }
         },
         "required": ["classification","score","reasons",

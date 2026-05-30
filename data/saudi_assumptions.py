@@ -1,19 +1,8 @@
-# =====================================================================
-# saudi_assumptions.py — كل الثوابت والافتراضات للسوق السعودي
-# نضعها في ملف واحد عشان نقدر نعدّلها بسهولة بدون ما نلمس الكود
-# =====================================================================
+# Saudi market assumptions and constants
 
-# =========================
-# 🇸🇦 Saudi Market Defaults
-# =========================
-
-# متوسط راتب موظف مطعم/كافيه (ريال) — يُستخدم كقيمة احتياطية فقط
 DEFAULT_SALARY = 5000
 
-# هيكل الأدوار في المطعم/الكافيه مرتّب بأولوية التعيين.
-# أول ٥ موظفين: واحد لكل دور (شيف، مساعد، كاشير، خدمة عملاء، نظافة).
-# بعد الـ ٥: الموظفين الإضافيين يكونون عمالة دعم فقط (نظافة/خدمة/كاشير)
-# وما يُكرَّر الشيف أو المساعد لأن المطعم الواحد ما يحتاج عادةً أكثر من شيف.
+# Staff salary tiers
 STAFF_SALARY_TIERS = [
     {"role": "chef",             "role_ar": "شيف",          "role_en": "Chef",             "salary": 5000},
     {"role": "assistant_chef",   "role_ar": "مساعد شيف",    "role_en": "Assistant Chef",   "salary": 3000},
@@ -22,8 +11,7 @@ STAFF_SALARY_TIERS = [
     {"role": "cleaner",          "role_ar": "عامل نظافة",   "role_en": "Cleaner",          "salary": 1750},
 ]
 
-# ترتيب توزيع الموظفين الإضافيين بعد أول ٥ — يدور بينهم بالتسلسل
-# (نظافة أولاً لأنها الأقل تكلفة والأكثر طلباً مع توسع المشروع)
+# Extra hire allocation order
 _EXTRA_HIRE_ORDER = ["cleaner", "customer_service", "cashier"]
 
 
@@ -39,12 +27,12 @@ def calculate_staff_salaries(employees: int) -> dict:
     employees = int(employees)
     counts = {tier["role"]: 0 for tier in STAFF_SALARY_TIERS}
 
-    # أول ٥ (أو أقل): واحد لكل دور بحسب الترتيب
+    # Assign one employee per role first
     initial = min(employees, len(STAFF_SALARY_TIERS))
     for i in range(initial):
         counts[STAFF_SALARY_TIERS[i]["role"]] = 1
 
-    # الزيادة بعد ٥: تدور على أدوار الدعم فقط (نظافة → خدمة → كاشير)
+    # Allocate additional hires to support roles
     extras = employees - len(STAFF_SALARY_TIERS)
     for i in range(max(extras, 0)):
         role = _EXTRA_HIRE_ORDER[i % len(_EXTRA_HIRE_ORDER)]
@@ -68,74 +56,49 @@ def calculate_staff_salaries(employees: int) -> dict:
 
     return {"total": total, "breakdown": breakdown}
 
-# نسبة تكلفة المواد حسب نوع النشاط (Food Cost / COGS)
-# المعايير الصحية في قطاع المطاعم: 28-35% — أعلى من ذلك يعتبر هدر أو تسعير ضعيف
+# Default COGS by business type
 DEFAULT_COGS = {
-    "cafe":                   0.30,  # مشروبات COGS قليل
+    "cafe":                   0.30,  
     "pizza_restaurant":       0.32,
-    "fast_food_restaurant":   0.32,  # كفاءة عالية وشراء بالجملة
+    "fast_food_restaurant":   0.32,  
     "sandwich_shop":          0.32,
     "shawarma_restaurant":    0.32,
     "breakfast_restaurant":   0.32,
     "traditional_restaurant": 0.33,
-    "restaurant":             0.33,  # افتراضي عام
-    "seafood_restaurant":     0.35,  # مواد فاخرة وعالية التكلفة
-    # القيم القديمة للتوافق مع الكود السابق
+    "restaurant":             0.33,  
+    "seafood_restaurant":     0.35,  
     "Cafe":                   0.30,
     "Restaurant":             0.33,
     "FastFood":               0.32,
 }
 
-# ضريبة القيمة المضافة في السعودية
 VAT_RATE = 0.15
 
-# ============================================================
-# عتبات التقييم — معايرة لقطاع المطاعم السعودي
-# ============================================================
-# الواقع: المطاعم في السعودية متوسط هامشها 5-15%، فترة استرداد 36-60 شهر
-# المشاريع المثالية (15%+ هامش، 24- شهر استرداد) نادرة جداً
-# لذا نخفّض العتبات لتعكس الواقع الفعلي للقطاع
-
-# هامش ربح "قوي" في قطاع المطاعم السعودي (كان 20% — غير واقعي)
 STRONG_PROFIT_MARGIN = 0.15
 
-# هامش ربح "متوسط" / مقبول (كان 10% — صارم)
 MODERATE_PROFIT_MARGIN = 0.07
 
-# مدة استرداد "ممتازة" بالأشهر (كان 12 — استثنائي وغير واقعي للمطاعم)
 GOOD_PAYBACK_MONTHS = 24
 
-# مدة استرداد "مقبولة" (كان 24 — صارم لقطاع المطاعم)
 ACCEPTABLE_PAYBACK_MONTHS = 48
 
-# Additional Monthly Operating Costs (تكاليف تشغيلية شهرية، نسبة من الإيراد)
-UTILITIES_RATE = 0.06   # 6% — مرافق (كهرباء، ماء، إنترنت)
-OVERHEAD_RATE  = 0.03   # 3% — تشغيل عام (صيانة، أدوات)
-MARKETING_RATE = 0.03   # 3% — تسويق وإعلانات
+UTILITIES_RATE = 0.06   
+OVERHEAD_RATE  = 0.03   
+MARKETING_RATE = 0.03   
 
-# نمو متعدد السنوات (للتوقعات السنة 2 و 3)
-YEARLY_REVENUE_GROWTH = 0.10  # 10% نمو سنوي للإيراد (مع توسع قاعدة العملاء)
-YEARLY_COST_INFLATION = 0.05  # 5% تضخم سنوي للرواتب والإيجار
+YEARLY_REVENUE_GROWTH = 0.10 
+YEARLY_COST_INFLATION = 0.05 
 
 
-# =====================================================================
-# توزيع رأس المال على بنود التأسيس
-# =====================================================================
-# النسب تختلف حسب نوع المشروع:
-# - الكافيه: ديكور مهم (تجربة العميل) ومعدات أقل تكلفة
-# - الفاست فود: معدات عالية التكلفة (مقالي، شوايات) وديكور بسيط
-# - البيتزا: فرن بيتزا غالي جداً
-# - الفود ترك: لا يوجد عربون إيجار، لكن تكلفة العربة عالية
-# المرجع: ممارسات مكاتب دراسات الجدوى السعودية + تقارير غرفة جدة
-
+# Capital allocation assumptions based on industry benchmarks
 CAPITAL_ALLOCATION = {
     "cafe": {
-        "equipment": 0.25,  # ماكينات قهوة + ثلاجات
-        "decor":     0.22,  # الديكور حاسم لتجربة الكافيه
-        "deposit":   0.12,  # عربون 3-4 شهور
+        "equipment": 0.25, 
+        "decor":     0.22,  
+        "deposit":   0.12, 
         "licenses":  0.07,
-        "inventory": 0.06,  # حبوب قهوة + معجنات
-        "marketing": 0.10,  # افتتاحية مهمة لجذب الزبائن
+        "inventory": 0.06, 
+        "marketing": 0.10, 
         "cushion":   0.18,
     },
     "restaurant": {
@@ -148,16 +111,16 @@ CAPITAL_ALLOCATION = {
         "cushion":   0.18,
     },
     "fast_food_restaurant": {
-        "equipment": 0.32,  # مقالي عميقة + شوايات + برّاد
+        "equipment": 0.32, 
         "decor":     0.13,
         "deposit":   0.12,
         "licenses":  0.07,
-        "inventory": 0.10,  # مخزون متنوع
+        "inventory": 0.10, 
         "marketing": 0.08,
         "cushion":   0.18,
     },
     "pizza_restaurant": {
-        "equipment": 0.35,  # فرن بيتزا حجري/كهربائي مكلف
+        "equipment": 0.35, 
         "decor":     0.13,
         "deposit":   0.12,
         "licenses":  0.07,
@@ -166,7 +129,7 @@ CAPITAL_ALLOCATION = {
         "cushion":   0.18,
     },
     "shawarma_restaurant": {
-        "equipment": 0.28,  # سيخ شاورما + ثلاجات
+        "equipment": 0.28, 
         "decor":     0.15,
         "deposit":   0.12,
         "licenses":  0.07,
@@ -175,17 +138,16 @@ CAPITAL_ALLOCATION = {
         "cushion":   0.20,
     },
     "seafood_restaurant": {
-        "equipment": 0.28,  # ثلاجات تخصصية للأسماك
-        "decor":     0.20,  # ديكور أنيق للمأكولات البحرية
+        "equipment": 0.28, 
+        "decor":     0.20, 
         "deposit":   0.13,
         "licenses":  0.08,
-        "inventory": 0.10,  # مخزون عالي التكلفة
+        "inventory": 0.10, 
         "marketing": 0.06,
         "cushion":   0.15,
     },
 }
 
-# قيم افتراضية لأي نوع مشروع غير محدد أعلاه
 CAPITAL_ALLOCATION_DEFAULT = {
     "equipment": 0.30,
     "decor":     0.17,
@@ -196,7 +158,6 @@ CAPITAL_ALLOCATION_DEFAULT = {
     "cushion":   0.19,
 }
 
-# تسميات البنود بالعربية والإنجليزية لعرضها في التقارير
 CAPITAL_ALLOCATION_LABELS = {
     "equipment": {"ar": "معدات وأجهزة",      "en": "Equipment"},
     "decor":     {"ar": "تجهيزات وديكور",     "en": "Furniture & Decor"},

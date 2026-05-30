@@ -1,25 +1,17 @@
-# ai_report_engine.py
-# AI-powered feasibility report generator. Two public functions:
-#   generate_feasibility_report — produces the full structured report JSON.
-#   enrich_project_data         — generates a short target-customers and
-#                                 value-proposition pair when the user does
-#                                 not supply them.
-
 from openai import OpenAI, OpenAIError
 from schemas.report_schema import REPORT_SCHEMA
 import json
 import logging
 
-logger = logging.getLogger(__name__) #عشان كل لوقر تطبع اسم الفايل 
+logger = logging.getLogger(__name__) 
 
 client = OpenAI()
 
 
-# Custom exception hierarchy so callers can distinguish a transient service
-# outage from a structural problem in the AI response.
+
 class AIReportError(Exception):
     """Base exception for feasibility report generation failures."""
-    pass #الاب وتحت الابناء 
+    pass 
 
 
 class AIServiceUnavailable(AIReportError):
@@ -33,7 +25,6 @@ class AIResponseInvalid(AIReportError):
 
 
 def generate_feasibility_report(financials: dict, decision: dict, market_data: dict, language: str = "ar") -> dict:
-    # بنات اقروا هذا ال docstring عشان تفهمون الداله ايش تسوي 
     """Generate the full feasibility report.
 
     Args: 
@@ -52,18 +43,16 @@ def generate_feasibility_report(financials: dict, decision: dict, market_data: d
         AIServiceUnavailable: when OpenAI cannot be reached.
         AIResponseInvalid: when the AI response cannot be parsed.
     """
-    # فالديشينز 
     if not isinstance(financials, dict) or not financials:
         raise ValueError("financials must be a non-empty dict")
     if not isinstance(decision, dict):
-        raise ValueError("decision must be a dict") # هنا ممكن يكونون فاضين في بعض الحالات 
+        raise ValueError("decision must be a dict") 
     if not isinstance(market_data, dict):
         raise ValueError("market_data must be a dict")
     if language not in ("ar", "en"):
         language = "ar"
 
 
-#---------------------------------------------------------------
 
 
     if language == "en":
@@ -71,25 +60,24 @@ def generate_feasibility_report(financials: dict, decision: dict, market_data: d
     else:
         prompt = _build_arabic_prompt(financials, decision, market_data)
 
-    # The OpenAI call is wrapped so any network or service failure is
-    # surfaced as AIServiceUnavailable and the API layer can return a 503.
+
     try:
         response = client.responses.create(
-            model="gpt-4o", # اخترت هذا المودل لان التقرير معقد مره وابي تحليل عميق وقوي
+            model="gpt-4o", 
             input=prompt,
             text={ 
                 "format": {
                     "type": "json_schema",
                     "name": "feasibility_report",
-                    "schema": REPORT_SCHEMA["schema"], # سويت السكيما في ملف منفصل عشان يكون واضح وسهل تعديله لو احتجنا 
-                    "strict": True # عشان اضمن انه دايم يرجع الشكل الصحيح ولا يضيف حقول زيادة او يغير في الهيكل
+                    "schema": REPORT_SCHEMA["schema"],
+                    "strict": True 
                 }
             }
         )
 
     except OpenAIError as e:
         logger.exception("OpenAI call failed in generate_feasibility_report")
-        raise AIServiceUnavailable(f"Failed to reach AI service: {e}") from e # e يعني الخطأ الأصلي عشان لو احد يبغى  يعرف التفاصيل يقدر يشوفها في اللوقز
+        raise AIServiceUnavailable(f"Failed to reach AI service: {e}") from e 
     
     except Exception as e:
         logger.exception("Unexpected error calling OpenAI")
@@ -97,8 +85,7 @@ def generate_feasibility_report(financials: dict, decision: dict, market_data: d
 
 
 
-    # نحول رد ال ai من جيسون الى دكشنري عشان نقدر نتعامل معاه 
-    # حطيته في تراي وايكسبت احتياط حتى لو اني مخليته ستريكت ماتدرون وش يصير 
+
     try:
         report = json.loads(response.output_text)
     except (json.JSONDecodeError, AttributeError, TypeError) as e:
@@ -106,14 +93,10 @@ def generate_feasibility_report(financials: dict, decision: dict, market_data: d
         raise AIResponseInvalid(f"AI returned invalid JSON: {e}") from e
 
     if not isinstance(report, dict):
-        raise AIResponseInvalid("AI returned a non-object JSON value") #اللي سويته فووق 
+        raise AIResponseInvalid("AI returned a non-object JSON value") 
 
-    # The strict JSON schema does not allow free-form extension fields. We
-    # attach the ramp-up curve, yearly totals, capital allocation, and the
-    # success prediction onto the financial_summary section manually so the
-    # frontend has everything it needs without a second round-trip.
+    # Add computed financial metrics outside the AI schema.
 
-    # بعض الاشياء اللي بحطها بالتقرير بنفس مو بال ai 
     fs = report.setdefault("financial_summary", {})
     for key in (
         "month_1_revenue", "month_1_net_profit",
@@ -121,7 +104,6 @@ def generate_feasibility_report(financials: dict, decision: dict, market_data: d
         "year_1_total_revenue", "year_1_total_expenses", "year_1_total_profit",
         "ramp_up_months",
         "salaries_total", "salary_breakdown", "cogs_cost",
-        # توقّع 3 سنوات + الربح التراكمي + ROI
         "yearly_summary", "cumulative_profit_curve",
         "total_3_year_profit", "roi_3_year_percent",
         "yearly_revenue_growth", "yearly_cost_inflation",
@@ -130,7 +112,7 @@ def generate_feasibility_report(financials: dict, decision: dict, market_data: d
         "inputs_summary",
     ):
         
-        # هنا ننسخ كل الفيلدز الي من ال فاينانشلز ونحطها بالتقرير والي يكون ناقص نتجاهله ونحط - مكانه عشان مايوقف البرنامج
+        # Copy available financial metrics into the report.
         if key in financials:
             fs[key] = financials[key]
 
@@ -347,7 +329,7 @@ def enrich_project_data(business_type: str, city: str, language: str = "ar") -> 
             text={"format": {"type": "json_object"}}
 
 
-        ) # هنا طبقت ال graceful degradation عشان لو ال ai صار فيه مشكلة او رجع جيسون غير صالح ما يوقف البرنامج كله ويعطينا قيم افتراضية معقولة بدالها عشان نقدر نكمل باقي التقرير
+        ) 
     except OpenAIError as e:
         logger.warning("enrich_project_data: OpenAI failed (%s), returning defaults", e)
         if language == "en":
@@ -359,7 +341,6 @@ def enrich_project_data(business_type: str, city: str, language: str = "ar") -> 
             "target_customers": f"العملاء المهتمون بـ {business_type} في {city}.",
             "value_proposition": f"تقديم خدمة موثوقة وعالية الجودة في {city}.",
         }
-# نحوله الى جيسون اعشان نقدر نتعامل معاه بسهولة في باقي التقرير ولو صار فيه مشكلة نرجع قيم افتراضية معقولة عشان نكمل باقي التقرير بدون ما يوقف البرنامج كله
     try:
         result = json.loads(response.output_text)
     except (json.JSONDecodeError, AttributeError, TypeError) as e:
@@ -369,7 +350,6 @@ def enrich_project_data(business_type: str, city: str, language: str = "ar") -> 
             return {"target_customers": "General customers.", "value_proposition": "Quality service."}
         return {"target_customers": "العملاء بشكل عام.", "value_proposition": "خدمة عالية الجودة."} 
 
-    # نضمن إن الحقول المطلوبة موجودة (حتى لو الـ AI نسي واحد)
     if not isinstance(result, dict):
         result = {}
     result.setdefault("target_customers", "" if language == "en" else "")

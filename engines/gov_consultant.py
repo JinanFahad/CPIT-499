@@ -9,7 +9,7 @@ client = OpenAI()
 class GovChatError(Exception):
     """Raised when the chat cannot complete. Mapped to HTTP 503 by app.py."""
     pass
-# لان الشات بسيط اما انه يرد او مايرد 
+
 
 _gov_sessions: dict[str, list[dict]] = {}
 
@@ -33,7 +33,6 @@ def gov_chat(session_id: str, user_message: str, language: str = "ar") -> str:
     if language not in ("ar", "en"):
         language = "ar"
 
-# هنا تصير عملة التخزين في الرام
     if session_id not in _gov_sessions:
         _gov_sessions[session_id] = []
     messages = _gov_sessions[session_id]
@@ -50,10 +49,8 @@ def gov_chat(session_id: str, user_message: str, language: str = "ar") -> str:
             temperature=0.3,
         )
     except OpenAIError as e:
-        # Roll back the user message we just appended so the session never
-        # contains a question without its answer (that would corrupt the
-        # context window on the next turn).
-        messages.pop() # نشيل اخر سوال اضفناه في القائمه لان  فشل الرد
+        # Roll back the last user message if the AI call fails.
+        messages.pop() 
         logger.exception("gov_chat: OpenAI call failed")
         raise GovChatError(f"AI service unavailable: {e}") from e
     except Exception as e:
@@ -79,7 +76,7 @@ def gov_chat(session_id: str, user_message: str, language: str = "ar") -> str:
 
 def clear_gov_session(session_id: str):
     """Drop the in-memory history for a session (called on user logout)."""
-    _gov_sessions.pop(session_id, None) #نن عشان ما يطلع خطأ لو حاولنا نمسح جلسة مو موجودة
+    _gov_sessions.pop(session_id, None) 
 
 
 def _build_gov_prompt(language: str = "ar") -> str:
@@ -103,10 +100,7 @@ def _build_gov_prompt(language: str = "ar") -> str:
         '"هذا السؤال خارج نطاق منصة مُقدِّم. تخصصنا في دراسات الجدوى والإجراءات الحكومية لقطاع المطاعم والمقاهي."'
     )
 
-    # When the user is on the English UI we prepend an English-only override
-    # that takes precedence over every Arabic instruction below — without it
-    # the model defaults to Arabic because most scaffolding (tone, identity,
-    # templates) is written in Arabic.
+    # Override Arabic prompt instructions for English users.
     english_override = """<LANGUAGE_OVERRIDE priority="ABSOLUTE">
 You MUST reply in ENGLISH ONLY. The instructions below are written in Arabic
 for historical reasons, but they describe rules — not language. Apply them

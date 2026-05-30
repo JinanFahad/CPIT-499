@@ -101,10 +101,7 @@ def _build_advisor_prompt(report: dict, language: str) -> str:
 
     report_json = json.dumps(report, ensure_ascii=False, indent=2)
 
-    # When the user is on the English UI we prepend an English-only override
-    # that takes precedence over every Arabic instruction below — without it
-    # the model defaults to Arabic because most scaffolding (tone, examples,
-    # opening phrases) is written in Arabic.
+    # Force English responses when the UI language is English.
     english_override = """<LANGUAGE_OVERRIDE priority="ABSOLUTE">
 You MUST reply in ENGLISH ONLY. The instructions below are written in Arabic
 for historical reasons, but they describe rules — not language. Apply them

@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router";
 
-// Lucide icons
 import {
   PresentationIcon,
   FolderOpen,
@@ -12,7 +11,6 @@ import {
   AlertCircle,
 } from "lucide-react";
 
-// Animations + layout pieces + i18n + Firebase auth
 import { motion, AnimatePresence } from "motion/react";
 import { Header } from "../components/Header";
 import { SparkleField } from "../components/SparkleField";
@@ -23,29 +21,24 @@ import { BACKEND_URL } from "../config";
 import { getUserId } from "../auth-storage";
 
 export default function PitchDeckPage() {
-  // ── i18n ───────────────────────────────────────────────────────────
   const { language } = useLanguage();
   const isAr = language === "ar";
 
-  // ── State ──────────────────────────────────────────────────────────
-  const [projects, setProjects] = useState<any[]>([]); // list of projects loaded from API
-  const [isGenerating, setIsGenerating] = useState(false); // PPT generation in progress?
-  const [generatingProject, setGeneratingProject] = useState<any>(null); // which project is currently generating
-  const [emailingProject, setEmailingProject] = useState<any>(null); // which project is currently emailing
-  // Floating success/error banner (null = no banner shown)
+  const [projects, setProjects] = useState<any[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatingProject, setGeneratingProject] = useState<any>(null);
+  const [emailingProject, setEmailingProject] = useState<any>(null);
   const [notice, setNotice] = useState<{
     type: "success" | "error";
     title: string;
     message: string;
   } | null>(null);
 
-  // Tiny helpers to show toasts in one line at call sites
   const showSuccess = (title: string, message: string) =>
     setNotice({ type: "success", title, message });
   const showError = (title: string, message: string) =>
     setNotice({ type: "error", title, message });
 
-  // ── Load the user's projects on mount ──────────────────────────────
   useEffect(() => {
     const userId = getUserId();
     if (!userId) return;
@@ -56,9 +49,6 @@ export default function PitchDeckPage() {
       .catch(() => setProjects([]));
   }, []);
 
-  // ── Generate + download a pitch deck for the chosen project ────────
-  // Backend generates the PPTX file and returns it as a blob.
-  // We then trigger a browser download via a temporary <a> element.
   const handleExportPitchDeck = async (project: any) => {
     setIsGenerating(true);
     setGeneratingProject(project);
@@ -68,7 +58,7 @@ export default function PitchDeckPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          project_id: project.id, // backend uses this to mark the project as "pitch deck generated"
+          project_id: project.id,
           project_name: project.project_name,
           business_type: project.project_type,
           restaurant_type: project.restaurant_type || "",
@@ -105,7 +95,6 @@ export default function PitchDeckPage() {
     }
   };
 
-  // ── Generate + email the pitch deck to the user ────────────────────
   const handleEmailPitchDeck = async (project: any) => {
     const userEmail = auth.currentUser?.email;
     if (!userEmail) {
@@ -380,7 +369,6 @@ export default function PitchDeckPage() {
         dir={isAr ? "rtl" : "ltr"}
       />
 
-      {/* Notice Modal — للنجاح والفشل */}
       <AnimatePresence>
         {notice && (
           <motion.div

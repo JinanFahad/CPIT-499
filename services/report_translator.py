@@ -22,18 +22,15 @@ def get_or_create_translation(report: dict, target_lang: str) -> dict:
     if current_lang == target_lang:
         return report, False
 
-    # نتحقق من الكاش
     cache = report.get("_translations") or {}
     cached = cache.get(target_lang)
     if cached:
         return cached, False
 
-    # ترجمة جديدة
     translated = _translate_with_ai(report, target_lang)
 
-    # نخزّن النسخة المترجمة في الكاش داخل التقرير الأصلي
     cache[target_lang] = translated
-    cache[current_lang] = _strip_translations_cache(report)  # نخزّن النسخة الأصلية أيضاً
+    cache[current_lang] = _strip_translations_cache(report) 
     report["_translations"] = cache
 
     return translated, True
@@ -49,7 +46,6 @@ def _detect_report_language(report: dict) -> str:
         sample = es
     if not sample:
         sample = report.get("title", "")
-    # لو فيه أي حرف عربي → عربي
     for ch in sample:
         if "؀" <= ch <= "ۿ":
             return "ar"

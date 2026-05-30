@@ -1,9 +1,7 @@
-/* خطوط رسمية — IBM Plex Sans Arabic للنصوص العامة، Changa للعناوين، Cairo احتياطي */
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Changa:wght@300;400;500;600;700&display=swap');
 
-/* الخط الافتراضي للتطبيق — رسمي ومريح للقراءة */
 :root {
   --font-formal: 'IBM Plex Sans Arabic', 'Cairo', 'Changa', sans-serif;
   --font-display: 'Changa', 'Cairo', sans-serif;
@@ -26,14 +24,12 @@ body {
   overscroll-behavior-y: none;
 }
 
-/* توحيد ستايل القوائم المنسدلة (select) عبر الأنظمة */
 select {
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
 }
 
-/* توحيد عرض الـ scrollbar (دقيق وأنيق على ويندوز ومتوافق مع ماك) */
 * {
   scrollbar-width: thin;
   scrollbar-color: rgba(198, 167, 94, 0.4) transparent;
@@ -57,55 +53,45 @@ select {
   background-color: rgba(198, 167, 94, 0.6);
 }
 
-/* منع iOS من التكبير عند التركيز على input (font-size أقل من 16px يخلي iOS يكبّر) */
 input, select, textarea {
   font-size: 16px;
 }
 
-/* ── تنقيحات بصرية بطابع رسمي ── */
 
-/* روابط افتراضية بدون زخرفة في الـ focus */
 *:focus-visible {
   outline: 2px solid #C6A75E;
   outline-offset: 2px;
   border-radius: 4px;
 }
 
-/* تحسين تنسيق العناوين بالعربي */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-formal);
   letter-spacing: -0.01em;
 }
 
-/* الجداول بحدود واضحة (طابع رسمي) */
 table {
   border-collapse: collapse;
 }
 
-/* تحسين عرض الأرقام (للجداول المالية) */
 .font-tabular,
 [dir="ltr"] table td:has(> span:not(.no-num)),
 table td.num {
   font-variant-numeric: tabular-nums;
 }
 
-/* انتقال موحّد للأزرار */
 button, a {
   transition-property: background-color, border-color, color, box-shadow;
   transition-duration: 150ms;
   transition-timing-function: ease-out;
 }
 
-/* ظل خفيف رسمي للبطاقات (لو الستايل في الـ JSX قوي، ما يأثر) */
 @media (min-width: 768px) {
   .gov-card {
     box-shadow: 0 1px 3px rgba(8, 49, 45, 0.04), 0 1px 2px rgba(8, 49, 45, 0.06);
   }
 }
 
-/* إخفاء أيقونات المتصفح الافتراضية في حقول كلمة المرور
-   (Edge/IE تضيف عين كاشفة، وWebKit يضيف زر مسح/كابس-لوك)
-   عشان يبقى زرّنا المخصص هو الوحيد الظاهر */
+
 input::-ms-reveal,
 input::-ms-clear {
   display: none;

@@ -1,7 +1,6 @@
-import { useState } from "react";          // for tracking which FAQ is open
-import { Link } from "react-router";       // SPA navigation links
+import { useState } from "react";
+import { Link } from "react-router";
 
-// Lucide icons used by the various cards/sections
 import {
   ChevronDown,
   FileText,
@@ -12,31 +11,21 @@ import {
   HelpCircle,
 } from "lucide-react";
 
-// Footer logo (the rest of the page uses Tailwind backgrounds, no images)
 const logoImage = "/assets/logo-color.png";
 
-// motion = Framer Motion for the fade/slide entrance animations
 import { motion } from "motion/react";
 
-// Top navigation bar + decorative scattered stars
 import { Header } from "../components/Header";
 import { Sparkle } from "../components/Sparkle";
 
-// i18n hook (gives us the current language)
 import { useLanguage } from "../contexts/LanguageContext";
 
-
 export default function MainDashboard() {
-  // Which FAQ row is currently expanded (null = all collapsed)
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
 
-  // Current language + a shorthand boolean for Arabic checks
   const { language } = useLanguage();
   const isAr = language === "ar";
 
-  // ── Services data — rendered as the "Our Services" cards grid ────────
-  // Each entry has a title/description in both languages, an icon,
-  // a link to the corresponding feature page, and brand colors.
   const services = [
     {
       id: 1,
@@ -84,7 +73,6 @@ export default function MainDashboard() {
     },
   ];
 
-  // ── "How It Works" steps — rendered as a 4-step horizontal flow ────
   const steps = [
     {
       number: 1,
@@ -116,7 +104,6 @@ export default function MainDashboard() {
     },
   ];
 
-  // ── FAQ entries — rendered as collapsible accordion items ──────────
   const faqs = [
     {
       q: isAr ? "ما هي دراسة الجدوى؟" : "What is a feasibility study?",
@@ -151,7 +138,10 @@ export default function MainDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-transparent relative" dir={isAr ? "rtl" : "ltr"}>
+    <div
+      className="min-h-screen bg-transparent relative"
+      dir={isAr ? "rtl" : "ltr"}
+    >
       {/* ── Decorative stars scattered along the page edges ── */}
       <Sparkle className="top-[8%] left-[3%]" size={20} />
       <Sparkle className="top-[15%] right-[4%]" size={14} />
@@ -169,7 +159,7 @@ export default function MainDashboard() {
       {/* Top navigation bar (sticky on every page) */}
       <Header />
 
-      {/* ════════ Hero — large welcome headline ════════ */}
+      {/*  Hero - large welcome headline */}
       <section id="home" className="relative py-20 px-6">
         <motion.div
           className="max-w-5xl mx-auto text-center relative z-10"
@@ -199,7 +189,7 @@ export default function MainDashboard() {
         </motion.div>
       </section>
 
-      {/* ════════ About Us — short paragraph in a glass card ════════ */}
+      {/* About Us - short paragraph in a glass card */}
       <section id="about" className="py-20 px-6 relative z-10">
         <div className="max-w-6xl mx-auto">
           {/* The glass card with a gold border + subtle gold glow */}
@@ -222,9 +212,7 @@ export default function MainDashboard() {
         </div>
       </section>
 
-      {/* ════════ How It Works — 4-step numbered flow ════════
-           Each step is rendered from the `steps` array defined at the top.
-           A thin gold line connects steps 1→2→3 (hidden on the last step). */}
+      {/* How It Works — 4-step numbered flow */}
       <section id="how-it-works" className="py-20 px-6 relative z-10">
         <div className="max-w-6xl mx-auto">
           <motion.div
@@ -256,7 +244,9 @@ export default function MainDashboard() {
               >
                 {/* Connecting line — switches sides based on RTL/LTR */}
                 {index < 3 && (
-                  <div className={`hidden md:block absolute top-[22px] w-full h-[1px] bg-[#C6A75E]/30 z-0 ${isAr ? "right-[50%]" : "left-[50%]"}`} />
+                  <div
+                    className={`hidden md:block absolute top-[22px] w-full h-[1px] bg-[#C6A75E]/30 z-0 ${isAr ? "right-[50%]" : "left-[50%]"}`}
+                  />
                 )}
 
                 {/* Circle */}
@@ -281,9 +271,7 @@ export default function MainDashboard() {
         </div>
       </section>
 
-      {/* ════════ Services — 2×2 grid of feature cards ════════
-           Built by mapping over the `services` array.
-           Each card links to the corresponding feature page. */}
+      {/* Services — 2×2 grid of feature cards */}
       <section id="services" className="py-20 px-6 relative z-10">
         <div className="max-w-6xl mx-auto">
           <motion.div
@@ -346,9 +334,7 @@ export default function MainDashboard() {
         </div>
       </section>
 
-      {/* ════════ FAQ — collapsible accordion ════════
-           Only one FAQ can be open at a time. Clicking an open FAQ closes it.
-           State lives in `openFAQ` (the index of the open one, or null). */}
+      {/* FAQ - collapsible accordion */}
       <section className="py-20 px-6 relative z-10">
         <div className="max-w-4xl mx-auto">
           <motion.div
@@ -418,17 +404,18 @@ export default function MainDashboard() {
         </div>
       </section>
 
-      {/* ════════ Footer ════════
-           Three-column layout (logo+blurb / quick links / contact).
-           A bottom strip carries copyright + project credit. */}
+      {/* Footer */}
       <footer className="mt-20 relative z-10 bg-[#08312D] text-white border-t border-[#C6A75E]/30">
         {/* Main upper area with the three columns */}
         <div className="max-w-6xl mx-auto px-6 py-12">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-
             {/* Column 1 — brand logo + short description */}
             <div>
-              <img src={logoImage} alt="مُقدِّم" className="h-20 w-auto mb-4 brightness-0 invert" />
+              <img
+                src={logoImage}
+                alt="مُقدِّم"
+                className="h-20 w-auto mb-4 brightness-0 invert"
+              />
               <p className="text-white/70 text-sm leading-relaxed">
                 {isAr
                   ? "منصة سعودية متخصصة في توليد دراسات الجدوى الذكية للمشاريع الصغيرة في قطاع المطاعم والكافيهات."
@@ -442,10 +429,38 @@ export default function MainDashboard() {
                 {isAr ? "روابط سريعة" : "Quick Links"}
               </h4>
               <ul className="space-y-2 text-sm">
-                <li><Link to="/dashboard/feasibility-study" className="text-white/80 hover:text-[#C6A75E] transition-colors">{isAr ? "إنشاء دراسة جدوى" : "Create Feasibility Study"}</Link></li>
-                <li><Link to="/dashboard/my-projects" className="text-white/80 hover:text-[#C6A75E] transition-colors">{isAr ? "مشاريعي" : "My Projects"}</Link></li>
-                <li><Link to="/dashboard/consultant" className="text-white/80 hover:text-[#C6A75E] transition-colors">{isAr ? "المستشار الذكي" : "AI Consultant"}</Link></li>
-                <li><Link to="/dashboard/government-procedures" className="text-white/80 hover:text-[#C6A75E] transition-colors">{isAr ? "الإجراءات الحكومية" : "Government Procedures"}</Link></li>
+                <li>
+                  <Link
+                    to="/dashboard/feasibility-study"
+                    className="text-white/80 hover:text-[#C6A75E] transition-colors"
+                  >
+                    {isAr ? "إنشاء دراسة جدوى" : "Create Feasibility Study"}
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/dashboard/my-projects"
+                    className="text-white/80 hover:text-[#C6A75E] transition-colors"
+                  >
+                    {isAr ? "مشاريعي" : "My Projects"}
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/dashboard/consultant"
+                    className="text-white/80 hover:text-[#C6A75E] transition-colors"
+                  >
+                    {isAr ? "المستشار الذكي" : "AI Consultant"}
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/dashboard/government-procedures"
+                    className="text-white/80 hover:text-[#C6A75E] transition-colors"
+                  >
+                    {isAr ? "الإجراءات الحكومية" : "Government Procedures"}
+                  </Link>
+                </li>
               </ul>
             </div>
 
@@ -455,9 +470,18 @@ export default function MainDashboard() {
                 {isAr ? "تواصل معنا" : "Contact Us"}
               </h4>
               <ul className="space-y-2 text-sm text-white/80">
-                <li>{isAr ? "البريد الإلكتروني:" : "Email:"} <span dir="ltr">info@muqaddim.sa</span></li>
-                <li>{isAr ? "جامعة الملك عبدالعزيز" : "King Abdulaziz University"}</li>
-                <li>{isAr ? "جدة، المملكة العربية السعودية" : "Jeddah, Saudi Arabia"}</li>
+                <li>
+                  {isAr ? "البريد الإلكتروني:" : "Email:"}{" "}
+                  <span dir="ltr">info@muqaddim.sa</span>
+                </li>
+                <li>
+                  {isAr ? "جامعة الملك عبدالعزيز" : "King Abdulaziz University"}
+                </li>
+                <li>
+                  {isAr
+                    ? "جدة، المملكة العربية السعودية"
+                    : "Jeddah, Saudi Arabia"}
+                </li>
               </ul>
               <div className="flex items-center gap-3 mt-4">
                 <a
@@ -467,13 +491,18 @@ export default function MainDashboard() {
                   aria-label={isAr ? "حسابنا على إكس" : "Our X account"}
                   className="w-9 h-9 rounded-md bg-white/10 hover:bg-[#C6A75E] flex items-center justify-center transition-colors"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-white" aria-hidden="true">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    className="w-4 h-4 text-white"
+                    aria-hidden="true"
+                  >
                     <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
                   </svg>
                 </a>
               </div>
             </div>
-
           </div>
         </div>
 
@@ -486,7 +515,9 @@ export default function MainDashboard() {
                 : "© 2026 Muqaddim Platform. All rights reserved."}
             </p>
             <p>
-              {isAr ? "مشروع تخرّج | جامعة الملك عبدالعزيز | كلية الحاسبات وتقنية المعلومات" : "Graduation Project | King Abdulaziz University | FCIT"}
+              {isAr
+                ? "مشروع تخرّج | جامعة الملك عبدالعزيز | كلية الحاسبات وتقنية المعلومات"
+                : "Graduation Project | King Abdulaziz University | FCIT"}
             </p>
           </div>
         </div>

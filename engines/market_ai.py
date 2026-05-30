@@ -1,11 +1,4 @@
-# market_ai.py
-# Market analysis module powered by OpenAI. Takes the raw places returned by
-# Google Places for the project's neighborhood and produces:
-#   - A direct vs indirect competitor classification for each place.
-#   - A summary of direct competitors (count, average rating, strongest one).
-#   - A narrative analysis plus practical recommendations.
-#   - A market opportunity score from 1 to 10.
-
+# AI-powered market analysis and competitor assessment.
 import json
 import logging
 from openai import OpenAI, OpenAIError
@@ -58,17 +51,15 @@ def build_competitor_summary(places: list[dict]) -> dict:
             "primaryTypeDisplayName": (p.get("primaryTypeDisplayName") or {}).get("text"),
         })
 
-#عشان نعرف مستوى المنافسة في السوق، بنحسب متوسط التقييم لكل المنافسين  عشان نعطي فكرة عن جودة المطاعم الموجودة في المنطقةن .
     ratings = [x["rating"] for x in simplified 
                if isinstance(x.get("rating"), (int, float))]
     avg_rating = round(sum(ratings) / len(ratings), 2) if ratings else None
 
-    # Ranking heuristic: rating * 10 plus a review-count bonus.
-    # Reviews are capped at 500 so one viral restaurant cannot dominate.
+    
     def score(x: dict) -> float:
         r = x.get("rating") or 0
         c = x.get("userRatingCount") or 0
-        return (r * 10) + (min(c, 500) / 50) # r = 50 , c= 10  هذي اكبر قيم وبكذا نضمن ان ال تقييمات دائما اهم من المراجعات وهي اللي بتاثر اكبر في المعادله 
+        return (r * 10) + (min(c, 500) / 50) 
 
     top = sorted(simplified, key=score, reverse=True)[:7]
 

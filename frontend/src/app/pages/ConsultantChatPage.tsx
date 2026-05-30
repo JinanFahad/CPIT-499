@@ -1,10 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router";
 
-// Lucide icons
 import { Send, Loader2, Bot, User, Lightbulb } from "lucide-react";
 
-// Reusable UI primitives + layout pieces + i18n
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { motion } from "motion/react";
@@ -13,7 +11,6 @@ import { SparkleField } from "../components/SparkleField";
 import { useLanguage } from "../contexts/LanguageContext";
 import { BACKEND_URL } from "../config";
 
-// One chat message — either from the user or the assistant
 interface Message {
   id: string;
   role: "user" | "assistant";
@@ -21,8 +18,6 @@ interface Message {
   timestamp: Date;
 }
 
-// Tiny markdown helper: convert **bold** → <strong>bold</strong>
-// while preserving line breaks. Used for the assistant's responses.
 function renderFormatted(text: string) {
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
   return parts.map((part, i) => {
@@ -38,17 +33,15 @@ function renderFormatted(text: string) {
 }
 
 export default function ConsultantChatPage() {
-  // ── Routing + state ────────────────────────────────────────────────
-  const { projectId } = useParams(); // :projectId from URL
-  const [project, setProject] = useState<any>(null); // project data
-  const [messages, setMessages] = useState<Message[]>([]); // chat history
-  const [inputValue, setInputValue] = useState(""); // current input box value
-  const [isTyping, setIsTyping] = useState(false); // is the AI replying?
-  const messagesEndRef = useRef<HTMLDivElement>(null); // for auto-scrolling to the latest message
+  const { projectId } = useParams();
+  const [project, setProject] = useState<any>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputValue, setInputValue] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const { language } = useLanguage();
   const isAr = language === "ar";
 
-  // ── On mount: load the project + show a welcome message ────────────
   useEffect(() => {
     if (!projectId) return;
 
@@ -79,23 +72,14 @@ export default function ConsultantChatPage() {
       .catch(() => setProject(null));
   }, [projectId, isAr]);
 
-  // Smoothly scroll the bottom of the chat into view
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // Auto-scroll on every new message so the user always sees the latest reply
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  // ── Send a new question to the AI ──────────────────────────────────
-  // Steps:
-  //   1) Validate (ignore empty input or while AI is still typing)
-  //   2) Make sure the project has a linked report — otherwise show a hint
-  //   3) Append the user's message immediately for instant feedback
-  //   4) POST to /api/advisor/chat with the full conversation history
-  //   5) Append the AI's reply when it arrives
   const handleSend = async () => {
     if (!inputValue.trim() || isTyping || !project) return;
 
@@ -126,7 +110,6 @@ export default function ConsultantChatPage() {
     setInputValue("");
     setIsTyping(true);
 
-    // Build history from existing messages (skip initial welcome)
     const history = messages
       .slice(1)
       .map((m) => ({ role: m.role, content: m.content }));
@@ -139,7 +122,7 @@ export default function ConsultantChatPage() {
           report_id: project.report_id,
           message: messageText,
           history,
-          language,  // Current UI language; the server uses it to force the AI to reply in the same language.
+          language,
         }),
       });
 

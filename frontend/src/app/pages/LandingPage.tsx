@@ -3,22 +3,16 @@ import { useNavigate } from "react-router";
 import { motion } from "motion/react";
 import { SparkleField } from "../components/SparkleField";
 
-// Brand logo shown inside the rotating circles
 const logoImage = "/assets/logo-color.png";
 
-// Total time the splash stays on screen before navigating to /auth
 const SPLASH_DURATION_MS = 1000;
-// How long the "zoom + fade out" exit animation runs at the end of the splash
 const EXIT_TRANSITION_MS = 450;
 
 export default function LandingPage() {
   const navigate = useNavigate();
-  // Flips to true a bit before the redirect, which triggers the zoom-out animation
   const [isExiting, setIsExiting] = useState(false);
 
   useEffect(() => {
-    // Start the zoom-out animation EXIT_TRANSITION_MS before navigating,
-    // so the animation finishes exactly when we move to /auth.
     const exitTimer = setTimeout(
       () => setIsExiting(true),
       SPLASH_DURATION_MS - EXIT_TRANSITION_MS,
@@ -31,8 +25,6 @@ export default function LandingPage() {
   }, [navigate]);
 
   return (
-    // Splash is always rendered in the dark green gradient — light mode is
-    // intentionally skipped here so the splash → /auth transition stays seamless.
     <div
       className="min-h-screen flex items-center justify-center p-6 lg:p-12 relative bg-gradient-to-br from-[#062620] via-[#08312D] to-[#0a3d37] overflow-hidden"
       dir="rtl"
@@ -47,18 +39,13 @@ export default function LandingPage() {
             "radial-gradient(ellipse at center bottom, rgba(198, 167, 94, 0.15) 0%, transparent 60%)",
         }}
       />
-      {/* Logo + rotating decorative rings, centered.
-          Two animation states:
-            - On mount: fades in and scales from 0.9 → 1
-            - On exit (isExiting = true): scales up to 1.5 and fades to 0,
-              creating a "zoom into the screen" feel right before /auth loads. */}
+      {/* Logo section.
+    On exit, scales to 1.5 and fades out before /auth navigation. */}
       <motion.div
         className="relative z-10 flex justify-center items-center"
         initial={{ opacity: 0, scale: 0.9 }}
         animate={
-          isExiting
-            ? { opacity: 0, scale: 1.5 }
-            : { opacity: 1, scale: 1 }
+          isExiting ? { opacity: 0, scale: 1.5 } : { opacity: 1, scale: 1 }
         }
         transition={{
           duration: isExiting ? EXIT_TRANSITION_MS / 1000 : 0.55,

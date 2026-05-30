@@ -1,9 +1,3 @@
-# database.py
-# SQLite layer for the platform. Two tables:
-#   - reports:  stores the full feasibility report as a JSON blob
-#   - projects: stores user projects and links each one to a report
-# SQLite was chosen because it is file-based and needs no separate server.
-
 import sqlite3
 import json
 
@@ -51,10 +45,7 @@ def init_db():
         )
     """)
 
-    # SQLite does not support "ADD COLUMN IF NOT EXISTS", so the migration
-    # for pitch_deck_generated is wrapped in a try/except. The OperationalError
-    # is raised when the column already exists, which is the expected case
-    # on every run after the first.
+    # Ignore the error if the column already exists.
     try:
         conn.execute("ALTER TABLE projects ADD COLUMN pitch_deck_generated INTEGER DEFAULT 0")
     except sqlite3.OperationalError:

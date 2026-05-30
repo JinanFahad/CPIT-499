@@ -2,10 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { X, MapPin, Search, Loader2, CheckCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
-// ── Component props ────────────────────────────────────────────────────
-// `open` controls visibility (parent decides when to show the modal).
-// `initialLat`/`initialLng` (optional) place the marker at a starting
-// location, useful when editing an existing project.
 interface MapPickerProps {
   open: boolean;
   initialLat?: string;
@@ -14,15 +10,12 @@ interface MapPickerProps {
   onSelect: (lat: number, lng: number) => void;
 }
 
-// Google Maps API key (restricted on the Google Cloud console to this domain)
 const GOOGLE_API_KEY = "AIzaSyCMVLHJiz-3hOnp-oOPPE2r72fjKwf6xcQ";
 
-// Cache the in-flight load promise so the Google Maps script is only
-// requested once even if the user opens the picker multiple times.
+// Prevent loading Google Maps script multiple times.
 let googleMapsLoadPromise: Promise<void> | null = null;
 
-// Dynamically inject the Google Maps script tag the first time the
-// picker is opened. Subsequent calls reuse the cached promise.
+// Lazy-load Google Maps on first open.
 function loadGoogleMaps(): Promise<void> {
   if ((window as any).google?.maps) return Promise.resolve();
   if (googleMapsLoadPromise) return googleMapsLoadPromise;
@@ -49,26 +42,15 @@ export function MapPicker({
   onClose,
   onSelect,
 }: MapPickerProps) {
-  // ── Refs to DOM elements + Google instances ────────────────────────
-  // useRef is preferred over useState here because changes to these don't
-  // need to trigger a re-render (we only need stable references).
-  const mapRef = useRef<HTMLDivElement | null>(null); // <div> the map renders inside
-  const searchRef = useRef<HTMLInputElement | null>(null); // <input> for the autocomplete box
-  const mapInstance = useRef<any>(null); // the google.maps.Map object
-  const markerInstance = useRef<any>(null); // the dropped marker
+  const mapRef = useRef<HTMLDivElement | null>(null);
+  const searchRef = useRef<HTMLInputElement | null>(null);
+  const mapInstance = useRef<any>(null);
+  const markerInstance = useRef<any>(null);
 
-  // ── State ──────────────────────────────────────────────────────────
-  const [selectedLat, setSelectedLat] = useState<number | null>(null); // currently picked latitude
-  const [selectedLng, setSelectedLng] = useState<number | null>(null); // currently picked longitude
-  const [loading, setLoading] = useState(true); // is Google Maps still loading?
+  const [selectedLat, setSelectedLat] = useState<number | null>(null);
+  const [selectedLng, setSelectedLng] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // ── Initialize the map every time the modal opens ──────────────────
-  // Steps:
-  //   1) Load the Google Maps script if it isn't loaded yet
-  //   2) Create the Map instance inside the mapRef <div>
-  //   3) If we have initial coordinates (edit mode), drop a marker there
-  //   4) Listen for clicks on the map → drop a marker at that point
-  //   5) Wire up the Places Autocomplete on the search box
   useEffect(() => {
     if (!open) return;
 
@@ -152,8 +134,6 @@ export function MapPicker({
     };
   }, [open, initialLat, initialLng]);
 
-  // عند الضغط على "استخدم هذا الموقع":
-  // نرسل الإحداثيات للصفحة الأم ونقفل النافذة
   const handleConfirm = () => {
     if (selectedLat !== null && selectedLng !== null) {
       onSelect(selectedLat, selectedLng);
@@ -165,7 +145,6 @@ export function MapPicker({
     <AnimatePresence>
       {open && (
         <>
-          {/* Autocomplete dropdown must float above the modal */}
           <style>{`.pac-container { z-index: 100000 !important; font-family: 'Changa', sans-serif !important; }`}</style>
 
           <motion.div
